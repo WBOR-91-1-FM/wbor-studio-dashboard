@@ -4,6 +4,6 @@
 
 `rust`
 
-##### Getting Started
+##### Getting started
 
 `cargo run --release`
