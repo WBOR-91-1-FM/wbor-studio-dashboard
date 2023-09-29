@@ -3,3 +3,7 @@
 ##### Dependencies
 
 `rust`
+
+##### Getting Started
+
+`cargo run --release`
