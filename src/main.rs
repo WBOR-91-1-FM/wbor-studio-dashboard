@@ -14,6 +14,8 @@ struct WindowConfig<'a> {
 	fps: u32
 }
 
+// TODO: make a `subwindow` construct, that can have child windows within it (each window then draws relative to its coordinate space)
+
 pub fn main() -> Result<(), String> {
 	let config = WindowConfig {
 		name: "Plain Color Demo",
