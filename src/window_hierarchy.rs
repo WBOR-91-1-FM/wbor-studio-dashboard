@@ -21,6 +21,7 @@ impl Vec2f {
 pub enum WindowContents<'a> {
 	PlainColor(Color), // Not using the alpha channel here
 	Texture(Texture<'a>)
+
 	/*
 	TODO: support these things:
 	- An `UpdatableTexture` (i.e. an album cover) (or just extend the current `Texture` functionality)
