@@ -59,6 +59,7 @@ pub fn main() -> Result<(), String> {
 	- Abstract the main loop out, so that just some data and fns are passed into it
 	- check for no box intersections
 	- Put the box definitions in a JSON file
+	- Avoid screen burn-in somehow
 	*/
 
 	// This can be extended to update textures for things like album covers
