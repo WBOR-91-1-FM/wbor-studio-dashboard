@@ -63,7 +63,6 @@ pub fn main() -> Result<(), String> {
 
 	let bird = HierarchalWindow::new(
 		WindowContents::make_texture("assets/bird.bmp", &texture_creator),
-
 		Vec2f::new(0.1, 0.1),
 		Vec2f::new(0.3, 0.9),
 		None
@@ -71,7 +70,6 @@ pub fn main() -> Result<(), String> {
 
 	let wbor_plane = HierarchalWindow::new(
 		WindowContents::make_texture("assets/wbor_plane.bmp", &texture_creator),
-
 		Vec2f::new(0.4, 0.1),
 		Vec2f::new(0.7, 0.9),
 		None
@@ -84,7 +82,7 @@ pub fn main() -> Result<(), String> {
 		Some(vec![bird, wbor_plane])
 	);
 
-	let blue_box= HierarchalWindow::new(
+	let blue_box = HierarchalWindow::new(
 		WindowContents::make_transparent_color(0, 0, 255, 1.0),
 		Vec2f::new(0.1, 0.6),
 		Vec2f::new(0.9, 0.9),
@@ -117,7 +115,6 @@ pub fn main() -> Result<(), String> {
 		sdl_canvas.present();
 
 		::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / config.fps));
-		// The rest of the application loop goes here...
 	}
 
 	Ok(())
