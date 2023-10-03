@@ -49,6 +49,7 @@ impl WindowContents<'_> {
 }
 
 pub struct HierarchalWindow<'a> {
+	content_updater: Option<fn() -> Option<WindowContents<'a>>>,
 	contents: WindowContents<'a>,
 	top_left: Vec2f,
 	bottom_right: Vec2f,
@@ -63,6 +64,8 @@ pub struct HierarchalWindow<'a> {
 
 impl HierarchalWindow<'_> {
 	pub fn new<'a>(
+		content_updater: Option<fn() -> Option<WindowContents<'a>>>,
+
 		contents: WindowContents<'a>,
 		top_left: Vec2f, bottom_right: Vec2f,
 		children: Option<Vec<HierarchalWindow<'a>>>) -> HierarchalWindow<'a> {
@@ -70,14 +73,27 @@ impl HierarchalWindow<'_> {
 		std::assert!(top_left.x < bottom_right.x);
 		std::assert!(top_left.y < bottom_right.y);
 
-		HierarchalWindow {contents, top_left, bottom_right, children}
+		HierarchalWindow {
+			content_updater, contents,
+			top_left, bottom_right, children
+		}
 	}
 }
 
 pub fn render_windows_recursively(
-	window: &HierarchalWindow,
+	window: &mut HierarchalWindow,
 	sdl_canvas: &mut Canvas<Window>,
 	parent_rect: Rect) {
+
+	////////// Updating the window content first
+
+	if let Some(content_updater) = window.content_updater {
+		if let Some(new_content) = content_updater() {
+			window.contents = new_content
+		}
+	}
+
+	////////// Getting the new pixel-space bounding box for this window
 
 	let parent_width = parent_rect.width();
 	let parent_height = parent_rect.height ();
@@ -95,6 +111,8 @@ pub fn render_windows_recursively(
 		(origin_and_size.2 * parent_width as f32) as u32,
 		(origin_and_size.3 * parent_height as f32) as u32,
 	);
+
+	////////// Handling different window content types
 
 	// TODO: catch every error for each match branch
 	match &window.contents {
@@ -114,7 +132,9 @@ pub fn render_windows_recursively(
 		}
 	};
 
-	if let Some(children) = &window.children {
+	////////// Updating all child windows
+
+	if let Some(children) = &mut window.children {
 		for child in children {
 			render_windows_recursively(child, sdl_canvas, rescaled_rect);
 		}

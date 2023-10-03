@@ -61,7 +61,14 @@ pub fn main() -> Result<(), String> {
 	- Put the box definitions in a JSON file
 	*/
 
+	// This can be extended to update textures for things like album covers
+	fn get_new_color_for_blue_box() -> Option<WindowContents<'static>> {
+		// None
+		Some(WindowContents::make_color(0, 0, 127))
+	}
+
 	let bird = HierarchalWindow::new(
+		None,
 		WindowContents::make_texture("assets/bird.bmp", &texture_creator),
 		Vec2f::new(0.1, 0.1),
 		Vec2f::new(0.3, 0.9),
@@ -69,6 +76,7 @@ pub fn main() -> Result<(), String> {
 	);
 
 	let wbor_plane = HierarchalWindow::new(
+		None,
 		WindowContents::make_texture("assets/wbor_plane.bmp", &texture_creator),
 		Vec2f::new(0.4, 0.1),
 		Vec2f::new(0.7, 0.9),
@@ -76,6 +84,7 @@ pub fn main() -> Result<(), String> {
 	);
 
 	let photo_box = HierarchalWindow::new(
+		None,
 		WindowContents::make_transparent_color(0, 255, 0, 0.8),
 		Vec2f::new(0.01, 0.01),
 		Vec2f::new(0.75, 0.5),
@@ -83,13 +92,15 @@ pub fn main() -> Result<(), String> {
 	);
 
 	let blue_box = HierarchalWindow::new(
-		WindowContents::make_transparent_color(0, 0, 255, 1.0),
+		Some(get_new_color_for_blue_box),
+		WindowContents::make_color(0, 0, 255),
 		Vec2f::new(0.1, 0.6),
 		Vec2f::new(0.9, 0.9),
 		None
 	);
 
-	let example_window = HierarchalWindow::new(
+	let mut example_window = HierarchalWindow::new(
+		None,
 		WindowContents::make_color(255, 0, 0),
 		Vec2f::new(0.01, 0.01),
 		Vec2f::new(0.99, 0.99),
@@ -110,7 +121,7 @@ pub fn main() -> Result<(), String> {
 		sdl_canvas.set_draw_color(config.bg_color); // TODO: remove this eventually
 		sdl_canvas.clear();
 
-		render_windows_recursively(&example_window, &mut sdl_canvas, sdl_window_bounds);
+		render_windows_recursively(&mut example_window, &mut sdl_canvas, sdl_window_bounds);
 
 		sdl_canvas.present();
 
