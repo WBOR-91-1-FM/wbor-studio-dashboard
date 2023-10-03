@@ -58,24 +58,19 @@ pub struct HierarchalWindow<'a> {
 	- Or include a list of children
 	*/
 
-	child: Option<Box<HierarchalWindow<'a>>>
+	children: Option<Vec<HierarchalWindow<'a>>>
 }
 
 impl HierarchalWindow<'_> {
 	pub fn new<'a>(
 		contents: WindowContents<'a>,
 		top_left: Vec2f, bottom_right: Vec2f,
-		child: Option<HierarchalWindow<'a>>) -> HierarchalWindow<'a> {
+		children: Option<Vec<HierarchalWindow<'a>>>) -> HierarchalWindow<'a> {
 
 		std::assert!(top_left.x < bottom_right.x);
 		std::assert!(top_left.y < bottom_right.y);
 
-		let boxed_child = match child {
-			Some(inner_child) => Some(Box::new(inner_child)),
-			_ => None
-		};
-
-		HierarchalWindow {contents, top_left, bottom_right, child: boxed_child}
+		HierarchalWindow {contents, top_left, bottom_right, children}
 	}
 }
 
@@ -119,7 +114,9 @@ pub fn render_windows_recursively(
 		}
 	};
 
-	if let Some(child) = &window.child {
-		render_windows_recursively(child, sdl_canvas, rescaled_rect);
+	if let Some(children) = &window.children {
+		for child in children {
+			render_windows_recursively(child, sdl_canvas, rescaled_rect);
+		}
 	}
 }

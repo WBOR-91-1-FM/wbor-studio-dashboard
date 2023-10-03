@@ -57,28 +57,45 @@ pub fn main() -> Result<(), String> {
 	/* TODO:
 	- Maybe put the bounding box definition one layer out (with the parent)
 	- Abstract the main loop out, so that just some data and fns are passed into it
+	- check for no box intersections
+	- Put the box definitions in a JSON file
 	*/
 
-	let e3 = HierarchalWindow::new(
-		WindowContents::make_texture("assets/the_bird.bmp", &texture_creator),
+	let bird = HierarchalWindow::new(
+		WindowContents::make_texture("assets/bird.bmp", &texture_creator),
 
 		Vec2f::new(0.1, 0.1),
+		Vec2f::new(0.3, 0.9),
+		None
+	);
+
+	let wbor_plane = HierarchalWindow::new(
+		WindowContents::make_texture("assets/wbor_plane.bmp", &texture_creator),
+
+		Vec2f::new(0.4, 0.1),
+		Vec2f::new(0.7, 0.9),
+		None
+	);
+
+	let photo_box = HierarchalWindow::new(
+		WindowContents::make_transparent_color(0, 255, 0, 0.8),
+		Vec2f::new(0.01, 0.01),
+		Vec2f::new(0.75, 0.5),
+		Some(vec![bird, wbor_plane])
+	);
+
+	let blue_box= HierarchalWindow::new(
+		WindowContents::make_transparent_color(0, 0, 255, 1.0),
+		Vec2f::new(0.1, 0.6),
 		Vec2f::new(0.9, 0.9),
 		None
 	);
 
-	let e2 = HierarchalWindow::new(
-		WindowContents::make_transparent_color(0, 255, 0, 0.8),
-		Vec2f::new(0.01, 0.01),
-		Vec2f::new(0.75, 0.5),
-		Some(e3)
-	);
-
 	let example_window = HierarchalWindow::new(
 		WindowContents::make_color(255, 0, 0),
-		Vec2f::new(0.1, 0.1),
-		Vec2f::new(0.9, 0.9),
-		Some(e2)
+		Vec2f::new(0.01, 0.01),
+		Vec2f::new(0.99, 0.99),
+		Some(vec![photo_box, blue_box])
 	);
 
 	//////////
