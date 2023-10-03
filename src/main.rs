@@ -1,10 +1,19 @@
 extern crate sdl2;
 
 use std::time::Duration;
-use sdl2::{event::Event, pixels::Color, keyboard::Keycode, rect::Rect};
+
+use sdl2::{
+	event::Event, pixels::Color,
+	keyboard::Keycode,
+	rect::Rect
+};
 
 pub mod window_hierarchy;
-use window_hierarchy::{Vec2f, WindowContents, HierarchalWindow, render_windows_recursively};
+
+use window_hierarchy::{
+	Vec2f, WindowContents,
+	HierarchalWindow, render_windows_recursively
+};
 
 // Working from this: https://blog.logrocket.com/using-sdl2-bindings-rust/
 
@@ -25,31 +34,11 @@ pub fn main() -> Result<(), String> {
 		bg_color: Color::RGB(50, 50, 50)
 	};
 
-	// TODO: maybe put the bounding box definition one layer out (with the parent)
-
-	let e3 = HierarchalWindow::new(
-		WindowContents::PlainColor(Color::RGB(0, 0, 255)),
-		Vec2f::new(0.9, 0.9),
-		Vec2f::new(0.95, 0.95),
-		None
-	);
-
-	let e2 = HierarchalWindow::new(
-		WindowContents::PlainColor(Color::RGB(0, 255, 0)),
-		Vec2f::new(0.01, 0.01),
-		Vec2f::new(0.75, 0.5),
-		Some(e3)
-	);
-
-	let example_window = HierarchalWindow::new(
-		WindowContents::PlainColor(Color::RGB(255, 0, 0)),
-		Vec2f::new(0.1, 0.1),
-		Vec2f::new(0.9, 0.9),
-		Some(e2)
-	);
-
 	let sdl_context = sdl2::init()?;
 	let sdl_video_subsystem = sdl_context.video()?;
+
+	let mut event_pump = sdl_context.event_pump()?;
+	let sdl_window_bounds = Rect::new(0, 0, config.width, config.height);
 
 	let sdl_window = sdl_video_subsystem
 		.window(config.name, config.width, config.height)
@@ -57,14 +46,42 @@ pub fn main() -> Result<(), String> {
 		.map_err(|e| e.to_string())?;
 
 	let mut sdl_canvas = sdl_window.into_canvas().build().map_err(|e| e.to_string())?;
+	let texture_creator = sdl_canvas.texture_creator();
 
 	sdl_canvas.set_draw_color(config.bg_color);
 	sdl_canvas.clear();
 	sdl_canvas.present();
 
-	let mut event_pump = sdl_context.event_pump()?;
+	//////////
 
-	let sdl_window_bounds = Rect::new(0, 0, config.width, config.height);
+	/* TODO:
+	- Maybe put the bounding box definition one layer out (with the parent)
+	- Abstract the main loop out, so that just some data and fns are passed into it
+	*/
+
+	let e3 = HierarchalWindow::new(
+		WindowContents::make_texture("assets/the_bird.bmp", &texture_creator),
+
+		Vec2f::new(0.1, 0.1),
+		Vec2f::new(0.9, 0.9),
+		None
+	);
+
+	let e2 = HierarchalWindow::new(
+		WindowContents::make_transparent_color(0, 255, 0, 0.8),
+		Vec2f::new(0.01, 0.01),
+		Vec2f::new(0.75, 0.5),
+		Some(e3)
+	);
+
+	let example_window = HierarchalWindow::new(
+		WindowContents::make_color(255, 0, 0),
+		Vec2f::new(0.1, 0.1),
+		Vec2f::new(0.9, 0.9),
+		Some(e2)
+	);
+
+	//////////
 
 	'running: loop {
 		for event in event_pump.poll_iter() {
