@@ -42,8 +42,6 @@ pub fn main() -> Result<(), String> {
 
 	let sleep_time = std::time::Duration::new(0, 1_000_000_000u32 / config.fps);
 
-	sdl_canvas.set_draw_color(config.bg_color);
-
 	//////////
 
 	/* TODO:
