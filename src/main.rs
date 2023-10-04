@@ -57,7 +57,7 @@ pub fn main() -> Result<(), String> {
 	/* TODO:
 	- Maybe put the bounding box definition one layer out (with the parent)
 	- Abstract the main loop out, so that just some data and fns are passed into it
-	- check for no box intersections
+	- Check for no box intersections
 	- Put the box definitions in a JSON file
 	- Avoid screen burn-in somehow
 	*/
