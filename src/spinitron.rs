@@ -4,6 +4,8 @@ use minreq;
 use serde_json;
 use serde;
 
+type Uint = u32;
+
 // This does not cover all the spin fields; this is just the most useful subset of them.
 #[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
 pub struct Spin {
@@ -15,7 +17,7 @@ pub struct Spin {
 
 	// TODO: why is `time` not there?
 
-	duration: u32,
+	duration: Uint,
 	request: Option<bool>,
 	new: Option<bool>,
 
@@ -24,7 +26,7 @@ pub struct Spin {
 	va: Option<bool>,
 
 	medium: Option<String>, // This should just be `String`, but it isn't here, for some reason
-	released: Option<u32>
+	released: Option<Uint>
 
 	////////// These are other fields
 
@@ -40,7 +42,9 @@ pub fn do_get_request(url: &str) -> Result<minreq::Response, minreq::Error> {
 	Ok(response)
 }
 
-/* TODO: make fns for getting the current persona, show, and playlist.
+/*
+TODO: perhaps apply some spin filtering, if needed.
+TODO: make fns for getting the current persona, show, and playlist.
 More API info here: https://spinitron.github.io/v2api/ */
 pub fn get_recent_spins(api_key: &str) -> Result<Vec<Spin>, Box<dyn std::error::Error>> {
 	let url = format!("https://spinitron.com/api/spins?access-token={}", api_key);
@@ -58,3 +62,5 @@ pub fn get_recent_spins(api_key: &str) -> Result<Vec<Spin>, Box<dyn std::error::
 
 	Ok(spins)
 }
+
+// TODO: figure out how to get the current persona id (maybe just ask for 1 persona?)

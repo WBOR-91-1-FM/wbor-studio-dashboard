@@ -19,6 +19,8 @@ struct AppConfig<'a> {
 	bg_color: ColorSDL
 }
 
+// TODO: maybe give a retro theme to everything
+
 pub fn main() -> Result<(), String> {
 	let config = AppConfig {
 		name: "Recursive Box Demo",
