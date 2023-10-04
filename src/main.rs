@@ -1,17 +1,9 @@
 extern crate sdl2;
 
-use std::time::Duration;
-
-use sdl2::{
-	event::Event, pixels::Color,
-	keyboard::Keycode,
-	rect::Rect
-};
-
 pub mod window_hierarchy;
 
 use window_hierarchy::{
-	Vec2f, WindowContents,
+	ColorSDL, Vec2f, WindowContents,
 	HierarchalWindow, render_windows_recursively
 };
 
@@ -22,7 +14,7 @@ struct AppConfig<'a> {
 	width: u32,
 	height: u32,
 	fps: u32,
-	bg_color: Color
+	bg_color: ColorSDL
 }
 
 pub fn main() -> Result<(), String> {
@@ -31,14 +23,14 @@ pub fn main() -> Result<(), String> {
 		width: 800,
 		height: 600,
 		fps: 60,
-		bg_color: Color::RGB(50, 50, 50)
+		bg_color: ColorSDL::RGB(50, 50, 50)
 	};
 
 	let sdl_context = sdl2::init()?;
 	let sdl_video_subsystem = sdl_context.video()?;
 
 	let mut event_pump = sdl_context.event_pump()?;
-	let sdl_window_bounds = Rect::new(0, 0, config.width, config.height);
+	let sdl_window_bounds = sdl2::rect::Rect::new(0, 0, config.width, config.height);
 
 	let sdl_window = sdl_video_subsystem
 		.window(config.name, config.width, config.height)
@@ -48,9 +40,9 @@ pub fn main() -> Result<(), String> {
 	let mut sdl_canvas = sdl_window.into_canvas().build().map_err(|e| e.to_string())?;
 	let texture_creator = sdl_canvas.texture_creator();
 
+	let sleep_time = std::time::Duration::new(0, 1_000_000_000u32 / config.fps);
+
 	sdl_canvas.set_draw_color(config.bg_color);
-	sdl_canvas.clear();
-	sdl_canvas.present();
 
 	//////////
 
@@ -112,9 +104,11 @@ pub fn main() -> Result<(), String> {
 
 	'running: loop {
 		for event in event_pump.poll_iter() {
+			use sdl2::event::Event;
+
 			match event {
 				| Event::Quit {..}
-				| Event::KeyDown {keycode: Some(Keycode::Escape), ..} => break 'running,
+				| Event::KeyDown {keycode: Some(sdl2::keyboard::Keycode::Escape), ..} => break 'running,
 				| _ => {}
 			}
 		}
@@ -126,7 +120,7 @@ pub fn main() -> Result<(), String> {
 
 		sdl_canvas.present();
 
-		::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / config.fps));
+		std::thread::sleep(sleep_time);
 	}
 
 	Ok(())
