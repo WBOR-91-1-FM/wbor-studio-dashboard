@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 sdl2 = "0.34.5"
+minreq = {version = "2.10.0", features = ["https"]}
+serde_json = "1.0"
+serde = {version = "1.0", features = ["derive"]}

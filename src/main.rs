@@ -1,4 +1,4 @@
-extern crate sdl2;
+use sdl2;
 
 pub mod window_hierarchy;
 
@@ -6,6 +6,8 @@ use window_hierarchy::{
 	ColorSDL, Vec2f, WindowContents,
 	HierarchalWindow, render_windows_recursively
 };
+
+pub mod spinitron;
 
 // Working from this: https://blog.logrocket.com/using-sdl2-bindings-rust/
 
@@ -97,6 +99,18 @@ pub fn main() -> Result<(), String> {
 		Vec2f::new(0.99, 0.99),
 		Some(vec![photo_box, blue_box])
 	);
+
+	////////// Getting the current spins, as a test
+
+	let api_key_json_contents = std::fs::read_to_string("assets/spinitron_api_key.json").unwrap();
+	let api_key_json: serde_json::Value = serde_json::from_str(&api_key_json_contents).unwrap();
+	let api_key = api_key_json.as_str().unwrap();
+
+	let spins = spinitron::get_recent_spins(api_key).unwrap(); // TODO: don't unwrap later
+
+	for spin in &spins {
+		println!("{:?}\n", spin);
+	}
 
 	//////////
 
