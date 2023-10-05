@@ -48,7 +48,28 @@ pub struct HierarchalWindow<'a> {
 	top_left: Vec2f,
 	bottom_right: Vec2f,
 
-	// TODO: makybe do splitting here instead
+	/* TODO: makybe do splitting here instead. Ideas for that:
+	KD-tree:
+	- Splitting axis would alternate per each box level
+	- Ideally, I would make it not alternate (is that possible?)
+	- And having multiple boxes per box (in an efficient manner) would not be possible for that
+
+	Other idea:
+	```
+	struct SplitBox {
+		is_on_vertical_axis: bool,
+		split_spacing: Vec<float> // Each split spacing is relative to the one before it
+		children: Vec<SplitBox> // If `n` is the length of `split_spacing`, the length of this is `n + 1`
+	}
+	```
+
+	With that, having some type of window boundary would be neat
+
+	Perhaps make the root nodes non-alternating with a normal KD-tree
+	That might work
+	I would have to draw out an example for that
+	*/
+
 	children: Option<Vec<HierarchalWindow<'a>>>
 }
 
