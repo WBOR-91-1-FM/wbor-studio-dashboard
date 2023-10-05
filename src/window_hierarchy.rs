@@ -86,9 +86,14 @@ impl HierarchalWindow<'_> {
 		std::assert!(top_left.x < bottom_right.x);
 		std::assert!(top_left.y < bottom_right.y);
 
+		let none_if_children_vec_is_empty = match &children {
+			Some(inner_children) => {if inner_children.is_empty() {None} else {children}},
+			None => None
+		};
+
 		HierarchalWindow {
 			content_updater, contents,
-			top_left, bottom_right, children
+			top_left, bottom_right, children: none_if_children_vec_is_empty
 		}
 	}
 }
