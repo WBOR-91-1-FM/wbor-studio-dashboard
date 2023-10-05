@@ -108,7 +108,7 @@ pub fn main() -> Result<(), String> {
 	let api_key = untrimmed_api_key.trim();
 
 	// TODO: don't unwrap either of these later
-	let spins = spinitron::get_recent_spins(&api_key).unwrap();
+	let spins = spinitron::get_recent_spins(api_key).unwrap();
 	// let personas = spinitron::get_personas(api_key).unwrap();
 
 	for spin in &spins {
