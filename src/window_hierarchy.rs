@@ -68,6 +68,8 @@ pub struct HierarchalWindow<'a> {
 	Perhaps make the root nodes non-alternating with a normal KD-tree
 	That might work
 	I would have to draw out an example for that
+
+	Maybe a K-D-B tree is the solution?
 	*/
 
 	children: Option<Vec<HierarchalWindow<'a>>>
