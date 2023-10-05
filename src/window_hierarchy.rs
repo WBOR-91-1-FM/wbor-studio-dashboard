@@ -2,6 +2,10 @@ extern crate sdl2;
 
 pub type ColorSDL = sdl2::pixels::Color;
 
+fn assert_in_unit_interval(f: f32) {
+	std::assert!(f >= 0.0 && f <= 1.0);
+}
+
 // A 0-1 normalized floating-point vec2 (TODO: ONLY EVER USE THE CONSTRUCTOR)
 pub struct Vec2f {
 	x: f32, y: f32
@@ -9,8 +13,8 @@ pub struct Vec2f {
 
 impl Vec2f {
 	pub fn new(x: f32, y: f32) -> Vec2f {
-		std::assert!(x >= 0.0 && x <= 1.0);
-		std::assert!(y >= 0.0 && y <= 1.0);
+		assert_in_unit_interval(x);
+		assert_in_unit_interval(y);
 		Vec2f {x, y}
 	}
 }
@@ -28,7 +32,7 @@ impl WindowContents<'_> {
 
 	// `a` ranges from 0 to 1
 	pub fn make_transparent_color<'a>(r: u8, g: u8, b: u8, a: f32) -> WindowContents<'a> {
-		std::assert!(a >= 0.0 && a <= 1.0);
+		assert_in_unit_interval(a);
 		return WindowContents::PlainColor(ColorSDL::RGBA(r, g, b, (a * 255.0) as u8));
 	}
 
