@@ -104,13 +104,11 @@ pub fn main() -> Result<(), String> {
 
 	////////// Getting the current spins, as a test
 
-	// TODO: just put the API key in a plaintext file
-	let api_key_json_contents = std::fs::read_to_string("assets/spinitron_api_key.json").unwrap();
-	let api_key_json: serde_json::Value = serde_json::from_str(&api_key_json_contents).unwrap();
-	let api_key = api_key_json.as_str().unwrap();
+	let untrimmed_api_key = std::fs::read_to_string("assets/spinitron_api_key.txt").unwrap();
+	let api_key = untrimmed_api_key.trim();
 
 	// TODO: don't unwrap either of these later
-	let spins = spinitron::get_recent_spins(api_key).unwrap();
+	let spins = spinitron::get_recent_spins(&api_key).unwrap();
 	// let personas = spinitron::get_personas(api_key).unwrap();
 
 	for spin in &spins {
