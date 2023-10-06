@@ -1,6 +1,16 @@
-extern crate sdl2;
+use sdl2;
+
+////////// These are some general utilities
 
 pub type ColorSDL = sdl2::pixels::Color;
+pub type TextureCreatorSDL = sdl2::render::TextureCreator<sdl2::video::WindowContext>;
+
+fn make_sdl_texture_from_path<'a>(path: &str, texture_creator: &'a TextureCreatorSDL)
+	-> sdl2::render::Texture<'a> {
+
+	let surface = sdl2::surface::Surface::load_bmp(path).unwrap();
+	texture_creator.create_texture_from_surface(surface).unwrap()
+}
 
 fn assert_in_unit_interval(f: f32) {
 	std::assert!(f >= 0.0 && f <= 1.0);
@@ -19,6 +29,8 @@ impl Vec2f {
 	}
 }
 
+//////////
+
 pub enum WindowContents<'a> {
 	PlainColor(ColorSDL), // Not using the alpha channel here
 	Texture(sdl2::render::Texture<'a>)
@@ -36,13 +48,8 @@ impl WindowContents<'_> {
 		return WindowContents::PlainColor(ColorSDL::RGBA(r, g, b, (a * 255.0) as u8));
 	}
 
-	pub fn make_texture<'a>(
-		path: &'a str,
-		texture_creator: &'a sdl2::render::TextureCreator<sdl2::video::WindowContext>)
-		-> WindowContents<'a> {
-
-		let surface = sdl2::surface::Surface::load_bmp(path).unwrap();
-		WindowContents::Texture(texture_creator.create_texture_from_surface(surface).unwrap())
+	pub fn make_texture_from_path<'a>(path: &'a str, texture_creator: &'a TextureCreatorSDL) -> WindowContents<'a> {
+		WindowContents::Texture(make_sdl_texture_from_path(path, texture_creator))
 	}
 }
 

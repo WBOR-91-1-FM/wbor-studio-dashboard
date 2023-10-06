@@ -21,7 +21,7 @@ struct AppConfig<'a> {
 
 // TODO: maybe give a retro theme to everything
 
-pub fn main() -> Result<(), String> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let config = AppConfig {
 		name: "Recursive Box Demo",
 		width: 800,
@@ -46,6 +46,15 @@ pub fn main() -> Result<(), String> {
 
 	let sleep_time = std::time::Duration::new(0, 1_000_000_000u32 / config.fps);
 
+	////////// Getting the current spins and album texture, as a test
+
+	let untrimmed_api_key = std::fs::read_to_string("assets/spinitron_api_key.txt").unwrap();
+	let api_key = untrimmed_api_key.trim();
+
+	let spins = spinitron::get_recent_spins(api_key)?; // TODO: make the fallback equal to some text
+	let fallback_contents = WindowContents::make_texture_from_path("assets/wbor_plane.bmp", &texture_creator);
+	let curr_album_contents = spinitron::get_curr_album_contents(&spins, &texture_creator, fallback_contents)?;
+
 	//////////
 
 	/* TODO:
@@ -62,17 +71,17 @@ pub fn main() -> Result<(), String> {
 		Some(WindowContents::make_color(0, 0, 127))
 	}
 
-	let bird = HierarchalWindow::new(
+	let album_cover = HierarchalWindow::new(
 		None,
-		WindowContents::make_texture("assets/bird.bmp", &texture_creator),
+		curr_album_contents,
 		Vec2f::new(0.1, 0.1),
 		Vec2f::new(0.3, 0.9),
 		None
 	);
 
-	let wbor_plane = HierarchalWindow::new(
+	let bird = HierarchalWindow::new(
 		None,
-		WindowContents::make_texture("assets/wbor_plane.bmp", &texture_creator),
+		WindowContents::make_texture_from_path("assets/bird.bmp", &texture_creator),
 		Vec2f::new(0.4, 0.1),
 		Vec2f::new(0.7, 0.9),
 		None
@@ -83,7 +92,7 @@ pub fn main() -> Result<(), String> {
 		WindowContents::make_transparent_color(0, 255, 0, 0.8),
 		Vec2f::new(0.01, 0.01),
 		Vec2f::new(0.75, 0.5),
-		Some(vec![bird, wbor_plane])
+		Some(vec![album_cover, bird])
 	);
 
 	let blue_box = HierarchalWindow::new(
@@ -101,19 +110,6 @@ pub fn main() -> Result<(), String> {
 		Vec2f::new(0.99, 0.99),
 		Some(vec![photo_box, blue_box])
 	);
-
-	////////// Getting the current spins, as a test
-
-	let untrimmed_api_key = std::fs::read_to_string("assets/spinitron_api_key.txt").unwrap();
-	let api_key = untrimmed_api_key.trim();
-
-	// TODO: don't unwrap either of these later
-	let spins = spinitron::get_recent_spins(api_key).unwrap();
-	// let personas = spinitron::get_personas(api_key).unwrap();
-
-	for spin in &spins {
-		println!("{:?}\n", spin);
-	}
 
 	//////////
 
