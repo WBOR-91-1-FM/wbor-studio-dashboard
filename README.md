@@ -9,8 +9,8 @@
 #### `SDL`
 
 - To install SDL, install it via your system's package manager.
-- MacOS: `brew install sdl2`
-- Fedora: `sudo dnf install SDL2-devel`
+- MacOS: `brew install sdl2 sdl2_image`
+- Fedora: `sudo dnf install SDL2-devel SDL2_image-devel`
 
 ## Launching
 
