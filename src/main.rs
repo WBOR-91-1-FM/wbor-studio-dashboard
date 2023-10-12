@@ -55,10 +55,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	////////// Getting the current spins and album texture, as a test
 
-	let untrimmed_api_key = std::fs::read_to_string("assets/spinitron_api_key.txt")?;
-	let api_key = untrimmed_api_key.trim();
-	let spins = spinitron::get_recent_spins(api_key)?; // TODO: make the fallback equal to some text
+	let api_key = spinitron::ApiKey::new()?;
 
+	let spins = spinitron::get_recent_spins(&api_key)?; // TODO: make the fallback equal to some text
 	let fallback_contents = WindowContents::Texture(texture_pool.make_texture_from_path("assets/wbor_plane.bmp")?);
 	let curr_album_contents = spinitron::get_curr_album_contents(&spins, &mut texture_pool, fallback_contents)?;
 
