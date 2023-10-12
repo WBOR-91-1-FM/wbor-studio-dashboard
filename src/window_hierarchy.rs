@@ -1,24 +1,24 @@
 use sdl2;
+use crate::texture;
+use crate::dynamic_optional;
 
 ////////// These are some general utilities
 
 pub type ColorSDL = sdl2::pixels::Color;
-pub type TextureCreatorSDL = sdl2::render::TextureCreator<sdl2::video::WindowContext>;
+pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
-fn make_sdl_texture_from_path<'a>(path: &str, texture_creator: &'a TextureCreatorSDL)
-	-> sdl2::render::Texture<'a> {
-
-	let surface = sdl2::surface::Surface::load_bmp(path).unwrap();
-	texture_creator.create_texture_from_surface(surface).unwrap()
-}
+type HierarchalWindowUpdater = Option<fn
+	(&mut HierarchalWindow, &mut texture::TexturePool)
+	-> Result<(), Box<dyn std::error::Error>>>;
 
 fn assert_in_unit_interval(f: f32) {
 	std::assert!(f >= 0.0 && f <= 1.0);
 }
 
-// A 0-1 normalized floating-point vec2 (TODO: ONLY EVER USE THE CONSTRUCTOR)
+// A 0-1 normalized floating-point vec2 (TODO: put this in its own file)
 pub struct Vec2f {
-	x: f32, y: f32
+	x: f32,
+	y: f32
 }
 
 impl Vec2f {
@@ -31,31 +31,27 @@ impl Vec2f {
 
 //////////
 
-pub enum WindowContents<'a> {
-	PlainColor(ColorSDL), // Not using the alpha channel here
-	Texture(sdl2::render::Texture<'a>)
-	// TODO: support a `Text` enum variant
+pub enum WindowContents {
+	PlainColor(ColorSDL),
+	Texture(texture::TextureHandle)
 }
 
-impl WindowContents<'_> {
-	pub fn make_color<'a>(r: u8, g: u8, b: u8) -> WindowContents<'a> {
+impl WindowContents {
+	pub fn make_color(r: u8, g: u8, b: u8) -> WindowContents {
 		return WindowContents::PlainColor(ColorSDL::RGB(r, g, b));
 	}
 
 	// `a` ranges from 0 to 1
-	pub fn make_transparent_color<'a>(r: u8, g: u8, b: u8, a: f32) -> WindowContents<'a> {
+	pub fn make_transparent_color(r: u8, g: u8, b: u8, a: f32) -> WindowContents {
 		assert_in_unit_interval(a);
 		return WindowContents::PlainColor(ColorSDL::RGBA(r, g, b, (a * 255.0) as u8));
 	}
-
-	pub fn make_texture_from_path<'a>(path: &'a str, texture_creator: &'a TextureCreatorSDL) -> WindowContents<'a> {
-		WindowContents::Texture(make_sdl_texture_from_path(path, texture_creator))
-	}
 }
 
-pub struct HierarchalWindow<'a> {
-	content_updater: Option<fn() -> Option<WindowContents<'a>>>,
-	contents: WindowContents<'a>,
+pub struct HierarchalWindow {
+	updater: HierarchalWindowUpdater,
+	state: dynamic_optional::DynamicOptional,
+	contents: WindowContents,
 	top_left: Vec2f,
 	bottom_right: Vec2f,
 
@@ -83,16 +79,16 @@ pub struct HierarchalWindow<'a> {
 	Maybe a K-D-B tree is the solution?
 	*/
 
-	children: Option<Vec<HierarchalWindow<'a>>>
+	pub children: Option<Vec<HierarchalWindow>>
 }
 
-impl HierarchalWindow<'_> {
-	pub fn new<'a>(
-		content_updater: Option<fn() -> Option<WindowContents<'a>>>,
-
-		contents: WindowContents<'a>,
+impl HierarchalWindow {
+	pub fn new(
+		updater: HierarchalWindowUpdater,
+		state: dynamic_optional::DynamicOptional,
+		contents: WindowContents,
 		top_left: Vec2f, bottom_right: Vec2f,
-		children: Option<Vec<HierarchalWindow<'a>>>) -> HierarchalWindow<'a> {
+		children: Option<Vec<HierarchalWindow>>) -> HierarchalWindow {
 
 		std::assert!(top_left.x < bottom_right.x);
 		std::assert!(top_left.y < bottom_right.y);
@@ -103,29 +99,30 @@ impl HierarchalWindow<'_> {
 		};
 
 		HierarchalWindow {
-			content_updater, contents,
-			top_left, bottom_right, children: none_if_children_vec_is_empty
+			updater, state, contents, top_left, bottom_right,
+			children: none_if_children_vec_is_empty
 		}
 	}
 }
 
 pub fn render_windows_recursively(
 	window: &mut HierarchalWindow,
-	sdl_canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
-	parent_rect: sdl2::rect::Rect) {
+	texture_pool: &mut texture::TexturePool,
+	canvas: &mut CanvasSDL,
+	parent_rect: sdl2::rect::Rect)
+
+	-> Result<(), Box<dyn std::error::Error>> {
 
 	////////// Updating the window content first
 
-	if let Some(content_updater) = window.content_updater {
-		if let Some(new_content) = content_updater() {
-			window.contents = new_content
-		}
+	if let Some(updater) = window.updater {
+		updater(window, texture_pool)?;
 	}
 
 	////////// Getting the new pixel-space bounding box for this window
 
 	let parent_width = parent_rect.width();
-	let parent_height = parent_rect.height ();
+	let parent_height = parent_rect.height();
 
 	let origin_and_size = (
 		window.top_left.x,
@@ -148,18 +145,18 @@ pub fn render_windows_recursively(
 		WindowContents::PlainColor(color) => {
 			use sdl2::render::BlendMode;
 
-			let use_blending = color.a != 255 && sdl_canvas.blend_mode() != BlendMode::Blend;
+			let use_blending = color.a != 255 && canvas.blend_mode() != BlendMode::Blend;
 
 			// TODO: make this state transition more efficient
-			if use_blending {sdl_canvas.set_blend_mode(BlendMode::Blend);}
-				sdl_canvas.set_draw_color(color.clone());
-				let _ = sdl_canvas.fill_rect(rescaled_rect);
-			if use_blending {sdl_canvas.set_blend_mode(BlendMode::None);}
+			if use_blending {canvas.set_blend_mode(BlendMode::Blend);}
+				canvas.set_draw_color(color.clone());
+				canvas.fill_rect(rescaled_rect)?;
+			if use_blending {canvas.set_blend_mode(BlendMode::None);}
 
 		},
 
 		WindowContents::Texture(texture) => {
-			let _ = sdl_canvas.copy(texture, None, rescaled_rect);
+			texture_pool.draw_texture_to_canvas(*texture, canvas, rescaled_rect)?;
 		}
 	};
 
@@ -167,7 +164,10 @@ pub fn render_windows_recursively(
 
 	if let Some(children) = &mut window.children {
 		for child in children {
-			render_windows_recursively(child, sdl_canvas, rescaled_rect);
+			render_windows_recursively(child, texture_pool, canvas, rescaled_rect)?;
 		}
 	}
+
+	Ok(())
+
 }
