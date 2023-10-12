@@ -3,7 +3,9 @@ use serde_json;
 
 use crate::request;
 use crate::texture;
+use crate::texture::TextureHandle;
 use crate::window_hierarchy::WindowContents;
+use crate::generic_result::GenericResult;
 
 ////////// A wrapper type for API key creation
 
@@ -12,7 +14,7 @@ pub struct ApiKey {
 }
 
 impl ApiKey {
-	pub fn new() -> Result<ApiKey, Box<dyn std::error::Error>> {
+	pub fn new() -> GenericResult<ApiKey> {
 		let untrimmed_api_key: String = std::fs::read_to_string("assets/spinitron_api_key.txt")?;
 		Ok(ApiKey {key: untrimmed_api_key.trim().to_string()})
 	}
@@ -82,7 +84,7 @@ fn make_optional_api_arg<T: std::fmt::Debug>(arg_name: &str, arg: Option<T>) -> 
 
 fn do_get_request_for_spinitron<T: for<'de> serde::Deserialize<'de>>
 	(api_endpoint: &str, api_key: &ApiKey, item_count: Option<u16>)
-	-> Result<Vec<T>, Box<dyn std::error::Error>> {
+	-> GenericResult<Vec<T>> {
 
 	const VALID_ENDPOINTS: [&str; 2] = ["spins", "personas"];
 
@@ -121,14 +123,14 @@ Perhaps get personas faster by using the `playlists` endpoint, and get the last 
 Can also get the last playlist by getting the current playlist id from the current spin.
 
 More API info here: https://spinitron.github.io/v2api/ */
-pub fn get_recent_spins(api_key: &ApiKey) -> Result<Vec<Spin>, Box<dyn std::error::Error>> {
+pub fn get_recent_spins(api_key: &ApiKey) -> GenericResult<Vec<Spin>> {
 	do_get_request_for_spinitron("spins", api_key, None)
 }
 
 /* These are unordered. TODO: how do I get them in order of most recently played,
 or just the most recent one? Also, is this all of the personas? It only returns around 20,
 and I think that it should be more than that. */
-pub fn get_personas(api_key: &ApiKey) -> Result<Vec<Persona>, Box<dyn std::error::Error>> {
+pub fn get_personas(api_key: &ApiKey) -> GenericResult<Vec<Persona>> {
 	do_get_request_for_spinitron("personas", api_key, None)
 }
 
@@ -136,7 +138,7 @@ fn get_texture_from_optional_url(
 	optional_url: &Option<String>,
 	texture_pool: &mut texture::TexturePool)
 
-	-> Option<Result<texture::TextureHandle, Box<dyn std::error::Error>>> {
+	-> Option<GenericResult<TextureHandle>> {
 
 	if let Some(url) = &optional_url {
 		if !url.is_empty() {
@@ -153,7 +155,7 @@ pub fn get_curr_album_contents(
 	texture_pool: &mut texture::TexturePool,
 	fallback_contents: WindowContents)
 
-	-> Result<WindowContents, Box<dyn std::error::Error>> {
+	-> GenericResult<WindowContents> {
 
 	if spins.len() > 0 {
 		if let Some(texture) = get_texture_from_optional_url(&spins[0].image, texture_pool) {

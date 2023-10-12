@@ -1,15 +1,16 @@
 use sdl2;
 use crate::texture;
 use crate::dynamic_optional;
+use crate::generic_result::GenericResult;
 
 ////////// These are some general utilities
 
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
-type HierarchalWindowUpdater = Option<fn
-	(&mut HierarchalWindow, &mut texture::TexturePool)
-	-> Result<(), Box<dyn std::error::Error>>>;
+type HierarchalWindowUpdater = Option
+	<fn(&mut HierarchalWindow, &mut texture::TexturePool)
+	-> GenericResult<()>>;
 
 fn assert_in_unit_interval(f: f32) {
 	std::assert!(f >= 0.0 && f <= 1.0);
@@ -105,13 +106,14 @@ impl HierarchalWindow {
 	}
 }
 
+// TODO: put the unchanging params behind a common reference
 pub fn render_windows_recursively(
 	window: &mut HierarchalWindow,
 	texture_pool: &mut texture::TexturePool,
 	canvas: &mut CanvasSDL,
 	parent_rect: sdl2::rect::Rect)
 
-	-> Result<(), Box<dyn std::error::Error>> {
+	-> GenericResult<()> {
 
 	////////// Updating the window content first
 

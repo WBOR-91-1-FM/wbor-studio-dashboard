@@ -5,6 +5,9 @@ mod window_hierarchy;
 mod dynamic_optional;
 mod texture;
 mod request;
+mod generic_result;
+
+use generic_result::GenericResult;
 
 use window_hierarchy::{
 	ColorSDL, Vec2f, WindowContents, HierarchalWindow
@@ -30,7 +33,7 @@ struct AppConfig<'a> {
 	bg_color: ColorSDL
 }
 
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> GenericResult<()> {
 	let config = AppConfig {
 		name: "Recursive Box Demo",
 		width: 800, height: 600, // The CRT aspect ratio

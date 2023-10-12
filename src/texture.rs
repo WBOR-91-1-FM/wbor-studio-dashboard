@@ -1,6 +1,7 @@
 use sdl2;
 use crate::request;
 use crate::window_hierarchy::CanvasSDL;
+use crate::generic_result::GenericResult;
 
 #[derive(Copy, Clone)]
 pub struct TextureHandle {
@@ -14,7 +15,7 @@ pub struct TexturePool<'a> {
 
 type Texture<'a> = sdl2::render::Texture<'a>;
 type TextureCreator = sdl2::render::TextureCreator<sdl2::video::WindowContext>;
-type TextureHandleResult = Result<TextureHandle, Box<dyn std::error::Error>>;
+type TextureHandleResult = GenericResult<TextureHandle>;
 
 impl<'a> TexturePool<'a> {
 	pub fn new(texture_creator: &TextureCreator) -> TexturePool {
@@ -22,9 +23,9 @@ impl<'a> TexturePool<'a> {
 	}
 
 	pub fn draw_texture_to_canvas(&self, texture: TextureHandle,
-		canvas: &mut CanvasSDL, dest_rect: sdl2::rect::Rect) -> Result<(), String> {
+		canvas: &mut CanvasSDL, dest_rect: sdl2::rect::Rect) -> GenericResult<()> {
 
-		canvas.copy(&self.textures[texture.handle as usize], None, dest_rect)
+		Ok(canvas.copy(&self.textures[texture.handle as usize], None, dest_rect)?)
 	}
 
 	fn allocate_texture_in_pool(&mut self, texture: Texture<'a>) -> TextureHandleResult {
