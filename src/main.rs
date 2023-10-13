@@ -52,10 +52,17 @@ pub fn main() -> GenericResult<()> {
 
 	let sdl_window = sdl_video_subsystem
 		.window(config.name, config.width, config.height)
-		.position_centered().opengl().build()
+		.position_centered()
+		.opengl()
+		.build()
 		.map_err(|e| e.to_string())?;
 
-	let mut sdl_canvas = sdl_window.into_canvas().build().map_err(|e| e.to_string())?;
+	let mut sdl_canvas = sdl_window
+		.into_canvas()
+		.accelerated()
+		.present_vsync()
+		.build()
+		.map_err(|e| e.to_string())?;
 
 	let texture_creator = sdl_canvas.texture_creator();
 	let mut texture_pool = texture::TexturePool::new(&texture_creator);
@@ -115,7 +122,6 @@ pub fn main() -> GenericResult<()> {
 
 	//////////
 
-	let sleep_time = std::time::Duration::new(0, 1_000_000_000u32 / config.fps);
 	let window_bounds = sdl2::rect::Rect::new(0, 0, config.width, config.height);
 
 	'running: loop {
@@ -135,9 +141,6 @@ pub fn main() -> GenericResult<()> {
 			&mut texture_pool, &mut sdl_canvas, window_bounds)?;
 
 		sdl_canvas.present();
-
-		// TODO: sleep for a variable amount of time (or use vsync)
-		std::thread::sleep(sleep_time);
 	}
 
 	Ok(())
