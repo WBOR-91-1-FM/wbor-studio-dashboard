@@ -183,8 +183,7 @@ fn do_singular_spinitron_request<T: for<'de> serde::Deserialize<'de> + Clone>
 	(api_endpoint: &str, api_key: &ApiKey, possible_model_id: Option<SpinitronModelId>) -> GenericResult<T> {
 
 	let response_json = get_json_from_spinitron_request(
-		// api_endpoint, api_key, possible_model_id, Some(1))?;
-		api_endpoint, api_key, possible_model_id, None)?;
+		api_endpoint, api_key, possible_model_id, Some(1))?;
 
 	if let Some(_) = possible_model_id {
 		// If requesting a via model id, just a raw item will be returned
@@ -194,6 +193,7 @@ fn do_singular_spinitron_request<T: for<'de> serde::Deserialize<'de> + Clone>
 	else {
 		// Otherwise, the first out of the one-entry `Vec` will be returned
 		let wrapped_in_vec: Vec<T> = get_vec_from_spinitron_json(&response_json)?;
+		// assert!(wrapped_in_vec.len() == 1);
 		Ok(wrapped_in_vec[0].clone())
 	}
 }
