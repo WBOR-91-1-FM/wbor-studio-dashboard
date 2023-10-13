@@ -80,7 +80,7 @@ pub struct HierarchalWindow {
 	Maybe a K-D-B tree is the solution?
 	*/
 
-	pub children: Option<Vec<HierarchalWindow>>
+	children: Option<Vec<HierarchalWindow>>
 }
 
 impl HierarchalWindow {
