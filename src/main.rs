@@ -33,7 +33,6 @@ struct AppConfig<'a> {
 	name: &'a str,
 	width: u32,
 	height: u32,
-	fps: u32,
 	bg_color: ColorSDL
 }
 
@@ -41,7 +40,6 @@ pub fn main() -> GenericResult<()> {
 	let config = AppConfig {
 		name: "Recursive Box Demo",
 		width: 800, height: 600, // The CRT aspect ratio
-		fps: 60,
 		bg_color: ColorSDL::RGB(50, 50, 50)
 	};
 
