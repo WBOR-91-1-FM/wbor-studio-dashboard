@@ -1,4 +1,5 @@
 use minreq;
+
 use crate::generic_result::GenericResult;
 
 fn check_request_failure<T: std::fmt::Display + std::cmp::PartialEq>

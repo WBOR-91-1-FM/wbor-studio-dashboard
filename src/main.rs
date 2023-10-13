@@ -1,5 +1,6 @@
 use sdl2;
 
+mod vec2f;
 mod texture;
 mod request;
 mod generic_result;

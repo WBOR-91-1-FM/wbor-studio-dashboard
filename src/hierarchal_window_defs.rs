@@ -1,9 +1,10 @@
 use sdl2;
 
-use crate::texture::TexturePool;
 use crate::spinitron;
+use crate::vec2f::Vec2f;
+use crate::texture::TexturePool;
 use crate::generic_result::GenericResult;
-use crate::window_hierarchy::{WindowContents, HierarchalWindow, Vec2f};
+use crate::window_hierarchy::{WindowContents, HierarchalWindow};
 
 pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::video::WindowContext>)
 	-> GenericResult<(HierarchalWindow, TexturePool)> {
