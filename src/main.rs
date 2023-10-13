@@ -25,6 +25,7 @@ TODO:
 - Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
 - When an error happens, make it print a message on screen that says that they should email me (make a log of the error on disk too)
 - When the studio door opens and a show is over, display the expected person's name, saying 'welcome, _', until they scrobble any songs
+- Set an update frequency rate for certain sindows (will update a certain number of times over a second)
 */
 
 struct AppConfig<'a> {
