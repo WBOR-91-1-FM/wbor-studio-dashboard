@@ -130,34 +130,6 @@ pub struct Show {
 
 //////////
 
-fn build_api_request_url(base_url: &str,
-	path_params: Vec<String>,
-	query_params: Vec<(&str, String)>) -> GenericResult<String> {
-
-	//////////
-
-	let mut url = Vec::new();
-
-	let mut add_str_to_url =
-		|s: &str| url.append(&mut s.to_string().into_bytes());
-
-	//////////
-
-	add_str_to_url(base_url);
-
-	for path_param in path_params {
-		add_str_to_url(&format!("/{}", path_param));
-	}
-
-	for (index, query_param) in query_params.iter().enumerate() {
-		let separator = if index == 0 {'?'} else {'&'};
-		let query = format!("{}{}={}", separator, query_param.0, query_param.1);
-		add_str_to_url(&query);
-	}
-
-	Ok(String::from_utf8(url)?)
-}
-
 fn get_json_from_spinitron_request(
 	api_endpoint: &str, api_key: &ApiKey,
 	possible_model_id: Option<SpinitronModelId>,
@@ -184,7 +156,7 @@ fn get_json_from_spinitron_request(
 		query_params.push(("count", item_count.to_string()));
 	}
 
-	let url = build_api_request_url("https://spinitron.com/api", path_params, query_params)?;
+	let url = request::build_url("https://spinitron.com/api", path_params, query_params)?;
 
 	////////// Submitting the request, and getting JSON from it
 
