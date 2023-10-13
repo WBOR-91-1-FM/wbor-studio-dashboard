@@ -14,7 +14,7 @@ pub struct ApiKey {
 
 impl ApiKey {
 	pub fn new() -> GenericResult<ApiKey> {
-		let untrimmed_api_key: String = std::fs::read_to_string("assets/spinitron_api_key.txt")?;
+		let untrimmed_api_key = std::fs::read_to_string("assets/spinitron_api_key.txt")?;
 		Ok(ApiKey {key: untrimmed_api_key.trim().to_string()})
 	}
 }
