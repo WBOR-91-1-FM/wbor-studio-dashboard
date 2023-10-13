@@ -8,11 +8,9 @@ mod spinitron;
 mod window_hierarchy;
 mod dynamic_optional;
 
-use generic_result::GenericResult;
+mod hierarchal_window_defs;
 
-use window_hierarchy::{
-	ColorSDL, Vec2f, WindowContents, HierarchalWindow
-};
+use window_hierarchy::ColorSDL;
 
 /*
 Worked from this in the beginning: https://blog.logrocket.com/using-sdl2-bindings-rust/
@@ -36,7 +34,7 @@ struct AppConfig<'a> {
 	bg_color: ColorSDL
 }
 
-pub fn main() -> GenericResult<()> {
+pub fn main() -> generic_result::GenericResult<()> {
 	let config = AppConfig {
 		name: "Recursive Box Demo",
 		width: 800, height: 600, // The CRT aspect ratio
@@ -63,60 +61,9 @@ pub fn main() -> GenericResult<()> {
 		.map_err(|e| e.to_string())?;
 
 	let texture_creator = sdl_canvas.texture_creator();
-	let mut texture_pool = texture::TexturePool::new(&texture_creator);
 
-	////////// Getting the current spins and album texture, as a test
-
-	let api_key = spinitron::ApiKey::new()?;
-
-	let (spin, playlist, persona, show) = spinitron::get_current_data(&api_key)?;
-	let fallback_contents = WindowContents::Texture(texture_pool.make_texture_from_path("assets/wbor_plane.bmp")?);
-	let current_album_contents = spinitron::get_current_album_contents(&spin, &mut texture_pool, fallback_contents)?;
-
-	/*
-	println!("Spin: {:?}\n", spin);
-	println!("Playlist: {:?}\n", playlist);
-	println!("Persona: {:?}\n", persona);
-	println!("Show: {:?}\n", show);
-	*/
-
-	//////////
-
-	let album_cover = HierarchalWindow::new(
-		None,
-		None,
-		current_album_contents,
-		Vec2f::new(0.4, 0.1),
-		Vec2f::new(0.7, 0.9),
-		None
-	);
-
-	let bird = HierarchalWindow::new(
-		None,
-		None,
-		WindowContents::Texture(texture_pool.make_texture_from_path("assets/bird.bmp")?),
-		Vec2f::new(0.1, 0.1),
-		Vec2f::new(0.3, 0.9),
-		None
-	);
-
-	let photo_box = HierarchalWindow::new(
-		None,
-		None,
-		WindowContents::make_transparent_color(0, 255, 0, 0.8),
-		Vec2f::new(0.01, 0.01),
-		Vec2f::new(0.75, 0.5),
-		Some(vec![album_cover, bird])
-	);
-
-	let mut example_window = HierarchalWindow::new(
-		None,
-		None,
-		WindowContents::make_color(255, 0, 0),
-		Vec2f::new(0.01, 0.01),
-		Vec2f::new(0.99, 0.99),
-		Some(vec![photo_box])
-	);
+	let (mut example_window, mut texture_pool) =
+		hierarchal_window_defs::make_example_window(&texture_creator)?;
 
 	//////////
 
