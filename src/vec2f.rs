@@ -1,6 +1,4 @@
 // A 0-1 normalized floating-point vec2
-// #[derive(PartialEq, PartialOrd, Copy, Clone)]
-// #[derive(PartialEq, Eq, Ord, PartialOrd, Copy, Clone)]
 #[derive(Copy, Clone)]
 pub struct Vec2f {
 	x: f32,

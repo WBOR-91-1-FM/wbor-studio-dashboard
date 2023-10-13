@@ -22,14 +22,14 @@ pub enum WindowContents {
 }
 
 impl WindowContents {
-	pub fn make_color(r: u8, g: u8, b: u8) -> WindowContents {
-		return WindowContents::PlainColor(ColorSDL::RGB(r, g, b));
+	pub fn make_color(r: u8, g: u8, b: u8) -> Self {
+		Self::PlainColor(ColorSDL::RGB(r, g, b))
 	}
 
 	// `a` ranges from 0 to 1
-	pub fn make_transparent_color(r: u8, g: u8, b: u8, a: f32) -> WindowContents {
+	pub fn make_transparent_color(r: u8, g: u8, b: u8, a: f32) -> Self {
 		assert_in_unit_interval(a);
-		return WindowContents::PlainColor(ColorSDL::RGBA(r, g, b, (a * 255.0) as u8));
+		Self::PlainColor(ColorSDL::RGBA(r, g, b, (a * 255.0) as u8))
 	}
 }
 
@@ -64,7 +64,7 @@ pub struct HierarchalWindow {
 	Maybe a K-D-B tree is the solution?
 	*/
 
-	children: Option<Vec<HierarchalWindow>>
+	children: Option<Vec<Self>>
 }
 
 impl HierarchalWindow {
@@ -73,7 +73,7 @@ impl HierarchalWindow {
 		state: dynamic_optional::DynamicOptional,
 		contents: WindowContents,
 		top_left: Vec2f, bottom_right: Vec2f,
-		children: Option<Vec<HierarchalWindow>>) -> HierarchalWindow {
+		children: Option<Vec<Self>>) -> Self {
 
 		std::assert!(top_left.is_left_of(bottom_right));
 
@@ -82,7 +82,7 @@ impl HierarchalWindow {
 			None => None
 		};
 
-		HierarchalWindow {
+		Self {
 			updater, state, contents, top_left, bottom_right,
 			children: none_if_children_vec_is_empty
 		}

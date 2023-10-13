@@ -18,8 +18,8 @@ type TextureCreator = sdl2::render::TextureCreator<sdl2::video::WindowContext>;
 type TextureHandleResult = GenericResult<TextureHandle>;
 
 impl<'a> TexturePool<'a> {
-	pub fn new(texture_creator: &TextureCreator) -> TexturePool {
-		TexturePool {textures: Vec::new(), texture_creator}
+	pub fn new(texture_creator: &'a TextureCreator) -> Self {
+		Self {textures: Vec::new(), texture_creator}
 	}
 
 	pub fn draw_texture_to_canvas(&self, texture: TextureHandle,
