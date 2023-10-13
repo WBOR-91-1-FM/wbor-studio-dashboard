@@ -1,11 +1,12 @@
 use sdl2;
 
-mod spinitron;
-mod window_hierarchy;
-mod dynamic_optional;
 mod texture;
 mod request;
 mod generic_result;
+
+mod spinitron;
+mod window_hierarchy;
+mod dynamic_optional;
 
 use generic_result::GenericResult;
 
@@ -23,6 +24,9 @@ TODO:
 - Check for no box intersections
 - Put the box definitions in a JSON file
 - Avoid screen burn-in somehow
+- Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
+- When an error happens, make it print a message on screen that says that they should email me (make a log of the error on disk too)
+- When the studio door opens and a show is over, display the expected person's name, saying 'welcome, _', until they scrobble any songs
 */
 
 struct AppConfig<'a> {
@@ -60,16 +64,23 @@ pub fn main() -> GenericResult<()> {
 
 	let api_key = spinitron::ApiKey::new()?;
 
-	let spins = spinitron::get_recent_spins(&api_key)?; // TODO: make the fallback equal to some text
+	let (spin, playlist, persona, show) = spinitron::get_current_data(&api_key)?;
 	let fallback_contents = WindowContents::Texture(texture_pool.make_texture_from_path("assets/wbor_plane.bmp")?);
-	let curr_album_contents = spinitron::get_curr_album_contents(&spins, &mut texture_pool, fallback_contents)?;
+	let current_album_contents = spinitron::get_current_album_contents(&spin, &mut texture_pool, fallback_contents)?;
+
+	/*
+	println!("Spin: {:?}\n", spin);
+	println!("Playlist: {:?}\n", playlist);
+	println!("Persona: {:?}\n", persona);
+	println!("Show: {:?}\n", show);
+	*/
 
 	//////////
 
 	let album_cover = HierarchalWindow::new(
 		None,
 		None,
-		curr_album_contents,
+		current_album_contents,
 		Vec2f::new(0.4, 0.1),
 		Vec2f::new(0.7, 0.9),
 		None
