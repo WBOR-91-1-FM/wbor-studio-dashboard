@@ -29,7 +29,7 @@ type MaybeUint = Option<Uint>;
 type MaybeString = Option<String>;
 
 type SpinitronModelId = u32;
-type MaybeSpinitronModelId = Option<u32>;
+type MaybeSpinitronModelId = Option<SpinitronModelId>;
 
 ////////// The spinitron model types
 
