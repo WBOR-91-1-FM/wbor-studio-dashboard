@@ -18,8 +18,8 @@ one copy of the handle exists. So, every time the handle is copied or cloned, th
 to keep some kind of internal reference count. TODO: perhaps I can use `RefCell` for that.
 
 TODO: overall for this, perhaps I can just not allow copying of texture handles?
-That might guarantee this mutability thing at compile-time. */
-#[derive(Copy, Clone)]
+That might guarantee this mutability thing at compile-time. Textures can still be lost
+if they are reassigned, but that can only happen once. */
 pub struct TextureHandle {
 	handle: u16
 }
@@ -38,10 +38,10 @@ impl<'a> TexturePool<'a> {
 		Self {textures: Vec::new(), texture_creator}
 	}
 
-	pub fn draw_texture_to_canvas(&self, texture: TextureHandle,
+	pub fn draw_texture_to_canvas(&self, handle: &TextureHandle,
 		canvas: &mut CanvasSDL, dest_rect: sdl2::rect::Rect) -> GenericResult<()> {
 
-		Ok(canvas.copy(&self.textures[texture.handle as usize], None, dest_rect)?)
+		Ok(canvas.copy(&self.textures[handle.handle as usize], None, dest_rect)?)
 	}
 
 	fn allocate_texture_in_pool(&mut self, texture: Texture<'a>) -> TextureHandleResult {
@@ -50,6 +50,7 @@ impl<'a> TexturePool<'a> {
 	}
 
 	pub fn make_texture_from_path(&mut self, path: &str) -> TextureHandleResult {
+		// TODO: allow for loading more than just `.bmp` files
 		let surface = sdl2::surface::Surface::load_bmp(path)?;
 		let texture = self.texture_creator.create_texture_from_surface(surface)?;
 		self.allocate_texture_in_pool(texture)
