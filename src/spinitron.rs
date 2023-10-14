@@ -29,6 +29,7 @@ type MaybeUint = Option<Uint>;
 type MaybeString = Option<String>;
 
 type SpinitronModelId = u32;
+type MaybeSpinitronModelId = Option<u32>;
 
 ////////// The spinitron model types
 
@@ -60,16 +61,17 @@ pub struct Spin {
 
 	// Ignoring "_links" for now. TODO: add start, end, and label later
 
-	playlist_id: Uint,
+	pub id: SpinitronModelId,
+	playlist_id: SpinitronModelId,
 	image: MaybeString // If there's no image, it will be `None` or `Some("")`
 }
 
 #[allow(dead_code)] // TODO: remove
 #[derive(serde::Deserialize, Clone, Debug)] // TODO: remove `Debug`
 pub struct Playlist {
-	id: Uint,
-	persona_id: Uint, // TODO: why are all the persona ids the same?
-	show_id: MaybeUint, // TODO: why is this optional?
+	id: SpinitronModelId,
+	persona_id: SpinitronModelId, // TODO: why are all the persona ids the same?
+	show_id: MaybeSpinitronModelId, // TODO: why is this optional?
 
 	start: String,
 	end: String,
@@ -95,7 +97,7 @@ pub struct Playlist {
 pub struct Persona {
 	////////// These are fields that are officially supported by Spinitron
 
-	id: Uint,
+	id: SpinitronModelId,
 	name: String,
 
 	bio: MaybeString,
@@ -109,7 +111,7 @@ pub struct Persona {
 #[allow(dead_code)] // TODO: remove
 #[derive(serde::Deserialize, Clone, Debug)] // TODO: remove `Debug`
 pub struct Show {
-	id: Uint,
+	id: SpinitronModelId,
 
 	start: String,
 	end: String,
@@ -213,7 +215,7 @@ fn do_plural_spinitron_request<T: for<'de> serde::Deserialize<'de>>(api_endpoint
 or just the most recent one? Also, is this all of the personas? It only returns around 20,
 and I think that it should be more than that. */
 
-fn get_current_spin(api_key: &ApiKey) -> GenericResult<Spin> {
+pub fn get_current_spin(api_key: &ApiKey) -> GenericResult<Spin> {
 	do_singular_spinitron_request("spins", api_key, None)
 }
 
@@ -274,5 +276,6 @@ pub fn get_current_album_contents(
 		};
 	}
 
+	// If someone is talking on air, no audio will be recognized
 	Ok(fallback_contents)
 }
