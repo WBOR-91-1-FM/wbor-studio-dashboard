@@ -1,4 +1,6 @@
 use sdl2;
+use sdl2::image::LoadTexture;
+
 use crate::request;
 use crate::window_hierarchy::CanvasSDL;
 use crate::generic_result::GenericResult;
@@ -50,15 +52,10 @@ impl<'a> TexturePool<'a> {
 	}
 
 	pub fn make_texture_from_path(&mut self, path: &str) -> TextureHandleResult {
-		// TODO: allow for loading more than just `.bmp` files
-		let surface = sdl2::surface::Surface::load_bmp(path)?;
-		let texture = self.texture_creator.create_texture_from_surface(surface)?;
-		self.allocate_texture_in_pool(texture)
+		self.allocate_texture_in_pool(self.texture_creator.load_texture(path)?)
 	}
 
 	pub fn make_texture_from_url(&mut self, url: &str) -> TextureHandleResult {
-		use sdl2::image::LoadTexture;
-
 		let request_result = request::get(url)?;
 		let texture = self.texture_creator.load_texture_bytes(request_result.as_bytes())?;
 		self.allocate_texture_in_pool(texture)
