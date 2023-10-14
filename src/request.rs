@@ -40,6 +40,8 @@ pub fn build_url(base_url: &str, path_params: Vec<String>,
 	Ok(String::from_utf8(url)?)
 }
 
+/* TODO: maybe switch to async requests eventually, if the Spinitron API keeps
+being this slow. For that, only update with new data once the request completes. */
 pub fn get(url: &str) -> GenericResult<minreq::Response> {
 	let response = minreq::get(url).send()?;
 
