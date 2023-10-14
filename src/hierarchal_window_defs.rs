@@ -2,6 +2,7 @@ use sdl2;
 
 use crate::spinitron;
 use crate::vec2f::Vec2f;
+use crate::dynamic_optional;
 use crate::texture::TexturePool;
 use crate::generic_result::GenericResult;
 use crate::window_hierarchy::{WindowContents, HierarchalWindow};
@@ -12,16 +13,49 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 	let api_key = spinitron::ApiKey::new()?;
 	let mut texture_pool = TexturePool::new(texture_creator);
 
-	let (spin, playlist, persona, show) = spinitron::get_current_data(&api_key)?;
+	// TODO: if there is no current spin, will this only return the last one?
+	let spin = spinitron::get_current_spin(&api_key)?;
 	let fallback_contents = WindowContents::Texture(texture_pool.make_texture_from_path("assets/wbor_plane.bmp")?);
 	let current_album_contents = spinitron::get_current_album_contents(&spin, &mut texture_pool, fallback_contents)?;
 
-	/*
-	println!("Spin: {:?}\n", spin);
-	println!("Playlist: {:?}\n", playlist);
-	println!("Persona: {:?}\n", persona);
-	println!("Show: {:?}\n", show);
-	*/
+	struct WindowState {
+		api_key: spinitron::ApiKey,
+		spin: spinitron::Spin
+	}
+
+	let window_state: dynamic_optional::DynamicOptional = Some(Box::new(WindowState {
+		api_key, spin
+	}));
+
+	// TODO: add a poll rate for this updater
+	fn example_window_updater(window: &mut HierarchalWindow, texture_pool: &mut TexturePool) -> GenericResult<()> {
+		let generic_state = &mut window.state;
+
+		if generic_state.is_some() {
+			let state: &mut WindowState = dynamic_optional::get_inner_value(generic_state);
+
+			let current_spin = spinitron::get_current_spin(&state.api_key)?;
+
+			if current_spin.id == state.spin.id {
+				println!("Current spin is unchanged");
+			}
+			else {
+				println!("There's a new spin, {:?}, so replace the old one", current_spin);
+				state.spin = current_spin;
+			}
+
+			println!("---");
+		}
+
+		if let Some(children) = &mut window.children {
+			for child in children {
+				example_window_updater(child, texture_pool)?
+			}
+		}
+
+
+		Ok(())
+	}
 
 	let album_cover = HierarchalWindow::new(
 		None,
@@ -51,8 +85,8 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 	);
 
 	let example_window = HierarchalWindow::new(
-		None,
-		None,
+		Some(example_window_updater),
+		window_state,
 		WindowContents::make_color(255, 0, 0),
 		Vec2f::new(0.01, 0.01),
 		Vec2f::new(0.99, 0.99),

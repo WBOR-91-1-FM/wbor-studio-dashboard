@@ -17,26 +17,28 @@ type HierarchalWindowUpdater = Option
 //////////
 
 pub enum WindowContents {
-	PlainColor(ColorSDL),
+	Color(ColorSDL),
 	Texture(texture::TextureHandle)
 }
 
 impl WindowContents {
 	pub fn make_color(r: u8, g: u8, b: u8) -> Self {
-		Self::PlainColor(ColorSDL::RGB(r, g, b))
+		Self::Color(ColorSDL::RGB(r, g, b))
 	}
 
 	// `a` ranges from 0 to 1
 	pub fn make_transparent_color(r: u8, g: u8, b: u8, a: f32) -> Self {
 		assert_in_unit_interval(a);
-		Self::PlainColor(ColorSDL::RGBA(r, g, b, (a * 255.0) as u8))
+		Self::Color(ColorSDL::RGBA(r, g, b, (a * 255.0) as u8))
 	}
 }
 
 pub struct HierarchalWindow {
 	updater: HierarchalWindowUpdater,
-	state: dynamic_optional::DynamicOptional,
-	contents: WindowContents,
+
+	pub state: dynamic_optional::DynamicOptional,
+	pub contents: WindowContents,
+
 	top_left: Vec2f,
 	bottom_right: Vec2f,
 
@@ -64,7 +66,7 @@ pub struct HierarchalWindow {
 	Maybe a K-D-B tree is the solution?
 	*/
 
-	children: Option<Vec<Self>>
+	pub children: Option<Vec<Self>>
 }
 
 impl HierarchalWindow {
@@ -122,7 +124,7 @@ pub fn render_windows_recursively(
 	////////// Handling different window content types
 
 	match &window.contents {
-		WindowContents::PlainColor(color) => {
+		WindowContents::Color(color) => {
 			use sdl2::render::BlendMode;
 
 			let use_blending = color.a != 255 && canvas.blend_mode() != BlendMode::Blend;
@@ -136,7 +138,7 @@ pub fn render_windows_recursively(
 		},
 
 		WindowContents::Texture(texture) => {
-			texture_pool.draw_texture_to_canvas(*texture, canvas, absolute_window_size_in_pixels)?;
+			texture_pool.draw_texture_to_canvas(texture, canvas, absolute_window_size_in_pixels)?;
 		}
 	};
 
