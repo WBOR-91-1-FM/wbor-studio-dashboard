@@ -3,9 +3,25 @@ use crate::request;
 use crate::window_hierarchy::CanvasSDL;
 use crate::generic_result::GenericResult;
 
+/* Note that the handle is wrapped in a struct, so that it can't be modified.
+
+TODO: make a function called `update_texture_behind_handle`,
+and don't allow some textures to use it.
+
+Suppose that two copies of a texture handle exist within the program,
+and then one function that has one of the handles changes the texture there.
+That is then basically shared mutable access for a given texture, while
+escaping the borrow checker. In cases where this should not be allowed,
+consider giving some handles a flag that shared mutable access is not allowed.
+For this though, I would have to make sure that if the function is used, that only
+one copy of the handle exists. So, every time the handle is copied or cloned, then I would have
+to keep some kind of internal reference count. TODO: perhaps I can use `RefCell` for that.
+
+TODO: overall for this, perhaps I can just not allow copying of texture handles?
+That might guarantee this mutability thing at compile-time. */
 #[derive(Copy, Clone)]
 pub struct TextureHandle {
-	handle: u16 // In a struct, so that it can't be modified
+	handle: u16
 }
 
 pub struct TexturePool<'a> {
