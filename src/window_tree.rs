@@ -13,10 +13,10 @@ pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 // Intended to wrap, so no bigger type is needed
 type FrameIndex = u8;
 
-type InnerWindowUpdater = fn(&mut Window, &mut texture::TexturePool) -> GenericResult<()>;
+type WindowUpdater = fn(&mut Window, &mut texture::TexturePool) -> GenericResult<()>;
 
  // The frame index here is an update rate (every `n` frames, the updater is called)
-type WindowUpdater = Option<(InnerWindowUpdater, FrameIndex)>;
+type PossibleWindowUpdater = Option<(WindowUpdater, FrameIndex)>;
 
 //////////
 
@@ -38,7 +38,7 @@ impl WindowContents {
 }
 
 pub struct Window {
-	updater: WindowUpdater,
+	possible_updater: PossibleWindowUpdater,
 
 	pub state: dynamic_optional::DynamicOptional,
 	pub contents: WindowContents,
@@ -75,14 +75,14 @@ pub struct Window {
 
 impl Window {
 	pub fn new(
-		updater: WindowUpdater,
+		possible_updater: PossibleWindowUpdater,
 		state: dynamic_optional::DynamicOptional,
 		contents: WindowContents,
 		top_left: Vec2f, bottom_right: Vec2f,
 		children: Option<Vec<Self>>) -> Self {
 
-		if let Some(inner_updater) = updater {
-			let frame_skip_rate = inner_updater.1;
+		if let Some(updater) = possible_updater {
+			let frame_skip_rate = updater.1;
 			std::assert!(frame_skip_rate != 0);
 		}
 
@@ -94,8 +94,8 @@ impl Window {
 		};
 
 		Self {
-			updater, state, contents, top_left, bottom_right,
-			children: none_if_children_vec_is_empty
+			possible_updater, state, contents, top_left,
+			bottom_right, children: none_if_children_vec_is_empty
 		}
 	}
 
@@ -117,7 +117,7 @@ impl Window {
 		- If no updaters are called, don't redraw anything.
 		- For any specific node, if that updater doesn't have an effect, then don't draw for that node. */
 
-		if let Some((updater, frame_skip_rate)) = self.updater {
+		if let Some((updater, frame_skip_rate)) = self.possible_updater {
 			if frame_index % frame_skip_rate == 0 {
 				updater(self, texture_pool)?;
 			}
