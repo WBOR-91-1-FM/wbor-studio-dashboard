@@ -67,6 +67,7 @@ pub fn main() -> generic_result::GenericResult<()> {
 	//////////
 
 	let window_bounds = sdl2::rect::Rect::new(0, 0, config.width, config.height);
+	let mut wrapping_frame_index = std::num::Wrapping(0);
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
@@ -84,10 +85,13 @@ pub fn main() -> generic_result::GenericResult<()> {
 		example_window.render_recursively(
 			&mut texture_pool,
 			&mut sdl_canvas,
+			wrapping_frame_index.0,
 			window_bounds
 		)?;
 
 		sdl_canvas.present();
+
+		wrapping_frame_index += 1;
 	}
 
 	Ok(())

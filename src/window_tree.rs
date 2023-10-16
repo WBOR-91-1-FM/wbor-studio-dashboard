@@ -5,13 +5,16 @@ use crate::texture;
 use crate::dynamic_optional;
 use crate::generic_result::GenericResult;
 
-////////// These are some general utilities
+////////// These are some general utility types
 
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
+type FrameIndex = u8; // This is intended to wrap, which is why the type is so small
 type InnerWindowUpdater = fn(&mut Window, &mut texture::TexturePool) -> GenericResult<()>;
-type WindowUpdater = Option<InnerWindowUpdater>;
+
+ // The frame index here is an update rate (every `n` frames, the updater is called)
+type WindowUpdater = Option<(InnerWindowUpdater, FrameIndex)>;
 
 //////////
 
@@ -33,21 +36,6 @@ impl WindowContents {
 }
 
 pub struct Window {
-	/* TODO: set an optional poll rate for some functions (how to express it?)
-	Brainstorming:
-	- First, no poll rate (update every second)
-	- Second, express it as a fraction of the refresh rate
-	- Third, express it as its own rate (independent from that rate)
-
-	- The third idea might be the best
-	- For that, make some function that tells you if the updater is allowed to refresh
-
-	- Hm, the third idea might not work, if the rate is higher than the refresh rate
-	- A simple solution would be to say - skip every N frames, and then call it
-	- So some ratio of the refresh rate
-	- Maybe I'll start with that
-	*/
-
 	updater: WindowUpdater,
 
 	pub state: dynamic_optional::DynamicOptional,
@@ -91,6 +79,11 @@ impl Window {
 		top_left: Vec2f, bottom_right: Vec2f,
 		children: Option<Vec<Self>>) -> Self {
 
+		if let Some(inner_updater) = updater {
+			let frame_skip_rate = inner_updater.1;
+			std::assert!(frame_skip_rate != 0);
+		}
+
 		std::assert!(top_left.is_left_of(bottom_right));
 
 		let none_if_children_vec_is_empty = match &children {
@@ -108,6 +101,7 @@ impl Window {
 	pub fn render_recursively(&mut self,
 		texture_pool: &mut texture::TexturePool,
 		canvas: &mut CanvasSDL,
+		frame_index: FrameIndex,
 		parent_rect_in_pixels: sdl2::rect::Rect)
 
 		-> GenericResult<()> {
@@ -115,9 +109,16 @@ impl Window {
 		////////// Updating the window first
 
 		/* TODO: if no updaters were called, then don't redraw anything
-		(or if the updaters had no effect on the window) */
-		if let Some(updater) = self.updater {
-			updater(self, texture_pool)?;
+		(or if the updaters had no effect on the window).
+		- Draw everything the first time around, without an updater.
+		- The second time around + all other times, first check all the updaters.
+		- If no updaters are called, don't redraw anything.
+		- For any specific node, if that updater doesn't have an effect, then don't draw for that node. */
+
+		if let Some((updater, frame_skip_rate)) = self.updater {
+			if frame_index % frame_skip_rate == 0 {
+				updater(self, texture_pool)?;
+			}
 		}
 
 		////////// Getting the new pixel-space bounding box for this window
@@ -160,7 +161,8 @@ impl Window {
 
 		if let Some(children) = &mut self.children {
 			for child in children {
-				child.render_recursively(texture_pool, canvas, absolute_window_size_in_pixels)?;
+				child.render_recursively(texture_pool, canvas,
+					frame_index, absolute_window_size_in_pixels)?;
 			}
 		}
 

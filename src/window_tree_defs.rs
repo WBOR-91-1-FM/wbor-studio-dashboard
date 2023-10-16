@@ -27,7 +27,6 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 		api_key, spin
 	}));
 
-	// TODO: add a poll rate for this updater
 	fn example_window_updater(window: &mut Window, texture_pool: &mut TexturePool) -> GenericResult<()> {
 		let generic_state = &mut window.state;
 
@@ -47,15 +46,21 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 			println!("---");
 		}
 
+		/* Hm - how can I then pass this state down to child windows?
+		Maybe share some external state via a `Rc`? */
+
+		/*
 		if let Some(children) = &mut window.children {
 			for child in children {
 				example_window_updater(child, texture_pool)?
 			}
 		}
-
+		*/
 
 		Ok(())
 	}
+
+	let example_window_update_rate = 10;
 
 	let album_cover = Window::new(
 		None,
@@ -85,7 +90,7 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 	);
 
 	let example_window = Window::new(
-		Some(example_window_updater),
+		Some((example_window_updater, example_window_update_rate)),
 		window_state,
 		WindowContents::make_color(255, 0, 0),
 		Vec2f::new(0.01, 0.01),
