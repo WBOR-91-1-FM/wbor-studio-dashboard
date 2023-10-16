@@ -10,7 +10,9 @@ use crate::generic_result::GenericResult;
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
-type FrameIndex = u8; // This is intended to wrap, which is why the type is so small
+// Intended to wrap, so no bigger type is needed
+type FrameIndex = u8;
+
 type InnerWindowUpdater = fn(&mut Window, &mut texture::TexturePool) -> GenericResult<()>;
 
  // The frame index here is an update rate (every `n` frames, the updater is called)
