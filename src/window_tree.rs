@@ -56,7 +56,7 @@ pub struct Window {
 	top_left: Vec2f,
 	bottom_right: Vec2f,
 
-	/* TODO: makybe do splitting here instead. Ideas for that:
+	/* TODO: maybe do splitting here instead. Ideas for that:
 	KD-tree:
 	- Splitting axis would alternate per each box level
 	- Ideally, I would make it not alternate (is that possible?)
@@ -103,67 +103,67 @@ impl Window {
 			children: none_if_children_vec_is_empty
 		}
 	}
-}
 
-// TODO: put the unchanging params behind a common reference
-pub fn render_windows_recursively(
-	window: &mut Window,
-	texture_pool: &mut texture::TexturePool,
-	canvas: &mut CanvasSDL,
-	parent_rect_in_pixels: sdl2::rect::Rect)
+	// TODO: put the unchanging params behind a common reference
+	pub fn render_recursively(&mut self,
+		texture_pool: &mut texture::TexturePool,
+		canvas: &mut CanvasSDL,
+		parent_rect_in_pixels: sdl2::rect::Rect)
 
-	-> GenericResult<()> {
+		-> GenericResult<()> {
 
-	////////// Updating the window content first
+		////////// Updating the window first
 
-	if let Some(updater) = window.updater {
-		updater(window, texture_pool)?;
-	}
-
-	////////// Getting the new pixel-space bounding box for this window
-
-	let parent_size_in_pixels = (
-		parent_rect_in_pixels.width(), parent_rect_in_pixels.height()
-	);
-
-	let relative_window_size = window.bottom_right - window.top_left;
-
-	let absolute_window_size_in_pixels = sdl2::rect::Rect::new(
-		(window.top_left.x() * parent_size_in_pixels.0 as f32) as i32 + parent_rect_in_pixels.x(),
-		(window.top_left.y() * parent_size_in_pixels.1 as f32) as i32 + parent_rect_in_pixels.y(),
-		(relative_window_size.x() * parent_size_in_pixels.0 as f32) as u32,
-		(relative_window_size.y() * parent_size_in_pixels.1 as f32) as u32,
-	);
-
-	////////// Handling different window content types
-
-	match &window.contents {
-		WindowContents::Color(color) => {
-			use sdl2::render::BlendMode;
-
-			let use_blending = color.a != 255 && canvas.blend_mode() != BlendMode::Blend;
-
-			// TODO: make this state transition more efficient
-			if use_blending {canvas.set_blend_mode(BlendMode::Blend);}
-				canvas.set_draw_color(color.clone());
-				canvas.fill_rect(absolute_window_size_in_pixels)?;
-			if use_blending {canvas.set_blend_mode(BlendMode::None);}
-
-		},
-
-		WindowContents::Texture(texture) => {
-			texture_pool.draw_texture_to_canvas(texture, canvas, absolute_window_size_in_pixels)?;
+		/* TODO: if no updaters were called, then don't redraw anything
+		(or if the updaters had no effect on the window) */
+		if let Some(updater) = self.updater {
+			updater(self, texture_pool)?;
 		}
-	};
 
-	////////// Updating all child windows
+		////////// Getting the new pixel-space bounding box for this window
 
-	if let Some(children) = &mut window.children {
-		for child in children {
-			render_windows_recursively(child, texture_pool, canvas, absolute_window_size_in_pixels)?;
+		let parent_size_in_pixels = (
+			parent_rect_in_pixels.width(), parent_rect_in_pixels.height()
+		);
+
+		let relative_window_size = self.bottom_right - self.top_left;
+
+		let absolute_window_size_in_pixels = sdl2::rect::Rect::new(
+			(self.top_left.x() * parent_size_in_pixels.0 as f32) as i32 + parent_rect_in_pixels.x(),
+			(self.top_left.y() * parent_size_in_pixels.1 as f32) as i32 + parent_rect_in_pixels.y(),
+			(relative_window_size.x() * parent_size_in_pixels.0 as f32) as u32,
+			(relative_window_size.y() * parent_size_in_pixels.1 as f32) as u32,
+		);
+
+		////////// Handling different window content types
+
+		match &self.contents {
+			WindowContents::Color(color) => {
+				use sdl2::render::BlendMode;
+
+				let use_blending = color.a != 255 && canvas.blend_mode() != BlendMode::Blend;
+
+				// TODO: make this state transition more efficient
+				if use_blending {canvas.set_blend_mode(BlendMode::Blend);}
+					canvas.set_draw_color(color.clone());
+					canvas.fill_rect(absolute_window_size_in_pixels)?;
+				if use_blending {canvas.set_blend_mode(BlendMode::None);}
+
+			},
+
+			WindowContents::Texture(texture) => {
+				texture_pool.draw_texture_to_canvas(texture, canvas, absolute_window_size_in_pixels)?;
+			}
+		};
+
+		////////// Updating all child windows
+
+		if let Some(children) = &mut self.children {
+			for child in children {
+				child.render_recursively(texture_pool, canvas, absolute_window_size_in_pixels)?;
+			}
 		}
+
+		Ok(())
 	}
-
-	Ok(())
-
 }

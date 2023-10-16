@@ -81,9 +81,11 @@ pub fn main() -> generic_result::GenericResult<()> {
 		sdl_canvas.set_draw_color(config.bg_color); // TODO: remove eventually
 		sdl_canvas.clear();
 
-		// TODO: make this a member function
-		window_tree::render_windows_recursively(&mut example_window,
-			&mut texture_pool, &mut sdl_canvas, window_bounds)?;
+		example_window.render_recursively(
+			&mut texture_pool,
+			&mut sdl_canvas,
+			window_bounds
+		)?;
 
 		sdl_canvas.present();
 	}
