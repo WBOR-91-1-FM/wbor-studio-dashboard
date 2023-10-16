@@ -5,10 +5,10 @@ use crate::vec2f::Vec2f;
 use crate::dynamic_optional;
 use crate::texture::TexturePool;
 use crate::generic_result::GenericResult;
-use crate::window_hierarchy::{WindowContents, HierarchalWindow};
+use crate::window_tree::{WindowContents, Window};
 
 pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::video::WindowContext>)
-	-> GenericResult<(HierarchalWindow, TexturePool)> {
+	-> GenericResult<(Window, TexturePool)> {
 
 	let api_key = spinitron::ApiKey::new()?;
 	let mut texture_pool = TexturePool::new(texture_creator);
@@ -28,7 +28,7 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 	}));
 
 	// TODO: add a poll rate for this updater
-	fn example_window_updater(window: &mut HierarchalWindow, texture_pool: &mut TexturePool) -> GenericResult<()> {
+	fn example_window_updater(window: &mut Window, texture_pool: &mut TexturePool) -> GenericResult<()> {
 		let generic_state = &mut window.state;
 
 		if generic_state.is_some() {
@@ -57,7 +57,7 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 		Ok(())
 	}
 
-	let album_cover = HierarchalWindow::new(
+	let album_cover = Window::new(
 		None,
 		None,
 		current_album_contents,
@@ -66,7 +66,7 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 		None
 	);
 
-	let bird = HierarchalWindow::new(
+	let bird = Window::new(
 		None,
 		None,
 		WindowContents::Texture(texture_pool.make_texture_from_path("assets/bird.bmp")?),
@@ -75,7 +75,7 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 		None
 	);
 
-	let photo_box = HierarchalWindow::new(
+	let photo_box = Window::new(
 		None,
 		None,
 		WindowContents::make_transparent_color(0, 255, 0, 0.8),
@@ -84,7 +84,7 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 		Some(vec![album_cover, bird])
 	);
 
-	let example_window = HierarchalWindow::new(
+	let example_window = Window::new(
 		Some(example_window_updater),
 		window_state,
 		WindowContents::make_color(255, 0, 0),

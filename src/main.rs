@@ -6,12 +6,10 @@ mod request;
 mod generic_result;
 
 mod spinitron;
-mod window_hierarchy;
+mod window_tree;
 mod dynamic_optional;
 
-mod hierarchal_window_defs;
-
-use window_hierarchy::ColorSDL;
+mod window_tree_defs;
 
 /*
 Worked from this in the beginning: https://blog.logrocket.com/using-sdl2-bindings-rust/
@@ -33,14 +31,14 @@ struct AppConfig<'a> {
 	name: &'a str,
 	width: u32,
 	height: u32,
-	bg_color: ColorSDL
+	bg_color: window_tree::ColorSDL
 }
 
 pub fn main() -> generic_result::GenericResult<()> {
 	let config = AppConfig {
 		name: "Recursive Box Demo",
-		width: 800, height: 600, // The CRT aspect ratio
-		bg_color: ColorSDL::RGB(50, 50, 50)
+		width: 800, height: 600, // This has the CRT aspect ratio
+		bg_color: window_tree::ColorSDL::RGB(50, 50, 50)
 	};
 
 	let sdl_context = sdl2::init()?;
@@ -64,8 +62,7 @@ pub fn main() -> generic_result::GenericResult<()> {
 
 	let texture_creator = sdl_canvas.texture_creator();
 
-	let (mut example_window, mut texture_pool) =
-		hierarchal_window_defs::make_example_window(&texture_creator)?;
+	let (mut example_window, mut texture_pool) = window_tree_defs::make_example_window(&texture_creator)?;
 
 	//////////
 
@@ -84,7 +81,8 @@ pub fn main() -> generic_result::GenericResult<()> {
 		sdl_canvas.set_draw_color(config.bg_color); // TODO: remove eventually
 		sdl_canvas.clear();
 
-		window_hierarchy::render_windows_recursively(&mut example_window,
+		// TODO: make this a member function
+		window_tree::render_windows_recursively(&mut example_window,
 			&mut texture_pool, &mut sdl_canvas, window_bounds)?;
 
 		sdl_canvas.present();

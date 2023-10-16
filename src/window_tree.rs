@@ -10,9 +10,8 @@ use crate::generic_result::GenericResult;
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
-type HierarchalWindowUpdater = Option
-	<fn(&mut HierarchalWindow, &mut texture::TexturePool)
-	-> GenericResult<()>>;
+type InnerWindowUpdater = fn(&mut Window, &mut texture::TexturePool) -> GenericResult<()>;
+type WindowUpdater = Option<InnerWindowUpdater>;
 
 //////////
 
@@ -33,8 +32,23 @@ impl WindowContents {
 	}
 }
 
-pub struct HierarchalWindow {
-	updater: HierarchalWindowUpdater,
+pub struct Window {
+	/* TODO: set an optional poll rate for some functions (how to express it?)
+	Brainstorming:
+	- First, no poll rate (update every second)
+	- Second, express it as a fraction of the refresh rate
+	- Third, express it as its own rate (independent from that rate)
+
+	- The third idea might be the best
+	- For that, make some function that tells you if the updater is allowed to refresh
+
+	- Hm, the third idea might not work, if the rate is higher than the refresh rate
+	- A simple solution would be to say - skip every N frames, and then call it
+	- So some ratio of the refresh rate
+	- Maybe I'll start with that
+	*/
+
+	updater: WindowUpdater,
 
 	pub state: dynamic_optional::DynamicOptional,
 	pub contents: WindowContents,
@@ -69,9 +83,9 @@ pub struct HierarchalWindow {
 	pub children: Option<Vec<Self>>
 }
 
-impl HierarchalWindow {
+impl Window {
 	pub fn new(
-		updater: HierarchalWindowUpdater,
+		updater: WindowUpdater,
 		state: dynamic_optional::DynamicOptional,
 		contents: WindowContents,
 		top_left: Vec2f, bottom_right: Vec2f,
@@ -93,7 +107,7 @@ impl HierarchalWindow {
 
 // TODO: put the unchanging params behind a common reference
 pub fn render_windows_recursively(
-	window: &mut HierarchalWindow,
+	window: &mut Window,
 	texture_pool: &mut texture::TexturePool,
 	canvas: &mut CanvasSDL,
 	parent_rect_in_pixels: sdl2::rect::Rect)

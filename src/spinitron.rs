@@ -3,7 +3,7 @@ use serde_json;
 
 use crate::request;
 use crate::texture;
-use crate::window_hierarchy::WindowContents;
+use crate::window_tree::WindowContents;
 use crate::generic_result::GenericResult;
 
 ////////// A wrapper type for API key creation
