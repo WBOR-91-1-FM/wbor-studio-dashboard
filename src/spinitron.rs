@@ -213,10 +213,6 @@ fn do_plural_spinitron_request<T: for<'de> serde::Deserialize<'de>>(api_endpoint
 
 //////////
 
-/* These are unordered. TODO: how do I get them in order of most recently played,
-or just the most recent one? Also, is this all of the personas? It only returns around 20,
-and I think that it should be more than that. */
-
 pub fn get_current_spin(api_key: &ApiKey) -> GenericResult<Spin> {
 	do_singular_spinitron_request("spins", api_key, None)
 }
@@ -225,6 +221,9 @@ fn get_playlist_from_id(api_key: &ApiKey, id: SpinitronModelId) -> GenericResult
 	do_singular_spinitron_request("playlists", api_key, Some(id))
 }
 
+/* These are unordered. TODO: how do I get them in order of most recently played,
+or just the most recent one? Also, is this all of the personas? It only returns around 20,
+and I think that it should be more than that. */
 fn get_persona_from_id(api_key: &ApiKey, id: SpinitronModelId) -> GenericResult<Persona> {
 	do_singular_spinitron_request("personas", api_key, Some(id))
 }
