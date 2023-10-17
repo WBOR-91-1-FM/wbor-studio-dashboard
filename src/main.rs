@@ -66,7 +66,7 @@ pub fn main() -> generic_result::GenericResult<()> {
 
 	//////////
 
-	let window_bounds = sdl2::rect::Rect::new(0, 0, config.width, config.height);
+	let sdl_window_bounds = sdl2::rect::Rect::new(0, 0, config.width, config.height);
 	let mut wrapping_frame_index = std::num::Wrapping(0);
 
 	'running: loop {
@@ -86,7 +86,7 @@ pub fn main() -> generic_result::GenericResult<()> {
 			&mut texture_pool,
 			&mut sdl_canvas,
 			wrapping_frame_index.0,
-			window_bounds
+			sdl_window_bounds
 		)?;
 
 		sdl_canvas.present();

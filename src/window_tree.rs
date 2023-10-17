@@ -104,7 +104,7 @@ impl Window {
 		texture_pool: &mut texture::TexturePool,
 		canvas: &mut CanvasSDL,
 		frame_index: FrameIndex,
-		parent_rect_in_pixels: sdl2::rect::Rect)
+		sdl_parent_rect_in_pixels: sdl2::rect::Rect)
 
 		-> GenericResult<()> {
 
@@ -125,17 +125,17 @@ impl Window {
 
 		////////// Getting the new pixel-space bounding box for this window
 
-		let parent_size_in_pixels = (
-			parent_rect_in_pixels.width(), parent_rect_in_pixels.height()
+		let sdl_parent_size_in_pixels = (
+			sdl_parent_rect_in_pixels.width(), sdl_parent_rect_in_pixels.height()
 		);
 
-		let relative_window_size = self.bottom_right - self.top_left;
+		let sdl_relative_window_size = self.bottom_right - self.top_left;
 
-		let absolute_window_size_in_pixels = sdl2::rect::Rect::new(
-			(self.top_left.x() * parent_size_in_pixels.0 as f32) as i32 + parent_rect_in_pixels.x(),
-			(self.top_left.y() * parent_size_in_pixels.1 as f32) as i32 + parent_rect_in_pixels.y(),
-			(relative_window_size.x() * parent_size_in_pixels.0 as f32) as u32,
-			(relative_window_size.y() * parent_size_in_pixels.1 as f32) as u32,
+		let sdl_window_size_in_pixels = sdl2::rect::Rect::new(
+			(self.top_left.x() * sdl_parent_size_in_pixels.0 as f32) as i32 + sdl_parent_rect_in_pixels.x(),
+			(self.top_left.y() * sdl_parent_size_in_pixels.1 as f32) as i32 + sdl_parent_rect_in_pixels.y(),
+			(sdl_relative_window_size.x() * sdl_parent_size_in_pixels.0 as f32) as u32,
+			(sdl_relative_window_size.y() * sdl_parent_size_in_pixels.1 as f32) as u32,
 		);
 
 		////////// Handling different window content types
@@ -149,13 +149,13 @@ impl Window {
 				// TODO: make this state transition more efficient
 				if use_blending {canvas.set_blend_mode(BlendMode::Blend);}
 					canvas.set_draw_color(color.clone());
-					canvas.fill_rect(absolute_window_size_in_pixels)?;
+					canvas.fill_rect(sdl_window_size_in_pixels)?;
 				if use_blending {canvas.set_blend_mode(BlendMode::None);}
 
 			},
 
 			WindowContents::Texture(texture) => {
-				texture_pool.draw_texture_to_canvas(texture, canvas, absolute_window_size_in_pixels)?;
+				texture_pool.draw_texture_to_canvas(texture, canvas, sdl_window_size_in_pixels)?;
 			}
 		};
 
@@ -164,7 +164,7 @@ impl Window {
 		if let Some(children) = &mut self.children {
 			for child in children {
 				child.render_recursively(texture_pool, canvas,
-					frame_index, absolute_window_size_in_pixels)?;
+					frame_index, sdl_window_size_in_pixels)?;
 			}
 		}
 
