@@ -60,7 +60,7 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 		Ok(())
 	}
 
-	let example_window_update_rate = 10;
+	let example_window_update_rate = 200;
 
 	let album_cover = Window::new(
 		None,

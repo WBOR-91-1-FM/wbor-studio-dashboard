@@ -11,7 +11,7 @@ pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
 // Intended to wrap, so no bigger type is needed
-type FrameIndex = u8;
+type FrameIndex = u16;
 
 type WindowUpdater = fn(&mut Window, &mut texture::TexturePool) -> GenericResult<()>;
 
