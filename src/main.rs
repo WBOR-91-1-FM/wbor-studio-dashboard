@@ -34,7 +34,15 @@ struct AppConfig<'a> {
 	bg_color: window_tree::ColorSDL
 }
 
-pub fn main() -> generic_result::GenericResult<()> {
+fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
+	sdl_prev_performance_counter: u64,
+	sdl_performance_frequency: u64) -> f64 {
+
+	let delta_time = sdl_timer.performance_counter() - sdl_prev_performance_counter;
+	sdl_performance_frequency as f64 / delta_time as f64
+}
+
+fn main() -> generic_result::GenericResult<()> {
 	let config = AppConfig {
 		name: "Recursive Box Demo",
 		width: 800, height: 600, // This has the CRT aspect ratio
@@ -69,6 +77,9 @@ pub fn main() -> generic_result::GenericResult<()> {
 	let sdl_window_bounds = sdl2::rect::Rect::new(0, 0, config.width, config.height);
 	let mut wrapping_frame_index = std::num::Wrapping(0);
 
+	let sdl_timer = sdl_context.timer()?;
+	let sdl_performance_frequency = sdl_timer.performance_frequency();
+
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
 			use sdl2::{event::Event, keyboard::Keycode};
@@ -82,6 +93,8 @@ pub fn main() -> generic_result::GenericResult<()> {
 		sdl_canvas.set_draw_color(config.bg_color); // TODO: remove eventually
 		sdl_canvas.clear();
 
+		let sdl_performance_counter_before = sdl_timer.performance_counter();
+
 		example_window.render_recursively(
 			&mut texture_pool,
 			&mut sdl_canvas,
@@ -89,9 +102,31 @@ pub fn main() -> generic_result::GenericResult<()> {
 			sdl_window_bounds
 		)?;
 
-		sdl_canvas.present();
+		//////////
 
+		let _fps_without_vsync = get_fps(&sdl_timer,
+			sdl_performance_counter_before,
+			sdl_performance_frequency
+		);
+
+		//////////
+
+		sdl_canvas.present();
 		wrapping_frame_index += 1;
+
+		let _fps_with_vsync = get_fps(&sdl_timer,
+			sdl_performance_counter_before,
+			sdl_performance_frequency
+		);
+
+		//////////
+
+		/*
+		println!("fps without and with vsync = {:.3}, {:.3}",
+			fps_without_vsync, fps_with_vsync);
+		*/
+
+		//////////
 	}
 
 	Ok(())
