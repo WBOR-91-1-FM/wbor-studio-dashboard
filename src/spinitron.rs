@@ -6,6 +6,8 @@ use crate::texture;
 use crate::window_tree::WindowContents;
 use crate::generic_result::GenericResult;
 
+// TODO: maybe set up a mock API, for the sake of testing
+
 ////////// A wrapper type for API key creation
 
 pub struct ApiKey {
