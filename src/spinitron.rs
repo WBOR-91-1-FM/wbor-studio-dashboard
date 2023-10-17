@@ -236,8 +236,14 @@ fn get_show_from_id(api_key: &ApiKey, possible_id: Option<SpinitronModelId>) -> 
 	do_singular_spinitron_request("shows", api_key, possible_id)
 }
 
-/* TODO: later on, if the current playlist and persona ids
-are the same, don't send requests for them again */
+/* TODO:
+- Later on, if the current playlist and persona ids are the same, don't send requests for them again.
+
+- The current thing that signals a major state change is if the current spin changes.
+See if I can speed up that API call by only getting the spin ID, and then only changing state there.
+
+- Also check if I can speed up the API calls by not getting the not-needed fields in the returned JSON.
+*/
 pub fn get_current_data(api_key: &ApiKey) -> GenericResult<(Spin, Playlist, Persona, Option<Show>)> {
 	let current_spin = get_current_spin(api_key)?;
 	let current_playlist = get_playlist_from_id(api_key, current_spin.playlist_id)?;
