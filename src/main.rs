@@ -3,11 +3,12 @@ use sdl2;
 mod vec2f;
 mod texture;
 mod request;
+
 mod generic_result;
+mod dynamic_optional;
 
 mod spinitron;
 mod window_tree;
-mod dynamic_optional;
 
 mod window_tree_defs;
 
