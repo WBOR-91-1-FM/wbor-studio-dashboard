@@ -21,6 +21,7 @@ type PossibleWindowUpdater = Option<(WindowUpdater, FrameIndex)>;
 //////////
 
 pub enum WindowContents {
+	Nothing,
 	Color(ColorSDL),
 	Texture(texture::TextureHandle)
 }
@@ -141,6 +142,8 @@ impl Window {
 		////////// Handling different window content types
 
 		match &self.contents {
+			WindowContents::Nothing => {},
+
 			WindowContents::Color(color) => {
 				use sdl2::render::BlendMode;
 
