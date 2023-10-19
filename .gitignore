@@ -1,4 +1,5 @@
 /target
+.vscode/
 Cargo.lock
 scrap_code.txt
 assets/spinitron_api_key.txt
