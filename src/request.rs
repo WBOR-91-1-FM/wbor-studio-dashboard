@@ -1,6 +1,6 @@
 use minreq;
 
-use crate::generic_result::GenericResult;
+use crate::utility_types::generic_result::GenericResult;
 
 fn check_request_failure<T: std::fmt::Display + std::cmp::PartialEq>
 	(value_name: &str, url: &str, expected: T, gotten: T) -> GenericResult<()> {

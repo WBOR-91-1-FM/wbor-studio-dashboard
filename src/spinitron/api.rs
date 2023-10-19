@@ -1,9 +1,8 @@
 use serde_json;
 
 use crate::request;
-use crate::texture;
 use crate::window_tree::WindowContents;
-use crate::generic_result::GenericResult;
+use crate::utility_types::{texture, generic_result::GenericResult};
 
 // TODO: shorten these
 use crate::spinitron::api_key::ApiKey;

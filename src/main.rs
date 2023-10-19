@@ -1,15 +1,9 @@
 use sdl2;
 
-mod vec2f;
-mod texture;
 mod request;
-
-mod generic_result;
-mod dynamic_optional;
-
 mod spinitron;
 mod window_tree;
-
+mod utility_types;
 mod window_tree_defs;
 
 /*
@@ -43,7 +37,7 @@ fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 	sdl_performance_frequency as f64 / delta_time as f64
 }
 
-fn main() -> generic_result::GenericResult<()> {
+fn main() -> utility_types::generic_result::GenericResult<()> {
 	let config = AppConfig {
 		name: "Recursive Box Demo",
 		width: 800, height: 600, // This has the CRT aspect ratio

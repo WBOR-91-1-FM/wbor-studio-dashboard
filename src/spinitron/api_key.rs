@@ -1,4 +1,4 @@
-use crate::generic_result::GenericResult;
+use crate::utility_types::generic_result::GenericResult;
 
 pub struct ApiKey {
 	key: String

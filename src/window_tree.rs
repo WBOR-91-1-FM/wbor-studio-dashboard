@@ -1,11 +1,11 @@
 use sdl2;
 
-use crate::vec2f::{assert_in_unit_interval, Vec2f};
-use crate::texture;
-use crate::dynamic_optional;
-use crate::generic_result::GenericResult;
+use crate::utility_types::{
+	vec2f::{assert_in_unit_interval, Vec2f},
+	texture, dynamic_optional, generic_result::GenericResult
+};
 
-////////// These are some general utility types
+////////// These are some general utility types (TODO: put some of them in `utility_types`)
 
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
@@ -15,7 +15,7 @@ type FrameIndex = u16;
 
 type WindowUpdater = fn(&mut Window, &mut texture::TexturePool) -> GenericResult<()>;
 
- // The frame index here is an update rate (every `n` frames, the updater is called)
+// The frame index here is an update rate (every `n` frames, the updater is called)
 type PossibleWindowUpdater = Option<(WindowUpdater, FrameIndex)>;
 
 //////////

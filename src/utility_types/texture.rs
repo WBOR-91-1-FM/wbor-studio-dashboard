@@ -3,7 +3,7 @@ use sdl2::image::LoadTexture;
 
 use crate::request;
 use crate::window_tree::CanvasSDL;
-use crate::generic_result::GenericResult;
+use crate::utility_types::generic_result::GenericResult;
 
 /* Note that the handle is wrapped in a struct, so that it can't be modified.
 

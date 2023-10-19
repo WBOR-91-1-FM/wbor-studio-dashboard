@@ -1,10 +1,11 @@
 use sdl2;
 
-use crate::vec2f::Vec2f;
-use crate::dynamic_optional;
-use crate::texture::TexturePool;
+use crate::utility_types::{
+	dynamic_optional, texture::TexturePool,
+	generic_result::GenericResult, vec2f::Vec2f
+};
+
 use crate::spinitron::state::SpinitronState;
-use crate::generic_result::GenericResult;
 use crate::window_tree::{WindowContents, Window};
 
 pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::video::WindowContext>)
