@@ -1,8 +1,10 @@
 use sdl2;
 
+use crate::texture;
+
 use crate::utility_types::{
 	vec2f::{assert_in_unit_interval, Vec2f},
-	texture, dynamic_optional, generic_result::GenericResult
+	dynamic_optional, generic_result::GenericResult
 };
 
 ////////// These are some general utility types (TODO: put some of them in `utility_types`)

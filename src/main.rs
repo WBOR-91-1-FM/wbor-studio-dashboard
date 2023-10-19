@@ -1,6 +1,7 @@
 use sdl2;
 
 mod request;
+mod texture;
 mod spinitron;
 mod window_tree;
 mod utility_types;

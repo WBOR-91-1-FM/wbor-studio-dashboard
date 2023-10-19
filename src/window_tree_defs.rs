@@ -1,8 +1,9 @@
 use sdl2;
 
+use crate::texture::TexturePool;
+
 use crate::utility_types::{
-	dynamic_optional, texture::TexturePool,
-	generic_result::GenericResult, vec2f::Vec2f
+	dynamic_optional, generic_result::GenericResult, vec2f::Vec2f
 };
 
 use crate::spinitron::state::SpinitronState;
