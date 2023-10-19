@@ -1,7 +1,8 @@
-// TODO: shorten these
-use crate::spinitron::api_key::ApiKey;
-use crate::spinitron::model::{Spin, Playlist, Persona, Show};
-use crate::spinitron::api::{get_current_spin, get_playlist_from_id, get_persona_from_id, get_show_from_id};
+use crate::spinitron::{
+	api_key::ApiKey,
+	model::{Spin, Playlist, Persona, Show},
+	api::{get_current_spin, get_playlist_from_id, get_persona_from_id, get_show_from_id}
+};
 
 use crate::utility_types::generic_result::GenericResult;
 

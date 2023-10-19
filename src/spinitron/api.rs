@@ -4,10 +4,11 @@ use crate::request;
 use crate::window_tree::WindowContents;
 use crate::utility_types::{texture, generic_result::GenericResult};
 
-// TODO: shorten these
-use crate::spinitron::api_key::ApiKey;
-use crate::spinitron::wrapper_types::SpinitronModelId;
-use crate::spinitron::model::{SpinitronModel, Spin, Playlist, Persona, Show};
+use crate::spinitron::{
+	api_key::ApiKey,
+	wrapper_types::SpinitronModelId,
+	model::{SpinitronModel, Spin, Playlist, Persona, Show}
+};
 
 // TODO: later on, maybe set up a mock API, for the sake of testing
 
