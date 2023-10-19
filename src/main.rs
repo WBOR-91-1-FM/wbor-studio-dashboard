@@ -39,6 +39,9 @@ fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 }
 
 fn main() -> utility_types::generic_result::GenericResult<()> {
+	/* TODO: maybe artifically lower the FPS to reduce
+	stress on the Pi, if a high framerate isn't needed later on */
+
 	let config = AppConfig {
 		name: "Recursive Box Demo",
 		width: 800, height: 600, // This has the CRT aspect ratio
