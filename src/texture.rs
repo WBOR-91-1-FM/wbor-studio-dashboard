@@ -56,6 +56,10 @@ impl<'a> TexturePool<'a> {
 	}
 
 	pub fn make_texture_from_url(&mut self, url: &str) -> TextureHandleResult {
+		/* Normally, the textures are 170x170 (this is described in the URL). If the scale factor isn't a box,
+		just the smallest dimension will be picked. But, the size can be modified to anything desired.
+		TODO: on the right URL format, resize the image to the given window box size by tweaking the URL. */
+
 		let request_result = request::get(url)?;
 		let texture = self.texture_creator.load_texture_bytes(request_result.as_bytes())?;
 		self.allocate_texture_in_pool(texture)
