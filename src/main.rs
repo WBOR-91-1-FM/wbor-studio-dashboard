@@ -40,7 +40,8 @@ fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 
 fn main() -> utility_types::generic_result::GenericResult<()> {
 	/* TODO: maybe artifically lower the FPS to reduce
-	stress on the Pi, if a high framerate isn't needed later on */
+	stress on the Pi, if a high framerate isn't needed later on.
+	Maybe make the FPS equate with the highest poll rate, eventually? */
 
 	let config = AppConfig {
 		name: "Recursive Box Demo",
