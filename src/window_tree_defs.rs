@@ -1,5 +1,6 @@
 use sdl2;
 
+use crate::spinitron;
 use crate::texture::TexturePool;
 
 use crate::utility_types::{
@@ -16,16 +17,43 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 	fn top_level_window_updater(window: &mut Window, texture_pool: &mut TexturePool) -> GenericResult<()> {
 		let state: &mut SpinitronState = dynamic_optional::get_inner_value(&mut window.state);
 		let updated_state = state.update()?; // TODO: store this, so that child windows know when to rebuild their contents
-		println!("{:?}", updated_state);
 
-		// TODO: set a flag for when the current spin or playlist changed, so that child windows can newly render those changes
+		if updated_state.0 {println!("New spin: {:?}", state.get_spin());}
+		if updated_state.1 {println!("New playlist: {:?}", state.get_playlist());}
+		if updated_state.2 {println!("New persona: {:?}", state.get_persona());}
+		if updated_state.3 {println!("New show: {:?}", state.get_show());}
+
+		if updated_state.0 || updated_state.1 || updated_state.2 || updated_state.3 {
+			println!("\n\n\n---\n\n");
+		}
+
+		let updated_spin = updated_state.0;
+		let window_contents_not_texture_yet = if let WindowContents::Texture(_) = window.contents {false} else {true};
+
+		if updated_spin || window_contents_not_texture_yet {
+			/* TODO:
+			- Use the old texture slot when doing this (otherwise I will run out of memory),
+			- If the URL is the same as the previous one, don't reload
+			*/
+
+			/*
+			let maybe_texture = spinitron::api::get_texture_from_optional_url(&state.get_spin().get_image_link(), texture_pool);
+
+			if let Some(texture) = maybe_texture {
+				window.contents = texture?;
+			}
+			else {
+				// TODO: otherwise, set a fallback texture
+			}
+			*/
+		}
 
 		Ok(())
 	}
 
 	let beige_ish_tan = WindowContents::make_color(210, 180, 140);
 
-	let fps = 60;
+	let fps = 60; // TODO: don't hardcode this
 	let update_rate_in_secs = 5;
 	let top_level_window_update_rate = fps * update_rate_in_secs;
 

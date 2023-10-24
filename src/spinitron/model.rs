@@ -4,14 +4,38 @@ use serde::{Serialize, Deserialize};
 use crate::spinitron::wrapper_types::*;
 
 // TODO: eventually, remove `Debug` from both of these
-pub trait SpinitronModel: Serialize + for<'a> Deserialize<'a> + Clone + std::default::Default + std::fmt::Debug {}
+pub trait SpinitronModel: Serialize + for<'a> Deserialize<'a> + Clone + std::default::Default + std::fmt::Debug {
+	fn get_id(&self) -> SpinitronModelId;
+}
+
 derive_alias! {derive_spinitron_model => #[derive(Serialize, Deserialize, Clone, Default, Debug)]}
 
-// TODO: make this less repetitive
-impl SpinitronModel for Spin {}
-impl SpinitronModel for Playlist {}
-impl SpinitronModel for Persona {}
-impl SpinitronModel for Show {}
+// TODO: make these `impl`s less repetitive
+
+// TODO: make a comparator instead, that compares the ids
+impl SpinitronModel for Spin {fn get_id(&self) -> SpinitronModelId {self.id}}
+impl SpinitronModel for Playlist {fn get_id(&self) -> SpinitronModelId {self.id}}
+impl SpinitronModel for Persona {fn get_id(&self) -> SpinitronModelId {self.id}}
+impl SpinitronModel for Show {fn get_id(&self) -> SpinitronModelId {self.id}}
+
+impl Spin {
+	pub fn get_playlist_id(&self) -> SpinitronModelId {
+		self.playlist_id
+	}
+
+	pub fn get_image_link(&self) -> &MaybeString {
+		&self.image
+	}
+}
+
+impl Playlist {
+	pub fn get_persona_id(&self) -> SpinitronModelId {self.persona_id}
+	pub fn get_show_id(&self) -> Option<SpinitronModelId> {self.show_id}
+
+	pub fn set_show_id(&mut self, id: SpinitronModelId) {
+		self.show_id = Some(id);
+	}
+}
 
 // TODO: for any `String` field, if it equals the empty string, set it to `None`
 
@@ -43,17 +67,17 @@ pub struct Spin {
 
 	// Ignoring "_links" for now. TODO: add start, end, and label later
 
-	pub id: SpinitronModelId,
-	pub playlist_id: SpinitronModelId,
-	pub image: MaybeString // If there's no image, it will be `None` or `Some("")`
+	id: SpinitronModelId,
+	playlist_id: SpinitronModelId,
+	image: MaybeString // If there's no image, it will be `None` or `Some("")`
 });
 
 derive_spinitron_model!(
 #[allow(dead_code)] // TODO: remove
 pub struct Playlist {
 	id: SpinitronModelId,
-	pub persona_id: SpinitronModelId, // TODO: why are all the persona ids the same?
-	pub show_id: MaybeSpinitronModelId, // TODO: why is this optional?
+	persona_id: SpinitronModelId, // TODO: why are all the persona ids the same?
+	show_id: MaybeSpinitronModelId, // TODO: why is this optional?
 
 	start: String,
 	end: String,
@@ -79,7 +103,7 @@ derive_spinitron_model!(
 pub struct Persona {
 	////////// These are fields that are officially supported by Spinitron
 
-	pub id: SpinitronModelId,
+	id: SpinitronModelId,
 	name: String,
 
 	bio: MaybeString,
@@ -93,7 +117,7 @@ pub struct Persona {
 derive_spinitron_model!(
 #[allow(dead_code)] // TODO: remove
 pub struct Show {
-	pub id: SpinitronModelId,
+	id: SpinitronModelId,
 
 	start: String,
 	end: String,

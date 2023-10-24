@@ -122,17 +122,8 @@ pub fn get_persona_from_id(api_key: &ApiKey, id: SpinitronModelId) -> GenericRes
 	do_request("personas", api_key, Some(id))
 }
 
-pub fn get_show_from_id(api_key: &ApiKey, possible_id: Option<SpinitronModelId>) -> GenericResult<Option<Show>> {
-	if let None = possible_id {
-		return Ok(None)
-	}
-
-	// do_singular_spinitron_request("shows", api_key, possible_id)
-
-	/* TODO: resolve the case of a show possibly not existing, since that
-	makes this code disjoint with the rest of the `get_*_from_id` functions */
-	let s: Show = do_request("shows", api_key, possible_id)?;
-	Ok(Some(s))
+pub fn get_show_from_id(api_key: &ApiKey, possible_id: Option<SpinitronModelId>) -> GenericResult<Show> {
+	do_request("shows", api_key, possible_id)
 }
 
 //////////
