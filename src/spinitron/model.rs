@@ -26,10 +26,12 @@ impl SpinitronModel for Playlist {
 	fn get_id(&self) -> SpinitronModelId {self.id}
 	fn get_endpoint(&self) -> &'static str {"playlists"}
 }
+
 impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
 	fn get_endpoint(&self) -> &'static str {"personas"}
 }
+
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
 	fn get_endpoint(&self) -> &'static str {"shows"}
