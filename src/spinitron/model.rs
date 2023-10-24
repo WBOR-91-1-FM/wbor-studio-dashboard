@@ -19,22 +19,14 @@ impl SpinitronModel for Persona {fn get_id(&self) -> SpinitronModelId {self.id}}
 impl SpinitronModel for Show {fn get_id(&self) -> SpinitronModelId {self.id}}
 
 impl Spin {
-	pub fn get_playlist_id(&self) -> SpinitronModelId {
-		self.playlist_id
-	}
-
-	pub fn get_image_link(&self) -> &MaybeString {
-		&self.image
-	}
+	pub fn get_playlist_id(&self) -> SpinitronModelId {self.playlist_id}
+	pub fn get_image_link(&self) -> &MaybeString {&self.image}
 }
 
 impl Playlist {
 	pub fn get_persona_id(&self) -> SpinitronModelId {self.persona_id}
 	pub fn get_show_id(&self) -> Option<SpinitronModelId> {self.show_id}
-
-	pub fn set_show_id(&mut self, id: SpinitronModelId) {
-		self.show_id = Some(id);
-	}
+	pub fn set_show_id(&mut self, id: SpinitronModelId) {self.show_id = Some(id);}
 }
 
 // TODO: for any `String` field, if it equals the empty string, set it to `None`
