@@ -136,7 +136,7 @@ pub fn get_texture_from_optional_url(
 
 	if let Some(url) = &optional_url {
 		if !url.is_empty() {
-			let creation_info = texture::TextureCreationInfo::Path(url);
+			let creation_info = texture::TextureCreationInfo::Url(url);
 			let texture_handle = texture_pool.make_texture(creation_info);
 
 			return Some(match texture_handle {
