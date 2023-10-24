@@ -1,14 +1,16 @@
 use serde_json;
 
-use crate::request;
-use crate::texture;
-use crate::window_tree::WindowContents;
-use crate::utility_types::generic_result::GenericResult;
+use crate::{
+	request,
+	texture,
+	window_tree::WindowContents,
+	utility_types::generic_result::GenericResult,
 
-use crate::spinitron::{
-	api_key::ApiKey,
-	wrapper_types::SpinitronModelId,
-	model::{SpinitronModel, Spin, Playlist, Persona, Show}
+	spinitron::{
+		api_key::ApiKey,
+		model::{SpinitronModel, Spin},
+		wrapper_types::MaybeSpinitronModelId
+	}
 };
 
 /* TODO:
@@ -17,12 +19,14 @@ use crate::spinitron::{
 */
 
 fn get_json_from_spinitron_request<T: SpinitronModel>(
-	api_endpoint: &str, api_key: &ApiKey,
-	possible_model_id: Option<SpinitronModelId>,
+	api_key: &ApiKey, possible_model_id: MaybeSpinitronModelId,
 	possible_item_count: Option<u16>
 ) -> GenericResult<serde_json::Value> {
 
 	////////// Checking endpoint validity
+
+	let default_model = T::default();
+	let api_endpoint = default_model.get_endpoint();
 
 	const VALID_ENDPOINTS: [&str; 4] = ["spins", "playlists", "personas", "shows"];
 
@@ -32,7 +36,7 @@ fn get_json_from_spinitron_request<T: SpinitronModel>(
 
 	////////// Limiting the requested fields by what exists within the given model type
 
-	let default_model_as_serde_value = serde_json::to_value(T::default())?;
+	let default_model_as_serde_value = serde_json::to_value(default_model)?;
 
 	let default_model_as_serde_obj = default_model_as_serde_value.as_object()
 		.ok_or("Expected JSON to be an object for the default Spinitron model")?;
@@ -83,11 +87,9 @@ fn get_vec_from_spinitron_json<T: SpinitronModel>(json: &serde_json::Value) -> G
 }
 
 // This is a singular request
-fn do_request<T: SpinitronModel>(api_endpoint: &str, api_key: &ApiKey,
-	possible_model_id: Option<SpinitronModelId>) -> GenericResult<T> {
+fn do_request<T: SpinitronModel>(api_key: &ApiKey, possible_model_id: MaybeSpinitronModelId) -> GenericResult<T> {
 
-	let response_json = get_json_from_spinitron_request::<T>(
-		api_endpoint, api_key, possible_model_id, Some(1))?;
+	let response_json = get_json_from_spinitron_request::<T>(api_key, possible_model_id, Some(1))?;
 
 	if possible_model_id.is_some() {
 		// If requesting a via model id, just a raw item will be returned
@@ -102,31 +104,20 @@ fn do_request<T: SpinitronModel>(api_endpoint: &str, api_key: &ApiKey,
 	}
 }
 
-fn do_plural_request<T: SpinitronModel>(api_endpoint: &str, api_key: &ApiKey,
-	possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
-
-	let response_json = get_json_from_spinitron_request::<T>(
-		api_endpoint, api_key, None, possible_item_count)?;
-
+fn do_plural_request<T: SpinitronModel>(api_key: &ApiKey, possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
+	let response_json = get_json_from_spinitron_request::<T>(api_key, None, possible_item_count)?;
 	get_vec_from_spinitron_json(&response_json)
 }
 
-////////// TODO: possibly remove some of these later on (they aren't terribly useful wrappers)
+//////////
 
 pub fn get_current_spin(api_key: &ApiKey) -> GenericResult<Spin> {
-	do_request("spins", api_key, None)
+	do_request(api_key, None)
 }
 
-pub fn get_playlist_from_id(api_key: &ApiKey, id: SpinitronModelId) -> GenericResult<Playlist> {
-	do_request("playlists", api_key, Some(id))
-}
-
-pub fn get_persona_from_id(api_key: &ApiKey, id: SpinitronModelId) -> GenericResult<Persona> {
-	do_request("personas", api_key, Some(id))
-}
-
-pub fn get_show_from_id(api_key: &ApiKey, possible_id: Option<SpinitronModelId>) -> GenericResult<Show> {
-	do_request("shows", api_key, possible_id)
+// TODO: can I make `id` non-optional?
+pub fn get_from_id<T: SpinitronModel>(api_key: &ApiKey, id: MaybeSpinitronModelId) -> GenericResult<T> {
+	do_request(api_key, id) // TODO: stop using this as a wrapper?
 }
 
 //////////

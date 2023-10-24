@@ -1,10 +1,12 @@
-use crate::spinitron::{
-	api_key::ApiKey,
-	model::{SpinitronModel, Spin, Playlist, Persona, Show},
-	api::{get_current_spin, get_playlist_from_id, get_persona_from_id, get_show_from_id}
-};
+use crate::{
+	utility_types::generic_result::GenericResult,
 
-use crate::utility_types::generic_result::GenericResult;
+	spinitron::{
+		api_key::ApiKey,
+		api::{get_current_spin, get_from_id},
+		model::{SpinitronModel, Spin, Playlist, Persona, Show}
+	}
+};
 
 pub struct SpinitronState {
 	spin: Spin,
@@ -22,7 +24,7 @@ impl SpinitronState {
 	pub fn get_show(&self) -> &Show {&self.show}
 
 	fn get_show_while_syncing_show_id(api_key: &ApiKey, playlist: &mut Playlist) -> GenericResult<Show> {
-		let show = get_show_from_id(&api_key, playlist.get_show_id())?;
+		let show: Show = get_from_id(&api_key, playlist.get_show_id())?;
 
 		/* It's possible that the playlist will not have a show id
 		(e.g. if someone plays songs, without making a playlist to log them).
@@ -42,8 +44,8 @@ impl SpinitronState {
 
 		// TODO: if there is no current spin, will this only return the last one?
 		let spin = get_current_spin(&api_key)?;
-		let mut playlist = get_playlist_from_id(&api_key, spin.get_playlist_id())?;
-		let persona = get_persona_from_id(&api_key, playlist.get_persona_id())?;
+		let mut playlist: Playlist = get_from_id(&api_key, Some(spin.get_playlist_id()))?;
+		let persona = get_from_id(&api_key, Some(playlist.get_persona_id()))?;
 		let show = Self::get_show_while_syncing_show_id(&api_key, &mut playlist)?;
 
 		/*
@@ -85,12 +87,12 @@ impl SpinitronState {
 			let new_spin_playlist_id = new_spin.get_playlist_id();
 
 			if self.playlist.get_id() != new_spin_playlist_id {
-				let mut new_playlist = get_playlist_from_id(api_key, new_spin_playlist_id)?;
+				let mut new_playlist: Playlist = get_from_id(api_key, Some(new_spin_playlist_id))?;
 				let new_playlist_persona_id = new_playlist.get_persona_id();
 
 				// Syncing the persona
 				if self.persona.get_id() != new_playlist_persona_id {
-					self.persona = get_persona_from_id(api_key, new_playlist_persona_id)?;
+					self.persona = get_from_id(api_key, Some(new_playlist_persona_id))?;
 				}
 
 				////////// Syncing the show
@@ -100,7 +102,7 @@ impl SpinitronState {
 					// If the show id didn't match up, then refresh it
 					if self.show.get_id() != new_playlist_show_id {
 						println!("Do conventional refresh for show id");
-						self.show = get_show_from_id(api_key, Some(new_playlist_show_id))?;
+						self.show = get_from_id(api_key, Some(new_playlist_show_id))?;
 					}
 				}
 				else {

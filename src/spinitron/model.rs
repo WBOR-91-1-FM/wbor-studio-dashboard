@@ -6,26 +6,45 @@ use crate::spinitron::wrapper_types::*;
 // TODO: eventually, remove `Debug` from both of these
 pub trait SpinitronModel: Serialize + for<'a> Deserialize<'a> + Clone + std::default::Default + std::fmt::Debug {
 	fn get_id(&self) -> SpinitronModelId;
+	fn get_endpoint(&self) -> &'static str;
+	// TODO: make some type of `get_texture_url` function (but put it in a different trait though, possibly)
 }
 
 derive_alias! {derive_spinitron_model => #[derive(Serialize, Deserialize, Clone, Default, Debug)]}
 
-// TODO: make these `impl`s less repetitive
+/* TODO:
+- Make these `impl`s less repetitive
+- Make a comparator instead, that compares the ids
+*/
 
-// TODO: make a comparator instead, that compares the ids
-impl SpinitronModel for Spin {fn get_id(&self) -> SpinitronModelId {self.id}}
-impl SpinitronModel for Playlist {fn get_id(&self) -> SpinitronModelId {self.id}}
-impl SpinitronModel for Persona {fn get_id(&self) -> SpinitronModelId {self.id}}
-impl SpinitronModel for Show {fn get_id(&self) -> SpinitronModelId {self.id}}
+impl SpinitronModel for Spin {
+	fn get_id(&self) -> SpinitronModelId {self.id}
+	fn get_endpoint(&self) -> &'static str {"spins"}
+}
+
+impl SpinitronModel for Playlist {
+	fn get_id(&self) -> SpinitronModelId {self.id}
+	fn get_endpoint(&self) -> &'static str {"playlists"}
+}
+impl SpinitronModel for Persona {
+	fn get_id(&self) -> SpinitronModelId {self.id}
+	fn get_endpoint(&self) -> &'static str {"personas"}
+}
+impl SpinitronModel for Show {
+	fn get_id(&self) -> SpinitronModelId {self.id}
+	fn get_endpoint(&self) -> &'static str {"shows"}
+}
 
 impl Spin {
 	pub fn get_playlist_id(&self) -> SpinitronModelId {self.playlist_id}
-	pub fn get_image_link(&self) -> &MaybeString {&self.image}
+
+	// TODO: eventually remove this (make a general image link getter instead)
+	// pub fn get_image_link(&self) -> &MaybeString {&self.image}
 }
 
 impl Playlist {
 	pub fn get_persona_id(&self) -> SpinitronModelId {self.persona_id}
-	pub fn get_show_id(&self) -> Option<SpinitronModelId> {self.show_id}
+	pub fn get_show_id(&self) -> MaybeSpinitronModelId {self.show_id}
 	pub fn set_show_id(&mut self, id: SpinitronModelId) {self.show_id = Some(id);}
 }
 

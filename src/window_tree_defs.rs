@@ -1,13 +1,11 @@
 use sdl2;
 
-use crate::texture::TexturePool;
-
-use crate::utility_types::{
-	dynamic_optional, generic_result::GenericResult, vec2f::Vec2f
+use crate::{
+	texture::TexturePool,
+	spinitron::state::SpinitronState,
+	window_tree::{WindowContents, Window},
+	utility_types::{dynamic_optional, generic_result::GenericResult, vec2f::Vec2f}
 };
-
-use crate::spinitron::state::SpinitronState;
-use crate::window_tree::{WindowContents, Window};
 
 pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::video::WindowContext>)
 	-> GenericResult<(Window, TexturePool)> {
@@ -17,17 +15,19 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 		let state: &mut SpinitronState = dynamic_optional::get_inner_value(&mut window.state);
 		let updated_state = state.update()?; // TODO: store this, so that child windows know when to rebuild their contents
 
-		if updated_state.0 {println!("New spin: {:?}", state.get_spin());}
-		if updated_state.1 {println!("New playlist: {:?}", state.get_playlist());}
-		if updated_state.2 {println!("New persona: {:?}", state.get_persona());}
-		if updated_state.3 {println!("New show: {:?}", state.get_show());}
+		if updated_state.0 {println!("New spin: {:?}\n", state.get_spin());}
+		if updated_state.1 {println!("New playlist: {:?}\n", state.get_playlist());}
+		if updated_state.2 {println!("New persona: {:?}\n", state.get_persona());}
+		if updated_state.3 {println!("New show: {:?}\n", state.get_show());}
 
 		if updated_state.0 || updated_state.1 || updated_state.2 || updated_state.3 {
-			println!("\n\n\n---\n\n");
+			println!("---\n");
 		}
 
 		let updated_spin = updated_state.0;
 		let window_contents_not_texture_yet = if let WindowContents::Texture(_) = window.contents {false} else {true};
+
+		// TODO: make a texture state struct, perhaps
 
 		if updated_spin || window_contents_not_texture_yet {
 			/* TODO:
@@ -36,7 +36,7 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 			*/
 
 			/*
-			let maybe_texture = spinitron::api::get_texture_from_optional_url(&state.get_spin().get_image_link(), texture_pool);
+			let maybe_texture = api::get_texture_from_optional_url(&state.get_spin().get_image_link(), texture_pool);
 
 			if let Some(texture) = maybe_texture {
 				window.contents = texture?;
@@ -46,6 +46,8 @@ pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::
 			}
 			*/
 		}
+
+		println!("texture pool = {:?}", texture_pool);
 
 		Ok(())
 	}

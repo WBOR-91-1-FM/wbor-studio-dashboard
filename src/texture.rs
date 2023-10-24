@@ -1,9 +1,10 @@
-use sdl2;
-use sdl2::image::LoadTexture;
+use sdl2::{self, image::LoadTexture};
 
-use crate::request;
-use crate::window_tree::CanvasSDL;
-use crate::utility_types::generic_result::GenericResult;
+use crate::{
+	request,
+	window_tree::CanvasSDL,
+	utility_types::generic_result::GenericResult
+};
 
 /* Note that the handle is wrapped in a struct, so that it can't be modified.
 
@@ -23,6 +24,8 @@ TODO: overall for this, perhaps I can just not allow copying of texture handles?
 That might guarantee this mutability thing at compile-time. Textures can still be lost
 if they are reassigned, but that can only happen once. */
 
+/* TODO: add options for possible color and alpha mods,
+and a blend mode (those would go in a struct around this enum) */
 pub enum TextureCreationInfo<'a> {
 	Path(&'a str),
 	Url(&'a str)
@@ -36,6 +39,21 @@ pub struct TextureHandle {
 pub struct TexturePool<'a> {
 	textures: Vec<Texture<'a>>,
 	texture_creator: &'a TextureCreator
+}
+
+// TOOD: remove
+impl std::fmt::Debug for TexturePool<'_> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+		write!(f, "[")?;
+
+		for (index, texture) in self.textures.iter().enumerate() {
+			write!(f, "({index}, {:?})", texture.query())?;
+		}
+
+		write!(f, "]")?;
+
+		Ok(())
+	}
 }
 
 type Texture<'a> = sdl2::render::Texture<'a>;
