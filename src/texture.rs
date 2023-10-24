@@ -22,6 +22,7 @@ to keep some kind of internal reference count. TODO: perhaps I can use `RefCell`
 TODO: overall for this, perhaps I can just not allow copying of texture handles?
 That might guarantee this mutability thing at compile-time. Textures can still be lost
 if they are reassigned, but that can only happen once. */
+
 pub struct TextureHandle {
 	handle: u16
 }
