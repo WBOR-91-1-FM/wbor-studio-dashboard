@@ -11,7 +11,10 @@ use crate::spinitron::{
 	model::{SpinitronModel, Spin, Playlist, Persona, Show}
 };
 
-// TODO: later on, maybe set up a mock API, for the sake of testing
+/* TODO:
+- Later on, maybe set up a mock API, for the sake of testing
+- Would it be possible to show the current PSA on the dashboard?
+*/
 
 fn get_json_from_spinitron_request<T: SpinitronModel>(
 	api_endpoint: &str, api_key: &ApiKey,
