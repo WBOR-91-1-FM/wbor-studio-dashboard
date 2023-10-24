@@ -23,6 +23,12 @@ TODO: overall for this, perhaps I can just not allow copying of texture handles?
 That might guarantee this mutability thing at compile-time. Textures can still be lost
 if they are reassigned, but that can only happen once. */
 
+pub enum TextureCreationInfo<'a> {
+	Path(&'a str),
+	Url(&'a str)
+	// TODO: add an option for text later
+}
+
 pub struct TextureHandle {
 	handle: u16
 }
@@ -47,27 +53,30 @@ impl<'a> TexturePool<'a> {
 		Ok(canvas.copy(&self.textures[handle.handle as usize], None, dest_rect)?)
 	}
 
-	fn allocate_texture_in_pool(&mut self, texture: Texture<'a>) -> TextureHandleResult {
+	fn make_raw_texture(&mut self, creation_info: TextureCreationInfo) -> GenericResult<Texture<'a>> {
+		let texture = match creation_info {
+			TextureCreationInfo::Path(path) => {
+				self.texture_creator.load_texture(path)
+			},
+			TextureCreationInfo::Url(url) => {
+				/* Normally, the textures are 170x170 (this is described in the URL). If the scale factor isn't a box,
+				just the smallest dimension will be picked. But, the size can be modified to anything desired.
+				TODO: on the right URL format, resize the image to the given window box size by tweaking the URL
+				(but do it from the Spinitron side of things). */
+
+				let request_result = request::get(url)?;
+				self.texture_creator.load_texture_bytes(request_result.as_bytes())
+			}
+		};
+
+		Ok(texture?)
+	}
+
+	pub fn make_texture(&mut self, creation_info: TextureCreationInfo) -> TextureHandleResult {
+		let texture = self.make_raw_texture(creation_info)?;
 		self.textures.push(texture);
 		Ok(TextureHandle {handle: (self.textures.len() - 1) as u16})
 	}
-
-	pub fn make_texture_from_path(&mut self, path: &str) -> TextureHandleResult {
-		self.allocate_texture_in_pool(self.texture_creator.load_texture(path)?)
-	}
-
-	pub fn make_texture_from_url(&mut self, url: &str) -> TextureHandleResult {
-		/* Normally, the textures are 170x170 (this is described in the URL). If the scale factor isn't a box,
-		just the smallest dimension will be picked. But, the size can be modified to anything desired.
-		TODO: on the right URL format, resize the image to the given window box size by tweaking the URL. */
-
-		let request_result = request::get(url)?;
-		let texture = self.texture_creator.load_texture_bytes(request_result.as_bytes())?;
-		self.allocate_texture_in_pool(texture)
-	}
-
-	/* TODO: make a texture allocation function that takes in an enum argument,
-	where any type of texture data can be passed in (that can allow for a swapping mechnism later too) */
 
 	// TODO: allow for texture deletion too
 }
