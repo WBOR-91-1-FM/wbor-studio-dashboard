@@ -65,5 +65,8 @@ impl<'a> TexturePool<'a> {
 		self.allocate_texture_in_pool(texture)
 	}
 
+	/* TODO: make a texture allocation function that takes in an enum argument,
+	where any type of texture data can be passed in (that can allow for a swapping mechnism later too) */
+
 	// TODO: allow for texture deletion too
 }
