@@ -1,6 +1,5 @@
 use sdl2;
 
-use crate::spinitron;
 use crate::texture::TexturePool;
 
 use crate::utility_types::{
