@@ -4,8 +4,9 @@ use crate::{
 	texture,
 
 	utility_types::{
+		generic_result::GenericResult,
+		dynamic_optional::DynamicOptional,
 		vec2f::{assert_in_unit_interval, Vec2f},
-		dynamic_optional, generic_result::GenericResult
 	}
 };
 
@@ -14,13 +15,27 @@ use crate::{
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
-// Intended to wrap, so no bigger type is needed
-type FrameIndex = u16;
+type FrameIndex = u16; // Intended to wrap, so no bigger type is needed
 
-type WindowUpdater = fn(&mut Window, &mut texture::TexturePool) -> GenericResult<()>;
+pub type PossibleWindowUpdater = Option<(
+	// The frame index here is an update rate (every `n` frames, the updater is called)
+	fn(&mut Window, &mut texture::TexturePool, &DynamicOptional) -> GenericResult<()>,
+	FrameIndex
+)>;
 
-// The frame index here is an update rate (every `n` frames, the updater is called)
-type PossibleWindowUpdater = Option<(WindowUpdater, FrameIndex)>;
+pub type PossibleSharedWindowStateUpdater = Option<(
+	fn(&mut DynamicOptional) -> GenericResult<()>,
+	FrameIndex
+)>;
+
+// This data remains constant over a recursive rendering call
+pub struct PerFrameConstantRenderingParams<'a> {
+	pub sdl_canvas: CanvasSDL,
+	pub texture_pool: texture::TexturePool<'a>,
+	pub wrapping_frame_index: std::num::Wrapping<FrameIndex>,
+	pub shared_window_state: DynamicOptional,
+	pub shared_window_state_updater: PossibleSharedWindowStateUpdater
+}
 
 //////////
 
@@ -45,9 +60,10 @@ impl WindowContents {
 pub struct Window {
 	possible_updater: PossibleWindowUpdater,
 
-	pub state: dynamic_optional::DynamicOptional,
+	pub state: DynamicOptional,
 	pub contents: WindowContents,
 
+	// TODO: Make a fn to move a window in some direction (in a FPS-independent way)
 	top_left: Vec2f,
 	bottom_right: Vec2f,
 
@@ -58,6 +74,7 @@ pub struct Window {
 	- And having multiple boxes per box (in an efficient manner) would not be possible for that
 
 	Other idea:
+
 	```
 	struct SplitBox {
 		is_on_vertical_axis: bool,
@@ -75,23 +92,20 @@ pub struct Window {
 	Maybe a K-D-B tree is the solution?
 	*/
 
-	pub children: Option<Vec<Self>>
+	children: Option<Vec<Self>>
 }
 
 impl Window {
 	pub fn new(
 		possible_updater: PossibleWindowUpdater,
-		state: dynamic_optional::DynamicOptional,
+		state: DynamicOptional,
 		contents: WindowContents,
-		top_left: Vec2f, bottom_right: Vec2f,
+		top_left: Vec2f, size: Vec2f,
 		children: Option<Vec<Self>>) -> Self {
 
-		if let Some(updater) = possible_updater {
-			let frame_skip_rate = updater.1;
+		if let Some((_, frame_skip_rate)) = possible_updater {
 			std::assert!(frame_skip_rate != 0);
 		}
-
-		std::assert!(top_left.is_left_of(bottom_right));
 
 		let none_if_children_vec_is_empty = match &children {
 			Some(inner_children) => {if inner_children.is_empty() {None} else {children}},
@@ -100,16 +114,13 @@ impl Window {
 
 		Self {
 			possible_updater, state, contents, top_left,
-			bottom_right, children: none_if_children_vec_is_empty
+			bottom_right: top_left + size, children: none_if_children_vec_is_empty
 		}
 	}
 
-	// TODO: put the unchanging params behind a common reference
 	pub fn render_recursively(&mut self,
-		texture_pool: &mut texture::TexturePool,
-		canvas: &mut CanvasSDL,
-		frame_index: FrameIndex,
-		sdl_parent_rect_in_pixels: sdl2::rect::Rect)
+		rendering_params: &mut PerFrameConstantRenderingParams,
+		sdl_parent_rect_size_in_pixels: sdl2::rect::Rect)
 
 		-> GenericResult<()> {
 
@@ -122,28 +133,32 @@ impl Window {
 		- If no updaters are called, don't redraw anything.
 		- For any specific node, if that updater doesn't have an effect, then don't draw for that node. */
 
+		let texture_pool = &mut rendering_params.texture_pool;
+
 		if let Some((updater, frame_skip_rate)) = self.possible_updater {
-			if frame_index % frame_skip_rate == 0 {
-				updater(self, texture_pool)?;
+			if rendering_params.wrapping_frame_index.0 % frame_skip_rate == 0 {
+				updater(self, texture_pool, &rendering_params.shared_window_state)?;
 			}
 		}
 
 		////////// Getting the new pixel-space bounding box for this window
 
 		let sdl_parent_size_in_pixels = (
-			sdl_parent_rect_in_pixels.width(), sdl_parent_rect_in_pixels.height()
+			sdl_parent_rect_size_in_pixels.width(), sdl_parent_rect_size_in_pixels.height()
 		);
 
 		let sdl_relative_window_size = self.bottom_right - self.top_left;
 
 		let sdl_window_size_in_pixels = sdl2::rect::Rect::new(
-			(self.top_left.x() * sdl_parent_size_in_pixels.0 as f32) as i32 + sdl_parent_rect_in_pixels.x(),
-			(self.top_left.y() * sdl_parent_size_in_pixels.1 as f32) as i32 + sdl_parent_rect_in_pixels.y(),
+			(self.top_left.x() * sdl_parent_size_in_pixels.0 as f32) as i32 + sdl_parent_rect_size_in_pixels.x(),
+			(self.top_left.y() * sdl_parent_size_in_pixels.1 as f32) as i32 + sdl_parent_rect_size_in_pixels.y(),
 			(sdl_relative_window_size.x() * sdl_parent_size_in_pixels.0 as f32) as u32,
 			(sdl_relative_window_size.y() * sdl_parent_size_in_pixels.1 as f32) as u32,
 		);
 
 		////////// Handling different window content types
+
+		let sdl_canvas = &mut rendering_params.sdl_canvas;
 
 		match &self.contents {
 			WindowContents::Nothing => {},
@@ -151,18 +166,18 @@ impl Window {
 			WindowContents::Color(color) => {
 				use sdl2::render::BlendMode;
 
-				let use_blending = color.a != 255 && canvas.blend_mode() != BlendMode::Blend;
+				let use_blending = color.a != 255 && sdl_canvas.blend_mode() != BlendMode::Blend;
 
 				// TODO: make this state transition more efficient
-				if use_blending {canvas.set_blend_mode(BlendMode::Blend);}
-					canvas.set_draw_color(color.clone());
-					canvas.fill_rect(sdl_window_size_in_pixels)?;
-				if use_blending {canvas.set_blend_mode(BlendMode::None);}
+				if use_blending {sdl_canvas.set_blend_mode(BlendMode::Blend);}
+					sdl_canvas.set_draw_color(color.clone());
+					sdl_canvas.fill_rect(sdl_window_size_in_pixels)?;
+				if use_blending {sdl_canvas.set_blend_mode(BlendMode::None);}
 
 			},
 
 			WindowContents::Texture(texture) => {
-				texture_pool.draw_texture_to_canvas(texture, canvas, sdl_window_size_in_pixels)?;
+				texture_pool.draw_texture_to_canvas(texture, sdl_canvas, sdl_window_size_in_pixels)?;
 			}
 		};
 
@@ -170,8 +185,7 @@ impl Window {
 
 		if let Some(children) = &mut self.children {
 			for child in children {
-				child.render_recursively(texture_pool, canvas,
-					frame_index, sdl_window_size_in_pixels)?;
+				child.render_recursively(rendering_params, sdl_window_size_in_pixels)?;
 			}
 		}
 

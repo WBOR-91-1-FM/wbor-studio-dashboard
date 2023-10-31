@@ -4,7 +4,7 @@ use crate::{
 	spinitron::{
 		api_key::ApiKey,
 		api::{get_current_spin, get_from_id},
-		model::{SpinitronModel, Spin, Playlist, Persona, Show}
+		model::{SpinitronModel, SpinitronModelName, Spin, Playlist, Persona, Show}
 	}
 };
 
@@ -13,15 +13,23 @@ pub struct SpinitronState {
 	playlist: Playlist,
 	persona: Persona,
 	show: Show, // TODO: will there ever not be a show?
-	api_key: ApiKey
+
+	api_key: ApiKey,
+
+	/* The boolean at index i is true if the model at index i was recently updated.
+	Model indices are (in order) spin, playlist, persona, and show. */
+	update_status: [bool; 4]
 }
 
 impl SpinitronState {
-	// TODO: use a macro for this
-	pub fn get_spin(&self) -> &Spin {&self.spin}
-	pub fn get_playlist(&self) -> &Playlist {&self.playlist}
-	pub fn get_persona(&self) -> &Persona {&self.persona}
-	pub fn get_show(&self) -> &Show {&self.show}
+	pub fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {
+		match name {
+			SpinitronModelName::Spin => &self.spin,
+			SpinitronModelName::Playlist => &self.playlist,
+			SpinitronModelName::Persona => &self.persona,
+			SpinitronModelName::Show => &self.show
+		}
+	}
 
 	fn get_show_while_syncing_show_id(api_key: &ApiKey, playlist: &mut Playlist) -> GenericResult<Show> {
 		let show: Show = get_from_id(&api_key, playlist.get_show_id())?;
@@ -55,22 +63,24 @@ impl SpinitronState {
 		let show = Show::default();
 		*/
 
-		Ok(Self {spin, playlist, persona, show, api_key})
+		Ok(Self {
+			spin, playlist, persona, show, api_key,
+			update_status: [false, false, false, false]
+		})
 	}
 
 	/* This returns a set of 4 booleans, indicating if the
 	spin, playlist, persona, or show updated (in order). */
-	pub fn update(&mut self) -> GenericResult<(bool, bool, bool, bool)> {
+	pub fn update(&mut self) -> GenericResult<()> {
 		let api_key = &self.api_key;
 		let new_spin = get_current_spin(api_key)?;
 
-		// TODO: do a loop to get the ids instead
-		let original_ids = (
-			self.spin.get_id(),
-			self.playlist.get_id(),
-			self.persona.get_id(),
-			self.show.get_id()
-		);
+		let get_model_ids = |state: &SpinitronState| [
+			state.spin.get_id(), state.playlist.get_id(),
+			state.persona.get_id(), state.show.get_id()
+		];
+
+		let original_ids = get_model_ids(self);
 
 		////////// TODO: make this less repetitive
 
@@ -114,19 +124,25 @@ impl SpinitronState {
 					self.show = Self::get_show_while_syncing_show_id(&api_key, &mut new_playlist)?;
 				}
 
-				//////////
-
 				self.playlist = new_playlist;
 			}
 
 			self.spin = new_spin;
 		}
 
-		Ok((
-			original_ids.0 != self.spin.get_id(),
-			original_ids.1 != self.playlist.get_id(),
-			original_ids.2 != self.persona.get_id(),
-			original_ids.3 != self.show.get_id()
-		))
+		//////////
+
+		let new_ids = get_model_ids(self);
+
+		for i in 0..self.update_status.len() {
+			self.update_status[i] = original_ids[i] != new_ids[i];
+		}
+
+		Ok(())
+
+	}
+
+	pub fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {
+		self.update_status[model_name as usize]
 	}
 }

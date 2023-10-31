@@ -24,15 +24,33 @@ impl Vec2f {
 		self.y
 	}
 
-	pub fn is_left_of(&self, other: Self) -> bool {
-		self.x < other.x && self.y < other.y
+	pub fn translate_x(&self, x: f32) -> Self {
+		Vec2f::new(self.x + x, self.y)
+	}
+
+	pub fn translate_y(&self, y: f32) -> Self {
+		Vec2f::new(self.x, self.y + y)
 	}
 }
+
+/* TODO:
+- Automatically derive these
+- Perhaps clamp the outputs instead
+*/
+
+impl std::ops::Add for Vec2f {
+	type Output = Self;
+
+	fn add(self, other: Self) -> Self::Output {
+		Self::new(self.x + other.x, self.y + other.y)
+	}
+}
+
 
 impl std::ops::Sub for Vec2f {
 	type Output = Self;
 
 	fn sub(self, other: Self) -> Self::Output {
-		Self {x: self.x - other.x, y: self.y - other.y}
+		Self::new(self.x - other.x, self.y - other.y)
 	}
 }

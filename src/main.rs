@@ -30,7 +30,12 @@ struct AppConfig<'a> {
 	name: &'a str,
 	width: u32,
 	height: u32,
-	bg_color: window_tree::ColorSDL
+	bg_color: window_tree::ColorSDL,
+
+	top_level_window_creator: fn(&mut texture::TexturePool)
+		-> utility_types::generic_result::GenericResult<(
+			window_tree::Window, utility_types::dynamic_optional::DynamicOptional,
+			window_tree::PossibleSharedWindowStateUpdater)>
 }
 
 fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
@@ -46,11 +51,16 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	stress on the Pi, if a high framerate isn't needed later on.
 	Maybe make the FPS equate with the highest poll rate, eventually? */
 
-	let config = AppConfig {
+	/* TODO: make this more configurable, somehow
+	(maybe make a SDL window init fn, where I pass in state?) */
+	let app_config = AppConfig {
 		name: "Recursive Box Demo",
 		width: 800, height: 600, // This has the CRT aspect ratio
-		bg_color: window_tree::ColorSDL::RGB(50, 50, 50)
+		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
+		top_level_window_creator: window_tree_defs::make_example_window
 	};
+
+	//////////
 
 	let sdl_context = sdl2::init()?;
 	let sdl_video_subsystem = sdl_context.video()?;
@@ -58,30 +68,43 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let mut sdl_event_pump = sdl_context.event_pump()?;
 
 	let sdl_window = sdl_video_subsystem
-		.window(config.name, config.width, config.height)
+		.window(app_config.name, app_config.width, app_config.height)
 		.position_centered()
 		.opengl()
 		.build()
 		.map_err(|e| e.to_string())?;
 
-	let mut sdl_canvas = sdl_window
+	let sdl_canvas = sdl_window
 		.into_canvas()
 		.accelerated()
 		.present_vsync()
 		.build()
 		.map_err(|e| e.to_string())?;
 
-	let texture_creator = sdl_canvas.texture_creator();
-
-	let (mut example_window, mut texture_pool) = window_tree_defs::make_example_window(&texture_creator)?;
-
 	//////////
-
-	let sdl_window_bounds = sdl2::rect::Rect::new(0, 0, config.width, config.height);
-	let mut wrapping_frame_index = std::num::Wrapping(0);
 
 	let sdl_timer = sdl_context.timer()?;
 	let sdl_performance_frequency = sdl_timer.performance_frequency();
+	let sdl_window_bounds = sdl2::rect::Rect::new(0, 0, app_config.width, app_config.height);
+
+	let texture_creator = sdl_canvas.texture_creator();
+
+	let mut rendering_params =
+		window_tree::PerFrameConstantRenderingParams {
+			sdl_canvas,
+			texture_pool: texture::TexturePool::new(&texture_creator),
+			wrapping_frame_index: std::num::Wrapping(0),
+			shared_window_state: utility_types::dynamic_optional::DynamicOptional::none(),
+			shared_window_state_updater: None
+		};
+
+	let (mut top_level_window, shared_window_state, shared_window_state_updater) =
+		(app_config.top_level_window_creator)(&mut rendering_params.texture_pool)?;
+
+	rendering_params.shared_window_state = shared_window_state;
+	rendering_params.shared_window_state_updater = shared_window_state_updater;
+
+	//////////
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
@@ -93,17 +116,23 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 			}
 		}
 
-		sdl_canvas.set_draw_color(config.bg_color); // TODO: remove eventually
-		sdl_canvas.clear();
-
+		// TODO: should I put this before event polling?
 		let sdl_performance_counter_before = sdl_timer.performance_counter();
 
-		example_window.render_recursively(
-			&mut texture_pool,
-			&mut sdl_canvas,
-			wrapping_frame_index.0,
-			sdl_window_bounds
-		)?;
+		// TODO: don't repeat this logic in `window_tree.rs`
+		if let Some((shared_window_state_updater, its_frame_skip_rate)) = shared_window_state_updater {
+			if rendering_params.wrapping_frame_index.0 % its_frame_skip_rate == 0 {
+				shared_window_state_updater(&mut rendering_params.shared_window_state)?;
+			}
+		}
+
+		//////////
+
+		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color); // TODO: remove eventually
+		rendering_params.sdl_canvas.clear();
+
+		top_level_window.render_recursively(&mut rendering_params, sdl_window_bounds)?;
+		rendering_params.wrapping_frame_index += 1;
 
 		//////////
 
@@ -114,8 +143,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 		//////////
 
-		sdl_canvas.present();
-		wrapping_frame_index += 1;
+		rendering_params.sdl_canvas.present();
 
 		let _fps_with_vsync = get_fps(&sdl_timer,
 			sdl_performance_counter_before,

@@ -2,13 +2,11 @@ use serde_json;
 
 use crate::{
 	request,
-	texture,
-	window_tree::WindowContents,
 	utility_types::generic_result::GenericResult,
 
 	spinitron::{
 		api_key::ApiKey,
-		model::{SpinitronModel, Spin},
+		model::{SpinitronModelWithProps, Spin},
 		wrapper_types::MaybeSpinitronModelId
 	}
 };
@@ -18,7 +16,7 @@ use crate::{
 - Would it be possible to show the current PSA on the dashboard?
 */
 
-fn get_json_from_spinitron_request<T: SpinitronModel>(
+fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	api_key: &ApiKey, possible_model_id: MaybeSpinitronModelId,
 	possible_item_count: Option<u16>
 ) -> GenericResult<serde_json::Value> {
@@ -64,7 +62,7 @@ fn get_json_from_spinitron_request<T: SpinitronModel>(
 
 	////////// Building a URL, submitting the request, and getting the response JSON
 
-	// TODO: alter on, cache this URL, for the specific request (otherwise, a lot of time is spent rebuilding it)
+	// TODO: later on, cache this URL for the specific request (otherwise, a lot of time is spent rebuilding it)
 	let url = request::build_url("https://spinitron.com/api", path_params, query_params)?;
 
 	let response = request::get(&url)?;
@@ -73,7 +71,7 @@ fn get_json_from_spinitron_request<T: SpinitronModel>(
 	Ok(serde_json::from_str(body)?)
 }
 
-fn get_vec_from_spinitron_json<T: SpinitronModel>(json: &serde_json::Value) -> GenericResult<Vec<T>> {
+fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Value) -> GenericResult<Vec<T>> {
 	let parsed_json_as_object = json.as_object().ok_or("Expected JSON to be an object")?;
 
 	let requested_data_json = parsed_json_as_object.get("items")
@@ -87,8 +85,7 @@ fn get_vec_from_spinitron_json<T: SpinitronModel>(json: &serde_json::Value) -> G
 }
 
 // This is a singular request
-fn do_request<T: SpinitronModel>(api_key: &ApiKey, possible_model_id: MaybeSpinitronModelId) -> GenericResult<T> {
-
+fn do_request<T: SpinitronModelWithProps>(api_key: &ApiKey, possible_model_id: MaybeSpinitronModelId) -> GenericResult<T> {
 	let response_json = get_json_from_spinitron_request::<T>(api_key, possible_model_id, Some(1))?;
 
 	if possible_model_id.is_some() {
@@ -104,7 +101,7 @@ fn do_request<T: SpinitronModel>(api_key: &ApiKey, possible_model_id: MaybeSpini
 	}
 }
 
-fn do_plural_request<T: SpinitronModel>(api_key: &ApiKey, possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
+fn do_plural_request<T: SpinitronModelWithProps>(api_key: &ApiKey, possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
 	let response_json = get_json_from_spinitron_request::<T>(api_key, None, possible_item_count)?;
 	get_vec_from_spinitron_json(&response_json)
 }
@@ -116,29 +113,6 @@ pub fn get_current_spin(api_key: &ApiKey) -> GenericResult<Spin> {
 }
 
 // TODO: can I make `id` non-optional?
-pub fn get_from_id<T: SpinitronModel>(api_key: &ApiKey, id: MaybeSpinitronModelId) -> GenericResult<T> {
+pub fn get_from_id<T: SpinitronModelWithProps>(api_key: &ApiKey, id: MaybeSpinitronModelId) -> GenericResult<T> {
 	do_request(api_key, id) // TODO: stop using this as a wrapper?
-}
-
-//////////
-
-pub fn get_texture_from_optional_url(
-	optional_url: &Option<String>,
-	texture_pool: &mut texture::TexturePool)
-
-	-> Option<GenericResult<WindowContents>> {
-
-	if let Some(url) = &optional_url {
-		if !url.is_empty() {
-			let creation_info = texture::TextureCreationInfo::Url(url);
-			let texture_handle = texture_pool.make_texture(creation_info);
-
-			return Some(match texture_handle {
-				Ok(inner_texture_handle) => Ok(WindowContents::Texture(inner_texture_handle)),
-				Err(error) => Err(error)
-			});
-		}
-	}
-
-	None
 }

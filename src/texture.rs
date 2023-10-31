@@ -82,7 +82,7 @@ impl<'a> TexturePool<'a> {
 				TODO: on the right URL format, resize the image to the given window box size by tweaking the URL
 				(but do it from the Spinitron side of things). */
 
-				let request_result = request::get(url)?;
+				let request_result = request::get(&url)?;
 				self.texture_creator.load_texture_bytes(request_result.as_bytes())
 			}
 		};
@@ -94,6 +94,11 @@ impl<'a> TexturePool<'a> {
 		let texture = self.make_raw_texture(creation_info)?;
 		self.textures.push(texture);
 		Ok(TextureHandle {handle: (self.textures.len() - 1) as u16})
+	}
+
+	pub fn remake_texture(&mut self, handle: &TextureHandle, creation_info: TextureCreationInfo) -> GenericResult<()> {
+		self.textures[handle.handle as usize] = self.make_raw_texture(creation_info)?;
+		Ok(())
 	}
 
 	// TODO: allow for texture deletion too

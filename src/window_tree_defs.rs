@@ -1,84 +1,150 @@
-use sdl2;
-
 use crate::{
-	texture::TexturePool,
-	spinitron::state::SpinitronState,
-	window_tree::{WindowContents, Window},
-	utility_types::{dynamic_optional, generic_result::GenericResult, vec2f::Vec2f}
+	utility_types::{
+		dynamic_optional::DynamicOptional,
+		generic_result::GenericResult, vec2f::Vec2f
+	},
+
+	texture::{TexturePool, TextureCreationInfo},
+	spinitron::{model::{SpinitronModel, SpinitronModelName}, state::SpinitronState},
+	window_tree::{WindowContents, Window, PossibleWindowUpdater, PossibleSharedWindowStateUpdater}
 };
 
-pub fn make_example_window(texture_creator: &sdl2::render::TextureCreator<sdl2::video::WindowContext>)
-	-> GenericResult<(Window, TexturePool)> {
+struct SharedWindowState {
+	spinitron_state: SpinitronState
+}
 
-	// TODO: eventually, make an updater for a global shared state, for all of the windows (`SpinitronState` will be there).
-	fn top_level_window_updater(window: &mut Window, texture_pool: &mut TexturePool) -> GenericResult<()> {
-		let state: &mut SpinitronState = dynamic_optional::get_inner_value(&mut window.state);
-		let updated_state = state.update()?; // TODO: store this, so that child windows know when to rebuild their contents
+/////////
 
-		if updated_state.0 {println!("New spin: {:?}\n", state.get_spin());}
-		if updated_state.1 {println!("New playlist: {:?}\n", state.get_playlist());}
-		if updated_state.2 {println!("New persona: {:?}\n", state.get_persona());}
-		if updated_state.3 {println!("New show: {:?}\n", state.get_show());}
+// This returns a top-level window, shared window state, and a shared window state updater
+pub fn make_example_window(texture_pool: &mut TexturePool)
+	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
 
-		if updated_state.0 || updated_state.1 || updated_state.2 || updated_state.3 {
-			println!("---\n");
-		}
+	fn update_texture_contents(wc: &mut WindowContents, model: &dyn SpinitronModel,
+		texture_pool: &mut TexturePool, should_remake: bool) -> GenericResult<()> {
 
-		let updated_spin = updated_state.0;
-		let window_contents_not_texture_yet = if let WindowContents::Texture(_) = window.contents {false} else {true};
+		if let WindowContents::Texture(texture) = wc {
+			if !should_remake {
+				println!("Skipping remake");
+				return Ok(());
+			}
 
-		// TODO: make a texture state struct, perhaps
-
-		if updated_spin || window_contents_not_texture_yet {
-			/* TODO:
-			- Use the old texture slot when doing this (otherwise I will run out of memory),
-			- If the URL is the same as the previous one, don't reload
-			*/
-
-			/*
-			let maybe_texture = api::get_texture_from_optional_url(&state.get_spin().get_image_link(), texture_pool);
-
-			if let Some(texture) = maybe_texture {
-				window.contents = texture?;
+			else if let Some(texture_creation_info) = model.get_texture_creation_info() {
+				texture_pool.remake_texture(texture, texture_creation_info)?;
+				println!("Remaking a texture in its slot")
 			}
 			else {
-				// TODO: otherwise, set a fallback texture
+				// TODO: go to a fallback texture here (but use a previously created one though)
+				println!("Make a fallback texture");
+				*wc = WindowContents::Texture(texture_pool.make_texture(TextureCreationInfo::Path("assets/bird.bmp"))?);
 			}
-			*/
 		}
-
-		println!("texture pool = {:?}", texture_pool);
+		else {
+			if let Some(texture_creation_info) = model.get_texture_creation_info() {
+				println!("Making a first-time texture");
+				*wc = WindowContents::Texture(texture_pool.make_texture(texture_creation_info)?);
+			}
+			else {
+				println!("Make a first-time fallback texture");
+				*wc = WindowContents::Texture(texture_pool.make_texture(TextureCreationInfo::Path("assets/bird.bmp"))?);
+			}
+		}
 
 		Ok(())
 	}
 
-	let beige_ish_tan = WindowContents::make_color(210, 180, 140);
+	fn model_updater(window: &mut Window, texture_pool: &mut TexturePool,
+		shared_state: &DynamicOptional) -> GenericResult<()> {
+
+		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value_immut();
+		let spinitron_state = &inner_shared_state.spinitron_state;
+
+		let model_name: SpinitronModelName = *window.state.get_inner_value_immut();
+		let model = spinitron_state.get_model_by_name(model_name);
+		let model_was_updated = inner_shared_state.spinitron_state.model_was_updated(model_name);
+
+		update_texture_contents(&mut window.contents, model, texture_pool, model_was_updated)
+	}
+
+	//////////
 
 	let fps = 60; // TODO: don't hardcode this
-	let update_rate_in_secs = 5;
-	let top_level_window_update_rate = fps * update_rate_in_secs;
+	let shared_update_rate_in_secs = 1;
+	let shared_update_rate = fps * shared_update_rate_in_secs;
+	let model_window_updater: PossibleWindowUpdater = Some((model_updater, shared_update_rate));
 
-	let spinitron_state = SpinitronState::new()?;
-	let boxed_spinitron_state: dynamic_optional::DynamicOptional = Some(Box::new(spinitron_state));
-	let texture_pool = TexturePool::new(texture_creator);
+	//////////
 
-	let album_cover_window = Window::new(
-		None,
-		None,
+	let size = Vec2f::new(0.3, 0.4);
+
+	// `tl` = top left
+	let spin_tl = Vec2f::new(0.1, 0.1);
+	let playlist_tl = spin_tl.translate_x(0.5);
+	let persona_tl = spin_tl.translate_y(size.y());
+	let show_tl = Vec2f::new(playlist_tl.x(), persona_tl.y());
+
+	//////////
+
+	let spin_window = Window::new(
+		model_window_updater,
+		DynamicOptional::new(SpinitronModelName::Spin),
 		WindowContents::Nothing,
-		Vec2f::new(0.4, 0.1),
-		Vec2f::new(0.7, 0.9),
+		spin_tl,
+		size,
+		None
+	);
+
+	let playlist_window = Window::new(
+		model_window_updater,
+		DynamicOptional::new(SpinitronModelName::Playlist),
+		WindowContents::Nothing,
+		playlist_tl,
+		size,
+		None
+	);
+
+	let persona_window = Window::new(
+		model_window_updater,
+		DynamicOptional::new(SpinitronModelName::Persona),
+		WindowContents::Nothing,
+		persona_tl,
+		size,
+		None
+	);
+
+	let show_window = Window::new(
+		model_window_updater,
+		DynamicOptional::new(SpinitronModelName::Show),
+		WindowContents::Nothing,
+		show_tl,
+		size,
 		None
 	);
 
 	let top_level_window = Window::new(
-		Some((top_level_window_updater, top_level_window_update_rate)),
-		boxed_spinitron_state,
-		beige_ish_tan,
+		None,
+		DynamicOptional::none(),
+		WindowContents::make_color(210, 180, 140),
 		Vec2f::new(0.01, 0.01),
-		Vec2f::new(0.99, 0.99),
-		Some(vec![album_cover_window])
+		Vec2f::new(0.98, 0.98),
+		Some(vec![spin_window, playlist_window, persona_window, show_window])
 	);
 
-	Ok((top_level_window, texture_pool))
+	//////////
+
+	let boxed_shared_state = DynamicOptional::new(
+		SharedWindowState {spinitron_state: SpinitronState::new()?}
+	);
+
+	fn shared_window_state_updater(state: &mut DynamicOptional) -> GenericResult<()> {
+		let state: &mut SharedWindowState = state.get_inner_value_mut();
+		state.spinitron_state.update()
+	}
+
+	//////////
+
+	Ok((
+		top_level_window,
+		boxed_shared_state,
+		Some((shared_window_state_updater, shared_update_rate))
+	))
 }
