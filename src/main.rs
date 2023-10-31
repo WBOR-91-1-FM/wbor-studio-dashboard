@@ -104,6 +104,10 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	rendering_params.shared_window_state = shared_window_state;
 	rendering_params.shared_window_state_updater = shared_window_state_updater;
 
+	if let Some((_, frame_skip_rate)) = shared_window_state_updater {
+		std::assert!(frame_skip_rate != 0);
+	}
+
 	//////////
 
 	'running: loop {
