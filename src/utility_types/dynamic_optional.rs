@@ -38,6 +38,5 @@ impl DynamicOptional {
 			}
 		}
 		DynamicOptional::fail_for_inner_access::<T>()
-}
-
+	}
 }
