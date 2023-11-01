@@ -85,7 +85,7 @@ impl<'a> TexturePool<'a> {
 				TODO: on the right URL format, resize the image to the given window box size by tweaking the URL
 				(but do it from the Spinitron side of things). */
 
-				let response = request::get(&url)?;
+				let response = request::get(&url)?; // TODO: make this async
 				self.texture_creator.load_texture_bytes(response.as_bytes())
 			}
 		};
