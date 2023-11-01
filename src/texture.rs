@@ -99,6 +99,7 @@ impl<'a> TexturePool<'a> {
 		Ok(TextureHandle {handle: (self.textures.len() - 1) as u16})
 	}
 
+	// TODO: if possible, update the texture in-place instead (if they occupy the amount of space)
 	pub fn remake_texture(&mut self, handle: &TextureHandle, creation_info: TextureCreationInfo) -> GenericResult<()> {
 		self.textures[handle.handle as usize] = self.make_raw_texture(creation_info)?;
 		Ok(())
