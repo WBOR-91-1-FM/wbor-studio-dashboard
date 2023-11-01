@@ -6,7 +6,7 @@ use crate::{
 
 	texture::{TexturePool, TextureCreationInfo},
 	spinitron::{model::{SpinitronModel, SpinitronModelName}, state::SpinitronState},
-	window_tree::{WindowContents, Window, PossibleWindowUpdater, PossibleSharedWindowStateUpdater}
+	window_tree::{Window, WindowContents, PossibleWindowUpdater, PossibleSharedWindowStateUpdater, FrameIndex}
 };
 
 struct SharedWindowState {
@@ -52,6 +52,8 @@ pub fn make_example_window(texture_pool: &mut TexturePool)
 		Ok(())
 	}
 
+	/* TODO: add the ability to have multiple updaters per window
+	(with different update rates). Or, do async requests. */
 	fn model_updater(window: &mut Window, texture_pool: &mut TexturePool,
 		shared_state: &DynamicOptional) -> GenericResult<()> {
 
@@ -62,15 +64,31 @@ pub fn make_example_window(texture_pool: &mut TexturePool)
 		let model = spinitron_state.get_model_by_name(model_name);
 		let model_was_updated = inner_shared_state.spinitron_state.model_was_updated(model_name);
 
+		/* TODO: in cases where the `get` request fails here (or in other places), use a fallback texture.
+		This happens with Ace Body Movers, with this URL: `https://farm7.staticflickr.com/6179/6172022528_614b745ae8_m.jpg` */
 		update_texture_contents(&mut window.contents, model, texture_pool, model_was_updated)
 	}
 
 	//////////
 
 	let fps = 60; // TODO: don't hardcode this
-	let shared_update_rate_in_secs = 1;
-	let shared_update_rate = fps * shared_update_rate_in_secs;
-	let model_window_updater: PossibleWindowUpdater = Some((model_updater, shared_update_rate));
+
+	let shared_update_rate_in_secs = 10.0;
+
+	let individual_update_rate = 300;
+	let shared_update_rate = (fps as f32 * shared_update_rate_in_secs) as FrameIndex;
+
+	/* TODO: make the update rate stuff wrapped inside a struct (so avoid this repeated logic here,
+	and the frmae index update logic too that's repeated in `main.rs` and `window_tree.rs` */
+	if shared_update_rate == FrameIndex::MAX {
+		panic!("The shared update rate in seconds is too big!");
+	}
+
+	if individual_update_rate == FrameIndex::MAX {
+		panic!("The individual update rate in seconds is too big!");
+	}
+
+	let model_window_updater: PossibleWindowUpdater = Some((model_updater, individual_update_rate));
 
 	//////////
 
