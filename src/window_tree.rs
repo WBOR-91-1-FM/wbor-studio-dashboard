@@ -4,6 +4,7 @@ use crate::{
 	texture,
 
 	utility_types::{
+		update_rate::{UpdateRate, FrameCounter},
 		generic_result::GenericResult,
 		dynamic_optional::DynamicOptional,
 		vec2f::{assert_in_unit_interval, Vec2f},
@@ -15,24 +16,21 @@ use crate::{
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
-pub type FrameIndex = u16; // Intended to wrap, so no bigger type is needed
-
 pub type PossibleWindowUpdater = Option<(
-	// The frame index here is an update rate (every `n` frames, the updater is called)
 	fn(&mut Window, &mut texture::TexturePool, &DynamicOptional) -> GenericResult<()>,
-	FrameIndex
+	UpdateRate
 )>;
 
 pub type PossibleSharedWindowStateUpdater = Option<(
 	fn(&mut DynamicOptional) -> GenericResult<()>,
-	FrameIndex
+	UpdateRate
 )>;
 
 // This data remains constant over a recursive rendering call
 pub struct PerFrameConstantRenderingParams<'a> {
 	pub sdl_canvas: CanvasSDL,
 	pub texture_pool: texture::TexturePool<'a>,
-	pub wrapping_frame_index: std::num::Wrapping<FrameIndex>,
+	pub frame_counter: FrameCounter,
 	pub shared_window_state: DynamicOptional,
 	pub shared_window_state_updater: PossibleSharedWindowStateUpdater
 }
@@ -105,10 +103,6 @@ impl Window {
 		top_left: Vec2f, size: Vec2f,
 		children: Option<Vec<Self>>) -> Self {
 
-		if let Some((_, frame_skip_rate)) = possible_updater {
-			std::assert!(frame_skip_rate != 0);
-		}
-
 		let none_if_children_vec_is_empty = match &children {
 			Some(inner_children) => {if inner_children.is_empty() {None} else {children}},
 			None => None
@@ -137,8 +131,8 @@ impl Window {
 
 		let texture_pool = &mut rendering_params.texture_pool;
 
-		if let Some((updater, frame_skip_rate)) = self.possible_updater {
-			if rendering_params.wrapping_frame_index.0 % frame_skip_rate == 0 {
+		if let Some((updater, update_rate)) = self.possible_updater {
+			if update_rate.is_time_to_update(rendering_params.frame_counter) {
 				updater(self, texture_pool, &rendering_params.shared_window_state)?;
 			}
 		}

@@ -1,12 +1,13 @@
 use crate::{
 	utility_types::{
+		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
 		generic_result::GenericResult, vec2f::Vec2f
 	},
 
 	texture::{TexturePool, TextureCreationInfo},
 	spinitron::{model::{SpinitronModel, SpinitronModelName}, state::SpinitronState},
-	window_tree::{Window, WindowContents, PossibleWindowUpdater, PossibleSharedWindowStateUpdater, FrameIndex}
+	window_tree::{Window, WindowContents, PossibleWindowUpdater, PossibleSharedWindowStateUpdater}
 };
 
 struct SharedWindowState {
@@ -71,22 +72,10 @@ pub fn make_example_window(texture_pool: &mut TexturePool)
 
 	//////////
 
-	let fps = 60; // TODO: don't hardcode this
-
-	let shared_update_rate_in_secs = 10.0;
-
-	let individual_update_rate = 300;
-	let shared_update_rate = (fps as f32 * shared_update_rate_in_secs) as FrameIndex;
-
-	/* TODO: make the update rate stuff wrapped inside a struct (so avoid this repeated logic here,
-	and the frmae index update logic too that's repeated in `main.rs` and `window_tree.rs` */
-	if shared_update_rate == FrameIndex::MAX {
-		panic!("The shared update rate in seconds is too big!");
-	}
-
-	if individual_update_rate == FrameIndex::MAX {
-		panic!("The individual update rate in seconds is too big!");
-	}
+	let (individual_update_rate, shared_update_rate) = (
+		UpdateRate::new(2.0),
+		UpdateRate::new(2.0)
+	);
 
 	let model_window_updater: PossibleWindowUpdater = Some((model_updater, individual_update_rate));
 

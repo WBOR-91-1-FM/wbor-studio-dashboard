@@ -93,7 +93,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		window_tree::PerFrameConstantRenderingParams {
 			sdl_canvas,
 			texture_pool: texture::TexturePool::new(&texture_creator),
-			wrapping_frame_index: std::num::Wrapping(0),
+			frame_counter: utility_types::update_rate::FrameCounter::new(),
 			shared_window_state: utility_types::dynamic_optional::DynamicOptional::none(),
 			shared_window_state_updater: None
 		};
@@ -103,10 +103,6 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	rendering_params.shared_window_state = shared_window_state;
 	rendering_params.shared_window_state_updater = shared_window_state_updater;
-
-	if let Some((_, frame_skip_rate)) = shared_window_state_updater {
-		std::assert!(frame_skip_rate != 0);
-	}
 
 	//////////
 
@@ -123,9 +119,8 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		// TODO: should I put this before event polling?
 		let sdl_performance_counter_before = sdl_timer.performance_counter();
 
-		// TODO: don't repeat this logic in `window_tree.rs`
-		if let Some((shared_window_state_updater, its_frame_skip_rate)) = shared_window_state_updater {
-			if rendering_params.wrapping_frame_index.0 % its_frame_skip_rate == 0 {
+		if let Some((shared_window_state_updater, shared_update_rate)) = shared_window_state_updater {
+			if shared_update_rate.is_time_to_update(rendering_params.frame_counter) {
 				shared_window_state_updater(&mut rendering_params.shared_window_state)?;
 			}
 		}
@@ -136,7 +131,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		rendering_params.sdl_canvas.clear();
 
 		top_level_window.render_recursively(&mut rendering_params, sdl_window_bounds)?;
-		rendering_params.wrapping_frame_index += 1;
+		rendering_params.frame_counter.tick();
 
 		//////////
 
