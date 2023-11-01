@@ -36,6 +36,9 @@ pub struct TextureHandle {
 	handle: u16
 }
 
+/* TODO: later on, if I am using multiple texture pools,
+add an id to each texture handle that is meant to match the pool
+(to verify that the pool and the handle are only used together) */
 pub struct TexturePool<'a> {
 	textures: Vec<Texture<'a>>,
 	texture_creator: &'a TextureCreator
