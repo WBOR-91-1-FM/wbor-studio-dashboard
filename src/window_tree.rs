@@ -15,7 +15,7 @@ use crate::{
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
-type FrameIndex = u16; // Intended to wrap, so no bigger type is needed
+pub type FrameIndex = u16; // Intended to wrap, so no bigger type is needed
 
 pub type PossibleWindowUpdater = Option<(
 	// The frame index here is an update rate (every `n` frames, the updater is called)
@@ -56,6 +56,8 @@ impl WindowContents {
 		Self::Color(ColorSDL::RGBA(r, g, b, (a * 255.0) as u8))
 	}
 }
+
+//////////
 
 pub struct Window {
 	possible_updater: PossibleWindowUpdater,
