@@ -24,6 +24,9 @@ TODO:
 - DJ tips popping up now and then (like a video game loading screen)
 - Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqit)
 - A 'text the DJ' feature
+
+- Text rendering
+- Async requests
 */
 
 struct AppConfig<'a> {
