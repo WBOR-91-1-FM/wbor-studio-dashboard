@@ -10,6 +10,11 @@ pub fn assert_in_unit_interval(f: f32) {
 }
 
 impl Vec2f {
+	pub fn new_from_one(v: f32) -> Self {
+		assert_in_unit_interval(v);
+		Self {x: v, y: v}
+	}
+
 	pub fn new(x: f32, y: f32) -> Self {
 		assert_in_unit_interval(x);
 		assert_in_unit_interval(y);
