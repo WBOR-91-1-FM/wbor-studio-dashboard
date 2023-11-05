@@ -27,7 +27,8 @@ TODO:
 
 - Text rendering
 - Async requests (for that, make an async requester object that you can initiate a request with,
-	and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible)
+	and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible).
+	See here: https://doc.rust-lang.org/std/future/trait.Future.html
 */
 
 struct AppConfig<'a> {
