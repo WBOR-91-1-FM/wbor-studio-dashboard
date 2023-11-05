@@ -26,7 +26,8 @@ TODO:
 - A 'text the DJ' feature
 
 - Text rendering
-- Async requests
+- Async requests (for that, make an async requester object that you can initiate a request with,
+	and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible)
 */
 
 struct AppConfig<'a> {
