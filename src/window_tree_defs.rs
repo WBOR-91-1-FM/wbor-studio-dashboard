@@ -63,7 +63,7 @@ pub fn make_example_window(texture_pool: &mut TexturePool)
 
 		let model_name: SpinitronModelName = *window.state.get_inner_value_immut();
 		let model = spinitron_state.get_model_by_name(model_name);
-		let model_was_updated = inner_shared_state.spinitron_state.model_was_updated(model_name);
+		let model_was_updated = spinitron_state.model_was_updated(model_name);
 
 		/* TODO: in cases where the `get` request fails here (or in other places), use a fallback texture.
 		This happens with 'Ace Body Movers', with this URL: `https://farm7.staticflickr.com/6179/6172022528_614b745ae8_m.jpg`
