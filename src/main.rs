@@ -24,17 +24,22 @@ TODO:
 - DJ tips popping up now and then (like a video game loading screen)
 - Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqit)
 - A 'text the DJ' feature
+- Maybe draw rounded rectangles with `sdl_gfx` later on
+- Set more rendering hints later on, if needed (beyond just the scale quality)
 
 - Text rendering
 - Async requests (for that, make an async requester object that you can initiate a request with,
 	and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible).
 	See here: https://doc.rust-lang.org/std/future/trait.Future.html
+
+- Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
 */
 
 struct AppConfig<'a> {
 	name: &'a str,
 	width: u32,
 	height: u32,
+	use_linear_filtering: bool,
 	bg_color: window_tree::ColorSDL,
 
 	top_level_window_creator: fn(&mut texture::TexturePool)
@@ -61,6 +66,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let app_config = AppConfig {
 		name: "Recursive Box Demo",
 		width: 800, height: 600, // This has the CRT aspect ratio
+		use_linear_filtering: true,
 		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
 		top_level_window_creator: window_tree_defs::make_example_window
 	};
@@ -85,6 +91,18 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		.present_vsync()
 		.build()
 		.map_err(|e| e.to_string())?;
+
+	//////////
+
+	// TODO: why is the top-right texture not linearly filtered?
+	let using_texture_filtering_option =
+		sdl2::hint::set_with_priority(
+			"SDL_RENDER_SCALE_QUALITY",
+			if app_config.use_linear_filtering {"1"} else {"0"},
+			&sdl2::hint::Hint::Override
+		);
+
+	std::assert!(using_texture_filtering_option);
 
 	//////////
 
