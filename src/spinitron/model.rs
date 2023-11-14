@@ -38,6 +38,7 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 /* TODO:
 - Make these `impl`s less repetitive
 - Make a comparator instead that compares the ids
+- Perhaps get the endpoint based on a model enum instead
 */
 
 impl SpinitronModel for Spin {
