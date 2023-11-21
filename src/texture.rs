@@ -17,8 +17,9 @@ use crate::{
 /* TODO: put a lot of the text-related code in its own file
 (this file can then import that one).
 The needed structs + data can go there, and the text
-+ font scaling metadata can then go in its own struct.
-*/
++ font scaling metadata can then go in its own struct. */
+
+pub type TextTextureScrollFn = fn(f64) -> (f64, bool);
 
 /* TODO: make a constructor for this, instead of making everything `pub`.
 For that, verify that the text to display is not null. */
@@ -32,7 +33,7 @@ pub struct TextTextureCreationInfo<'a> {
 
 	/* Maps the unix time in secs to a scroll fraction
 	(0 to 1), and if the scrolling should wrap. */
-	pub scroll_fn: fn(f64) -> (f64, bool),
+	pub scroll_fn: TextTextureScrollFn,
 
 	pub max_pixel_width: u32,
 	pub pixel_height: u32
@@ -58,21 +59,22 @@ TODO: perhaps when doing the remaking thing, pass the handle in as `mut`, even w
 
 type InnerTextureHandle = u16;
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Hash, Eq, PartialEq, Clone)] // TODO: remove `Clone`
 pub struct TextureHandle {
 	handle: InnerTextureHandle
 }
 
 pub struct SideScrollingTextMetadata {
 	size: (u32, u32),
-	scroll_fn: fn(f64) -> (f64, bool)
+	scroll_fn: TextTextureScrollFn
 }
 
 /* TODO:
 
 - Later on, if I am using multiple texture pools,
 add an id to each texture handle that is meant to match the pool
-(to verify that the pool and the handle are only used together)
+(to verify that the pool and the handle are only used together).
+Otherwise, try to find some way to verify that it's a singleton.
 
 - Consider using the `unsafe_textures` feature at some point, so that textures can be destroyed
 (otherwise, they will eat up all my memory)
@@ -111,10 +113,10 @@ impl<'a> TexturePool<'a> {
 
 	/* This returns the left/righthand screen dest, and a possible other texture
 	src and screen dest that may wrap around to the left side of the screen */
-	fn split_overflowing_scrolled_rect(texture_src: Rect,
-		screen_dest: Rect, texture_size: (u32, u32)) -> (Rect, Option<(Rect, Rect)>) {
+	fn split_overflowing_scrolled_rect(texture_src: Rect, screen_dest: Rect,
+		texture_size: (u32, u32)) -> (Rect, Option<(Rect, Rect)>) {
 
-		/* Data notes:
+		/* Input data notes:
 		- `texture_src.width == screen_dest.width`
 		- `texture_src.height` is almost equal to `screen_dest.height` (let's consider them to be equal)
 		- `texture_src.width != texture_width` (`texture_src.width` will be smaller)
@@ -190,6 +192,8 @@ impl<'a> TexturePool<'a> {
 		let mut x = texture_size.0;
 		if !should_wrap {x -= dest_width;}
 
+		//////////
+
 		let texture_src = Rect::new(
 			((x as f64 * scroll_fract)) as i32,
 			0, dest_width, texture_size.1
@@ -244,8 +248,10 @@ impl<'a> TexturePool<'a> {
 	pub fn make_texture(&mut self, creation_info: &TextureCreationInfo) -> TextureHandleResult {
 		let handle = TextureHandle {handle: (self.textures.len()) as InnerTextureHandle};
 		let texture = self.make_raw_texture(creation_info)?;
+
 		self.possibly_update_text_metadata(&texture, &handle, creation_info);
 		self.textures.push(texture);
+
 		Ok(handle)
 	}
 
