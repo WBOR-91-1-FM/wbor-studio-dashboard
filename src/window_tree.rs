@@ -1,4 +1,4 @@
-use sdl2;
+use sdl2::{self, rect::Rect};
 
 use crate::{
 	texture,
@@ -13,11 +13,37 @@ use crate::{
 
 ////////// These are some general utility types (TODO: put some of them in `utility_types`)
 
+/* TODO: make this more similar to `Rect`, in terms of operations.
+Also make a constructor for this. */
+#[derive(Copy, Clone)]
+struct FRect {
+	pub x: f32,
+	pub y: f32,
+	pub width: f32,
+	pub height: f32
+}
+
+impl From<FRect> for Rect {
+	fn from(r: FRect) -> Self {
+		Rect::new(
+			r.x as i32, r.y as i32,
+			r.width as u32, r.height as u32
+		)
+	}
+}
+
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
+pub type WindowUpdaterParams<'a, 'b, 'c, 'd> = (
+	&'a mut Window,
+	&'b mut texture::TexturePool<'c>,
+	&'d DynamicOptional, // This is the state that is shared among windows
+	Rect // The area on the screen that the window is drawn to
+);
+
 pub type PossibleWindowUpdater = Option<(
-	fn(&mut Window, &mut texture::TexturePool, &DynamicOptional) -> GenericResult<()>,
+	fn(WindowUpdaterParams) -> GenericResult<()>,
 	UpdateRate
 )>;
 
@@ -115,12 +141,42 @@ impl Window {
 	}
 
 	pub fn render_recursively(&mut self,
+		rendering_params: &mut PerFrameConstantRenderingParams) -> GenericResult<()> {
+
+		let sdl_window_bounds = FRect {x: 0.0, y: 0.0, width: 1.0, height: 1.0};
+		self.inner_render_recursively(rendering_params, sdl_window_bounds)
+	}
+
+	fn inner_render_recursively(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
-		sdl_parent_rect_size_in_pixels: sdl2::rect::Rect)
+		parent_rect: FRect) -> GenericResult<()> {
 
-		-> GenericResult<()> {
 
-		////////// Updating the window first
+		////////// Getting the new pixel-space bounding box for this window
+
+		let relative_window_size = self.bottom_right - self.top_left;
+
+		let rect = FRect {
+			x: self.top_left.x() * parent_rect.width + parent_rect.x,
+			y: self.top_left.y() * parent_rect.height + parent_rect.y,
+			width: relative_window_size.x() * parent_rect.width,
+			height : relative_window_size.y() * parent_rect.height
+		};
+
+		let sdl_canvas = &mut rendering_params.sdl_canvas;
+		let sdl_window_size = sdl_canvas.output_size()?;
+		let sdl_window_size_f = (sdl_window_size.0 as f32, sdl_window_size.1 as f32);
+
+		let rect_in_pixels = FRect {
+			x: rect.x * sdl_window_size_f.0,
+			y: rect.y * sdl_window_size_f.1,
+			width: rect.width * sdl_window_size_f.0,
+			height: rect.height * sdl_window_size_f.1
+		};
+
+		let as_sdl_rect: Rect = rect_in_pixels.into();
+
+		////////// Updating the window
 
 		/* TODO: if no updaters were called, then don't redraw anything
 		(or if the updaters had no effect on the window).
@@ -133,28 +189,11 @@ impl Window {
 
 		if let Some((updater, update_rate)) = self.possible_updater {
 			if update_rate.is_time_to_update(rendering_params.frame_counter) {
-				updater(self, texture_pool, &rendering_params.shared_window_state)?;
+				updater((self, texture_pool, &rendering_params.shared_window_state, as_sdl_rect))?;
 			}
 		}
 
-		////////// Getting the new pixel-space bounding box for this window
-
-		let sdl_parent_size_in_pixels = (
-			sdl_parent_rect_size_in_pixels.width(), sdl_parent_rect_size_in_pixels.height()
-		);
-
-		let sdl_relative_window_size = self.bottom_right - self.top_left;
-
-		let sdl_window_size_in_pixels = sdl2::rect::Rect::new(
-			(self.top_left.x() * sdl_parent_size_in_pixels.0 as f32) as i32 + sdl_parent_rect_size_in_pixels.x(),
-			(self.top_left.y() * sdl_parent_size_in_pixels.1 as f32) as i32 + sdl_parent_rect_size_in_pixels.y(),
-			(sdl_relative_window_size.x() * sdl_parent_size_in_pixels.0 as f32) as u32,
-			(sdl_relative_window_size.y() * sdl_parent_size_in_pixels.1 as f32) as u32,
-		);
-
 		////////// Handling different window content types
-
-		let sdl_canvas = &mut rendering_params.sdl_canvas;
 
 		match &self.contents {
 			WindowContents::Nothing => {},
@@ -167,13 +206,13 @@ impl Window {
 				// TODO: make this state transition more efficient
 				if use_blending {sdl_canvas.set_blend_mode(BlendMode::Blend);}
 					sdl_canvas.set_draw_color(color.clone());
-					sdl_canvas.fill_rect(sdl_window_size_in_pixels)?;
+					sdl_canvas.fill_rect(as_sdl_rect)?;
 				if use_blending {sdl_canvas.set_blend_mode(BlendMode::None);}
 
 			},
 
 			WindowContents::Texture(texture) => {
-				texture_pool.draw_texture_to_canvas(texture, sdl_canvas, sdl_window_size_in_pixels)?;
+				texture_pool.draw_texture_to_canvas(texture, sdl_canvas, as_sdl_rect)?;
 			}
 		};
 
@@ -181,7 +220,7 @@ impl Window {
 
 		if let Some(children) = &mut self.children {
 			for child in children {
-				child.render_recursively(rendering_params, sdl_window_size_in_pixels)?;
+				child.inner_render_recursively(rendering_params, rect)?;
 			}
 		}
 

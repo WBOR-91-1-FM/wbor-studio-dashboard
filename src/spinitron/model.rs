@@ -12,8 +12,8 @@ pub type MaybeTextureCreationInfo<'a> = Option<TextureCreationInfo<'a>>;
 
 pub trait SpinitronModel {
 	fn get_id(&self) -> SpinitronModelId;
-	fn get_endpoint(&self) -> &'static str;
 	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo;
+	fn to_string(&self) -> String;
 
 	fn evaluate_image_url(url: &Option<String>) -> MaybeTextureCreationInfo where Self: Sized {
 		if let Some(inner_url) = url {
@@ -38,31 +38,30 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 /* TODO:
 - Make these `impl`s less repetitive
 - Make a comparator instead that compares the ids
-- Perhaps get the endpoint based on a model enum instead
 */
 
 impl SpinitronModel for Spin {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn get_endpoint(&self) -> &'static str {"spins"}
 	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
+	fn to_string(&self) -> String {format!("Song: '{}', by '{}', from '{}'", self.song, self.artist, self.release)}
 }
 
 impl SpinitronModel for Playlist {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn get_endpoint(&self) -> &'static str {"playlists"}
 	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
+	fn to_string(&self) -> String {format!("Playlist: {}", self.title)}
 }
 
 impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn get_endpoint(&self) -> &'static str {"personas"}
 	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
+	fn to_string(&self) -> String {format!("Host: {}", self.name)}
 }
 
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn get_endpoint(&self) -> &'static str {"shows"}
 	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
+	fn to_string(&self) -> String {format!("You are listening to '{}'", self.title)}
 }
 
 impl Spin {

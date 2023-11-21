@@ -21,20 +21,27 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	possible_item_count: Option<u16>
 ) -> GenericResult<serde_json::Value> {
 
-	////////// Checking endpoint validity
+	////////// Getting the API endpoint
 
-	let default_model = T::default();
-	let api_endpoint = default_model.get_endpoint();
+	let full_typename = std::any::type_name::<T>();
+	let last_colon_ind = full_typename.rfind(":").ok_or("Expected a colon in the model typename")?;
+	let typename = &full_typename[last_colon_ind + 1..];
+
+	let mut typename_chars = typename.chars();
+	let first_char = typename_chars.nth(0).ok_or("The typename has no chars in it, which is impossible")?;
+	let api_endpoint = format!("{}{}s", first_char.to_lowercase(), &typename[1..]);
+
+	////////// Checking endpoint validity
 
 	const VALID_ENDPOINTS: [&str; 4] = ["spins", "playlists", "personas", "shows"];
 
-	if !VALID_ENDPOINTS.contains(&api_endpoint) {
+	if !VALID_ENDPOINTS.contains(&api_endpoint.as_str()) {
 		return Err(format!("Invalid Spinitron API endpoint '{}'", api_endpoint).into());
 	}
 
 	////////// Limiting the requested fields by what exists within the given model type
 
-	let default_model_as_serde_value = serde_json::to_value(default_model)?;
+	let default_model_as_serde_value = serde_json::to_value(T::default())?;
 
 	let default_model_as_serde_obj = default_model_as_serde_value.as_object()
 		.ok_or("Expected JSON to be an object for the default Spinitron model")?;

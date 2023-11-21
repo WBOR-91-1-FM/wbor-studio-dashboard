@@ -64,11 +64,11 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	/* TODO: make this more configurable, somehow
 	(maybe make a SDL window init fn, where I pass in state?) */
 	let app_config = AppConfig {
-		name: "Recursive Box Demo",
-		width: 800, height: 600, // This has the CRT aspect ratio
+		name: "WBOR Studio Dashboard",
+		width: 800, height: 800,
 		use_linear_filtering: true,
 		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
-		top_level_window_creator: window_tree_defs::make_example_window
+		top_level_window_creator: window_tree_defs::make_wbor_dashboard
 	};
 
 	//////////
@@ -108,14 +108,14 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	let sdl_timer = sdl_context.timer()?;
 	let sdl_performance_frequency = sdl_timer.performance_frequency();
-	let sdl_window_bounds = sdl2::rect::Rect::new(0, 0, app_config.width, app_config.height);
+	let sdl_ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
 
 	let texture_creator = sdl_canvas.texture_creator();
 
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
 			sdl_canvas,
-			texture_pool: texture::TexturePool::new(&texture_creator),
+			texture_pool: texture::TexturePool::new(&texture_creator, &sdl_ttf_context),
 			frame_counter: utility_types::update_rate::FrameCounter::new(),
 			shared_window_state: utility_types::dynamic_optional::DynamicOptional::none(),
 			shared_window_state_updater: None
@@ -153,7 +153,8 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color); // TODO: remove eventually
 		rendering_params.sdl_canvas.clear();
 
-		top_level_window.render_recursively(&mut rendering_params, sdl_window_bounds)?;
+		top_level_window.render_recursively(&mut rendering_params)?;
+
 		rendering_params.frame_counter.tick();
 
 		//////////
