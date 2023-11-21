@@ -23,49 +23,49 @@ struct IndividualWindowState {
 
 ////////// TODO: maybe split `make_wbor_dashboard` into some smaller sub-functions
 
+fn update_texture_contents(window_contents: &mut WindowContents,
+	texture_pool: &mut TexturePool,
+	texture_creation_info: &MaybeTextureCreationInfo,
+	should_remake: bool) -> GenericResult<()> {
+
+	/* TODO:
+	- Instead of making a fallback texture here, just make the window contents `None`, and then use a premade fallback texture as late as possible.
+	- Perhaps I should also abstract away the `WindowContents::Texture` usage here?
+	- Putting this function in some module for texture operations would be nice too.
+	*/
+	if let WindowContents::Texture(texture) = window_contents {
+		if !should_remake {
+			println!("Skipping remake");
+			return Ok(());
+		}
+
+		if let Some(inner) = texture_creation_info {
+			println!("Remaking a texture in its slot");
+			texture_pool.remake_texture(texture, inner)?;
+		}
+		else {
+			// TODO: go to a fallback texture here (but use a previously created one though)
+			println!("Making a fallback texture");
+			*window_contents = WindowContents::Texture(texture_pool.make_texture(&TextureCreationInfo::Path("assets/bird.bmp"))?);
+		}
+	}
+	else {
+		if let Some(inner) = texture_creation_info {
+			println!("Making a first-time texture");
+			*window_contents = WindowContents::Texture(texture_pool.make_texture(inner)?);
+		}
+		else {
+			println!("Making a first-time fallback texture");
+			*window_contents = WindowContents::Texture(texture_pool.make_texture(&TextureCreationInfo::Path("assets/bird.bmp"))?);
+		}
+	}
+
+	Ok(())
+}
+
 // This returns a top-level window, shared window state, and a shared window state updater
 pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
-
-	fn update_texture_contents(window_contents: &mut WindowContents,
-		texture_pool: &mut TexturePool,
-		texture_creation_info: &MaybeTextureCreationInfo,
-		should_remake: bool) -> GenericResult<()> {
-
-		/* TODO:
-		- Instead of making a fallback texture here, just make the window contents `None`, and then use a premade fallback texture as late as possible.
-		- Perhaps I should also abstract away the `WindowContents::Texture` usage here?
-		- Putting this function in some module for texture operations would be nice too.
-		*/
-		if let WindowContents::Texture(texture) = window_contents {
-			if !should_remake {
-				println!("Skipping remake");
-				return Ok(());
-			}
-
-			if let Some(inner) = texture_creation_info {
-				println!("Remaking a texture in its slot");
-				texture_pool.remake_texture(texture, inner)?;
-			}
-			else {
-				// TODO: go to a fallback texture here (but use a previously created one though)
-				println!("Making a fallback texture");
-				*window_contents = WindowContents::Texture(texture_pool.make_texture(&TextureCreationInfo::Path("assets/bird.bmp"))?);
-			}
-		}
-		else {
-			if let Some(inner) = texture_creation_info {
-				println!("Making a first-time texture");
-				*window_contents = WindowContents::Texture(texture_pool.make_texture(inner)?);
-			}
-			else {
-				println!("Making a first-time fallback texture");
-				*window_contents = WindowContents::Texture(texture_pool.make_texture(&TextureCreationInfo::Path("assets/bird.bmp"))?);
-			}
-		}
-
-		Ok(())
-	}
 
 	/* TODO: add the ability to have multiple updaters per window
 	(with different update rates). Or, do async requests. */
