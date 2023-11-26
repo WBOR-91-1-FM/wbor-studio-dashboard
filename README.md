@@ -1,5 +1,9 @@
 # The WBOR studio dashboard!
 
+- A in-studio dashboard for [WBOR](https://wbor.org/), Bowdoin College's radio station.
+- Runs on a little CRT TV in the studio.
+- Currently in development.
+
 ## Dependencies
 
 #### `Rust`
@@ -12,6 +16,6 @@
 - MacOS: `brew install sdl2 sdl2_image sdl2_ttf`
 - Fedora: `sudo dnf install SDL2-devel SDL2_image-devel SDL2_ttf-devel`
 
-## Launching
+## Build and Run
 
 `cargo run --release`
