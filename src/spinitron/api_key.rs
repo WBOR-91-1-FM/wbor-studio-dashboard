@@ -6,8 +6,18 @@ pub struct ApiKey {
 
 impl ApiKey {
 	pub fn new() -> GenericResult<Self> {
-		let untrimmed_api_key = std::fs::read_to_string("assets/spinitron_api_key.txt")?;
-		Ok(Self {key: untrimmed_api_key.trim().to_string()})
+		const API_KEY_PATH: &'static str = "assets/spinitron_api_key.txt";
+
+		match std::fs::read_to_string(API_KEY_PATH) {
+			Ok(untrimmed_api_key) => {
+				Ok(Self {key: untrimmed_api_key.trim().to_string()})
+			},
+			Err(err) => {
+				Err(format!("The API key at path '{}' could not be found. Official error: '{}'.",
+					API_KEY_PATH, err).into())
+			}
+		}
+
 	}
 
 	pub fn get_inner_key(&self) -> String {
