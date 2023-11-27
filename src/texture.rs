@@ -245,6 +245,8 @@ impl<'a> TexturePool<'a> {
 		}
 	}
 
+	//////////
+
 	pub fn make_texture(&mut self, creation_info: &TextureCreationInfo) -> TextureHandleResult {
 		let handle = TextureHandle {handle: (self.textures.len()) as InnerTextureHandle};
 		let texture = self.make_raw_texture(creation_info)?;
@@ -264,6 +266,8 @@ impl<'a> TexturePool<'a> {
 
 		Ok(())
 	}
+
+	//////////
 
 	// TODO: allow for texture deletion too
 
