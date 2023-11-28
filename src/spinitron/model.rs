@@ -36,7 +36,7 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 ////////// These are the implementations of the traits above
 
 /* TODO:
-- Make these `impl`s less repetitive
+- Make these `impl`s less repetitive (use a macro?)
 - Make a comparator instead that compares the ids
 */
 
