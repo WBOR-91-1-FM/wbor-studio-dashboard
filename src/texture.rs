@@ -23,6 +23,7 @@ pub type TextTextureScrollFn = fn(f64) -> (f64, bool);
 
 /* TODO: make a constructor for this, instead of making everything `pub`.
 For that, verify that the text to display is not null. */
+#[derive(Clone)]
 pub struct TextTextureCreationInfo<'a> {
 	pub text_to_display: String,
 	pub font_path: &'a str,
@@ -41,6 +42,7 @@ pub struct TextTextureCreationInfo<'a> {
 
 /* TODO: add options for possible color and alpha mods,
 and a blend mode (those would go in a struct around this enum) */
+#[derive(Clone)]
 pub enum TextureCreationInfo<'a> {
 	Path(&'a str),
 	Url(&'a str),
@@ -258,7 +260,7 @@ impl<'a> TexturePool<'a> {
 	}
 
 	// TODO: if possible, update the texture in-place instead (if they occupy the amount of space, or less (?))
-	pub fn remake_texture(&mut self, handle: &TextureHandle, creation_info: &TextureCreationInfo) -> GenericResult<()> {
+	pub fn remake_texture(&mut self, creation_info: &TextureCreationInfo, handle: &TextureHandle) -> GenericResult<()> {
 		let new_texture = self.make_raw_texture(creation_info)?;
 
 		self.possibly_update_text_metadata(&new_texture, handle, creation_info);
@@ -271,7 +273,7 @@ impl<'a> TexturePool<'a> {
 
 	// TODO: allow for texture deletion too
 
-	////////// TODO: eliminate the repetition here (inline?)
+	////////// TODO: eliminate the repetition here (inline? or make to a macro?)
 
 	fn get_texture_from_handle_mut(&mut self, handle: &TextureHandle) -> &mut Texture<'a> {
 		&mut self.textures[handle.handle as usize]

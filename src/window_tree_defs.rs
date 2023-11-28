@@ -8,12 +8,15 @@ use crate::{
 	},
 
 	texture::{TexturePool, TextTextureCreationInfo, TextureCreationInfo},
-	spinitron::{model::{SpinitronModelName, MaybeTextureCreationInfo}, state::SpinitronState},
+	spinitron::{model::SpinitronModelName, state::SpinitronState},
 	window_tree::{Window, WindowContents, WindowUpdaterParams, PossibleWindowUpdater, PossibleSharedWindowStateUpdater}
 };
 
-struct SharedWindowState {
-	spinitron_state: SpinitronState
+struct SharedWindowState<'a> {
+	spinitron_state: SpinitronState,
+
+	// This is used whenever a texture can't be loaded
+	fallback_texture_creation_info: TextureCreationInfo<'a>
 }
 
 struct IndividualWindowState {
@@ -23,43 +26,46 @@ struct IndividualWindowState {
 
 ////////// TODO: maybe split `make_wbor_dashboard` into some smaller sub-functions
 
-fn update_texture_contents(window_contents: &mut WindowContents,
+/* TODO:
+- Rename all `Possible` types to `Maybe`s (incl. the associated variable names) (and all `inner-prefixed` vars too)
+- Run `clippy`
+*/
+
+// TODO: should this be a member function for `Window`?
+fn update_window_texture_contents(
+	should_remake: bool,
+	window_contents: &mut WindowContents,
 	texture_pool: &mut TexturePool,
-	texture_creation_info: &MaybeTextureCreationInfo,
-	should_remake: bool) -> GenericResult<()> {
+	texture_creation_info: &TextureCreationInfo,
+	fallback_texture_creation_info: &TextureCreationInfo) -> GenericResult<()> {
 
-	/* TODO:
-	- Instead of making a fallback texture here, just make the window contents `None`, and then use a premade fallback texture as late as possible.
-	- Perhaps I should also abstract away the `WindowContents::Texture` usage here?
-	- Putting this function in some module for texture operations would be nice too.
-	*/
-	if let WindowContents::Texture(texture) = window_contents {
-		if !should_remake {
-			println!("Skipping remake");
-			return Ok(());
-		}
+	/* This is a macro for making or remaking a texture. If making or
+	remaking fails, a fallback texture is put into that texture's slot. */
+	macro_rules! try_to_make_or_remake_texture {
+		($make_or_remake: expr, $make_or_remake_description: expr, $($extra_args:expr),*) => {{
+			$make_or_remake(texture_creation_info, $($extra_args),*).or_else(
+				|failure_reason| {
+					println!("Unexpectedly failed while trying to {} texture, and reverting to a fallback \
+						texture. Reason: '{}'.", $make_or_remake_description, failure_reason);
 
-		if let Some(inner) = texture_creation_info {
-			println!("Remaking a texture in its slot");
-			texture_pool.remake_texture(texture, inner)?;
-		}
-		else {
-			// TODO: go to a fallback texture here (but use a previously created one though)
-			println!("Making a fallback texture");
-			*window_contents = WindowContents::Texture(texture_pool.make_texture(&TextureCreationInfo::Path("assets/bird.bmp"))?);
-		}
+					$make_or_remake(fallback_texture_creation_info, $($extra_args),*)
+				}
+			)
+		}};
+	}
+
+	let updated_texture = if let WindowContents::Texture(prev_texture) = window_contents {
+		if should_remake {try_to_make_or_remake_texture!(|a, b| texture_pool.remake_texture(a, b), "remake an existing", prev_texture)?}
+		prev_texture.clone()
 	}
 	else {
-		if let Some(inner) = texture_creation_info {
-			println!("Making a first-time texture");
-			*window_contents = WindowContents::Texture(texture_pool.make_texture(inner)?);
-		}
-		else {
-			println!("Making a first-time fallback texture");
-			*window_contents = WindowContents::Texture(texture_pool.make_texture(&TextureCreationInfo::Path("assets/bird.bmp"))?);
-		}
-	}
+		/* There was not a texture before, and there's an initial one available now,
+		so a first texture is being made. This should only happen once, at the program's
+		start; otherwise, an unbound amount of new textures will be made. */
+		try_to_make_or_remake_texture!(|a| texture_pool.make_texture(a), "make a new",)?
+	};
 
+	*window_contents = WindowContents::Texture(updated_texture);
 	Ok(())
 }
 
@@ -70,8 +76,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	/* TODO: add the ability to have multiple updaters per window
 	(with different update rates). Or, do async requests. */
 	fn model_updater((window, texture_pool,
-		shared_state, area_drawn_to_screen): WindowUpdaterParams
-	) -> GenericResult<()> {
+		shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
 
 		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value_immut();
 		let spinitron_state = &inner_shared_state.spinitron_state;
@@ -82,11 +87,6 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		let model = spinitron_state.get_model_by_name(model_name);
 		let model_was_updated = spinitron_state.model_was_updated(model_name);
 
-		/* TODO: in cases where the `get` request fails here (or in other places), use a fallback texture.
-		This happens with 'Ace Body Movers', with this URL: 'https://farm7.staticflickr.com/6179/6172022528_614b745ae8_m.jpg'
-		The same thing happens for 'No Things Considered', with this URL: 'https://farm6.staticflickr.com/5085/5254719116_517ee68493_m.jpg'
-		Also for 'Controversial Controversy', with this URL: 'https://farm7.staticflickr.com/6089/6150707938_ae60d801be_m.jpg' */
-
 		let wrapped_text_color = WindowContents::make_transparent_color(255, 0, 0, 0.7);
 		let text_color = match wrapped_text_color {WindowContents::Color(c) => c, _ => panic!()};
 
@@ -94,7 +94,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 		// TODO: vary the params based on the text window
 		let texture_creation_info = if individual_window_state.is_text_window {
-			Some(TextureCreationInfo::Text(TextTextureCreationInfo {
+			TextureCreationInfo::Text(TextTextureCreationInfo {
 				text_to_display,
 				font_path: "assets/ldf_comic_sans.ttf",
 
@@ -112,15 +112,20 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 				// TODO: why does cutting the max pixel width in half still work?
 				max_pixel_width: area_drawn_to_screen.width(),
 				pixel_height: area_drawn_to_screen.height()
-			}))
+			})
 		}
 		else {
-			model.get_texture_creation_info()
+			match model.get_texture_creation_info() {
+				Some(texture_creation_info) => texture_creation_info,
+				None => inner_shared_state.fallback_texture_creation_info.clone()
+			}
 		};
 
-		update_texture_contents(
+		update_window_texture_contents(
+			model_was_updated,
 			&mut window.contents, texture_pool,
-			&texture_creation_info, model_was_updated
+			&texture_creation_info,
+			&inner_shared_state.fallback_texture_creation_info
 		)?;
 
 		Ok(())
@@ -221,7 +226,10 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	);
 
 	let boxed_shared_state = DynamicOptional::new(
-		SharedWindowState {spinitron_state: SpinitronState::new()?}
+		SharedWindowState {
+			spinitron_state: SpinitronState::new()?,
+			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png")
+		}
 	);
 
 	fn shared_window_state_updater(state: &mut DynamicOptional) -> GenericResult<()> {
@@ -230,6 +238,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	}
 
 	//////////
+
+	// TODO: past a certain point, make sure that the texture pool never grows
 
 	Ok((
 		top_level_window,
