@@ -210,6 +210,8 @@ impl Window {
 				if use_blending {sdl_canvas.set_blend_mode(BlendMode::None);}
 			},
 
+			/* TODO: eliminate the partially black border around
+			the opaque areas of textures with alpha values */
 			WindowContents::Texture(texture) => {
 				texture_pool.draw_texture_to_canvas(texture, sdl_canvas, as_sdl_rect)?;
 			}
