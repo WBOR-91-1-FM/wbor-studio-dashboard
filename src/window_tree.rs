@@ -83,6 +83,8 @@ impl WindowContents {
 
 //////////
 
+/* TODO: add an option for toggling on/off the rendering
+of a window (that may be useful in the future) */
 pub struct Window {
 	possible_updater: PossibleWindowUpdater,
 
