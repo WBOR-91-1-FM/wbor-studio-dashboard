@@ -22,18 +22,18 @@ impl DynamicOptional {
 		);
 	}
 
-	pub fn get_inner_value_mut<T: 'static>(&mut self) -> &mut T {
-		if let Some(boxed_inner_value) = &mut self.inner {
-			if let Some(value) = boxed_inner_value.downcast_mut::<T>() {
+	pub fn get_inner_value<T: 'static>(&self) -> &T {
+		if let Some(boxed_inner_value) = &self.inner {
+			if let Some(value) = boxed_inner_value.downcast_ref::<T>() {
 				return value;
 			}
 		}
 		DynamicOptional::fail_for_inner_access::<T>()
 	}
 
-	pub fn get_inner_value_immut<T: 'static>(&self) -> &T {
-		if let Some(boxed_inner_value) = &self.inner {
-			if let Some(value) = boxed_inner_value.downcast_ref::<T>() {
+	pub fn get_inner_value_mut<T: 'static>(&mut self) -> &mut T {
+		if let Some(boxed_inner_value) = &mut self.inner {
+			if let Some(value) = boxed_inner_value.downcast_mut::<T>() {
 				return value;
 			}
 		}

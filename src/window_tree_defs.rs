@@ -78,10 +78,10 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	fn model_updater((window, texture_pool,
 		shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
 
-		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value_immut();
+		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value();
 		let spinitron_state = &inner_shared_state.spinitron_state;
 
-		let individual_window_state: &IndividualWindowState = window.state.get_inner_value_immut();
+		let individual_window_state: &IndividualWindowState = window.get_state();
 		let model_name = individual_window_state.model_name;
 
 		let model = spinitron_state.get_model_by_name(model_name);
@@ -123,7 +123,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 		update_window_texture_contents(
 			model_was_updated,
-			&mut window.contents, texture_pool,
+			window.get_contents_mut(),
+			texture_pool,
 			&texture_creation_info,
 			&inner_shared_state.fallback_texture_creation_info
 		)?;
@@ -201,6 +202,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		None,
 		DynamicOptional::none(),
 
+		// TODO: make a wrapper fn for texture making here (should use in more places)
 		WindowContents::Texture(texture_pool.make_texture(
 			&TextureCreationInfo::Path("assets/wbor_logo.png")
 		)?),
