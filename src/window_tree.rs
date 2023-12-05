@@ -1,7 +1,7 @@
 use sdl2::{self, rect::Rect};
 
 use crate::{
-	texture,
+	texture::{TexturePool, TextureHandle},
 
 	utility_types::{
 		update_rate::{UpdateRate, FrameCounter},
@@ -37,7 +37,7 @@ pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
 pub type WindowUpdaterParams<'a, 'b, 'c, 'd> = (
 	&'a mut Window,
-	&'b mut texture::TexturePool<'c>,
+	&'b mut TexturePool<'c>,
 	&'d DynamicOptional, // This is the state that is shared among windows
 	Rect // The area on the screen that the window is drawn to
 );
@@ -55,7 +55,7 @@ pub type PossibleSharedWindowStateUpdater = Option<(
 // This data remains constant over a recursive rendering call
 pub struct PerFrameConstantRenderingParams<'a> {
 	pub sdl_canvas: CanvasSDL,
-	pub texture_pool: texture::TexturePool<'a>,
+	pub texture_pool: TexturePool<'a>,
 	pub frame_counter: FrameCounter,
 	pub shared_window_state: DynamicOptional,
 	pub shared_window_state_updater: PossibleSharedWindowStateUpdater
@@ -66,7 +66,7 @@ pub struct PerFrameConstantRenderingParams<'a> {
 pub enum WindowContents {
 	Nothing,
 	Color(ColorSDL),
-	Texture(texture::TextureHandle)
+	Texture(TextureHandle)
 }
 
 impl WindowContents {
