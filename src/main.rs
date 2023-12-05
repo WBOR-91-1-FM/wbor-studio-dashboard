@@ -26,6 +26,7 @@ TODO:
 - A 'text the DJ' feature
 - Maybe draw rounded rectangles with `sdl_gfx` later on
 - Set more rendering hints later on, if needed (beyond just the scale quality)
+- There is an initial screen flicker on MacOS upon startup, for some reason
 
 - Text rendering
 - Async requests (for that, make an async requester object that you can initiate a request with,
