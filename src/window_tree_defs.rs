@@ -202,7 +202,6 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		None,
 		DynamicOptional::none(),
 
-		// TODO: make a wrapper fn for texture making here (should use in more places)
 		WindowContents::Texture(texture_pool.make_texture(
 			&TextureCreationInfo::Path("assets/wbor_logo.png")
 		)?),
