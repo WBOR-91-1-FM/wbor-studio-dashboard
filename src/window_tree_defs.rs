@@ -96,8 +96,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		let texture_creation_info = if individual_window_state.is_text_window {
 			TextureCreationInfo::Text(TextTextureCreationInfo {
 				text_to_display,
-				font_path: "assets/ldf_comic_sans.ttf",
-
+				font_path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
 				style: FontStyle::ITALIC,
 				hinting: Hinting::Normal,
 				color: text_color,
