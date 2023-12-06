@@ -27,8 +27,8 @@ TODO:
 - Maybe draw rounded rectangles with `sdl_gfx` later on
 - Set more rendering hints later on, if needed (beyond just the scale quality)
 - There is an initial screen flicker on MacOS upon startup, for some reason
+- Render a text drop shadow
 
-- Text rendering
 - Async requests (for that, make an async requester object that you can initiate a request with,
 	and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible).
 	See here: https://doc.rust-lang.org/std/future/trait.Future.html
