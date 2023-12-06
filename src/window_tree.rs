@@ -90,7 +90,9 @@ pub struct Window {
 
 	state: DynamicOptional,
 	contents: WindowContents,
+
 	skip_drawing: bool,
+	maybe_border_color: Option<ColorSDL>,
 
 	// TODO: Make a fn to move a window in some direction (in a FPS-independent way)
 	top_left: Vec2f,
@@ -129,6 +131,7 @@ impl Window {
 		possible_updater: PossibleWindowUpdater,
 		state: DynamicOptional,
 		contents: WindowContents,
+		maybe_border_color: Option<ColorSDL>,
 		top_left: Vec2f, size: Vec2f,
 		children: Option<Vec<Self>>) -> Self {
 
@@ -140,6 +143,7 @@ impl Window {
 		Self {
 			possible_updater, state, contents,
 			skip_drawing: false,
+			maybe_border_color,
 			top_left, bottom_right: top_left + size,
 			children: none_if_children_vec_is_empty
 		}
@@ -238,7 +242,6 @@ impl Window {
 		sdl_rect_area: Rect
 	) -> GenericResult<()> {
 
-		let texture_pool = &mut rendering_params.texture_pool;
 		let sdl_canvas = &mut rendering_params.sdl_canvas;
 
 		match &self.contents {
@@ -259,9 +262,14 @@ impl Window {
 			/* TODO: eliminate the partially black border around
 			the opaque areas of textures with alpha values */
 			WindowContents::Texture(texture) => {
-				texture_pool.draw_texture_to_canvas(texture, sdl_canvas, sdl_rect_area)?;
+				rendering_params.texture_pool.draw_texture_to_canvas(texture, sdl_canvas, sdl_rect_area)?;
 			}
 		};
+
+		if let Some(border_color) = &self.maybe_border_color {
+			sdl_canvas.set_draw_color(border_color.clone());
+			sdl_canvas.draw_rect(sdl_rect_area)?;
+		}
 
 		Ok(())
 	}

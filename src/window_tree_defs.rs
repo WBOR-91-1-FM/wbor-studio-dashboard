@@ -9,7 +9,7 @@ use crate::{
 
 	texture::{TexturePool, TextTextureCreationInfo, TextureCreationInfo},
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
-	window_tree::{Window, WindowContents, WindowUpdaterParams, PossibleWindowUpdater, PossibleSharedWindowStateUpdater}
+	window_tree::{Window, WindowContents, WindowUpdaterParams, PossibleWindowUpdater, PossibleSharedWindowStateUpdater, ColorSDL}
 };
 
 struct SharedWindowState<'a> {
@@ -97,6 +97,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 			TextureCreationInfo::Text(TextTextureCreationInfo {
 				text_to_display,
 				font_path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
+
 				style: FontStyle::ITALIC,
 				hinting: Hinting::Normal,
 				color: text_color,
@@ -175,6 +176,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 			}),
 
 			WindowContents::Nothing,
+			Some(ColorSDL::GREEN),
 			text_tl,
 			text_size,
 			None
@@ -188,6 +190,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 			}),
 
 			WindowContents::Nothing,
+			Some(ColorSDL::BLUE),
 			metadata.1,
 			model_window_size,
 			Some(vec![text_child])
@@ -205,6 +208,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 			&TextureCreationInfo::Path("assets/wbor_logo.png")
 		)?),
 
+		None,
+
 		Vec2f::new(0.0, 0.0),
 		Vec2f::new(0.1, 0.05),
 		None
@@ -220,6 +225,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		None,
 		DynamicOptional::none(),
 		WindowContents::make_color(210, 180, 140),
+		None,
 		Vec2f::new_from_one(top_level_edge_size),
 		Vec2f::new_from_one(1.0 - top_level_edge_size * 2.0),
 		Some(all_windows)
