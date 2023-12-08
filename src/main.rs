@@ -28,6 +28,7 @@ TODO:
 - Set more rendering hints later on, if needed (beyond just the scale quality)
 - There is an initial screen flicker on MacOS upon startup, for some reason
 - Render a text drop shadow
+- User interaction with the dashboard via the Stream Deck (toggle display elements, ignore DJ text, etc.)
 
 - Async requests (for that, make an async requester object that you can initiate a request with,
 	and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible).
