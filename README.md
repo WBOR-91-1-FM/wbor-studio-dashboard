@@ -18,4 +18,4 @@
 
 ## Build and Run
 
-`cargo run --release`
+- `cargo run --release`
