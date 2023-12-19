@@ -1,3 +1,5 @@
+use std::ops;
+
 type Component = f32;
 
 // A 0-1 normalized floating-point vec2
@@ -45,7 +47,7 @@ impl Vec2f {
 - Perhaps clamp the outputs instead
 */
 
-impl std::ops::Add for Vec2f {
+impl ops::Add for Vec2f {
 	type Output = Self;
 
 	fn add(self, other: Self) -> Self::Output {
@@ -53,7 +55,7 @@ impl std::ops::Add for Vec2f {
 	}
 }
 
-impl std::ops::Sub for Vec2f {
+impl ops::Sub for Vec2f {
 	type Output = Self;
 
 	fn sub(self, other: Self) -> Self::Output {
@@ -61,7 +63,15 @@ impl std::ops::Sub for Vec2f {
 	}
 }
 
-impl std::ops::MulAssign<Vec2f> for Vec2f {
+impl ops::Mul for Vec2f {
+	type Output = Self;
+
+	fn mul(self, other: Self) -> Self::Output {
+		Self::new(self.x * other.x(), self.y * other.y())
+	}
+}
+
+impl ops::MulAssign<Vec2f> for Vec2f {
 	fn mul_assign(&mut self, v: Self) {
 		self.x *= v.x();
 		assert_in_unit_interval(self.x);
