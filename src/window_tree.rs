@@ -272,8 +272,28 @@ impl Window {
 	fn draw_window_contents(
 		&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
-		sdl_rect_area: Rect
-	) -> GenericResult<()> {
+		sdl_rect_area: Rect) -> GenericResult<()> {
+
+		////////// A function for drawing colors with transparency
+
+		fn possibly_draw_with_transparency(color: &ColorSDL,
+			sdl_canvas: &mut CanvasSDL, mut drawer: impl FnMut(&mut CanvasSDL) -> GenericResult<()>)
+			-> GenericResult<()> {
+
+			use sdl2::render::BlendMode;
+
+			let use_blending = color.a != 255 && sdl_canvas.blend_mode() != BlendMode::Blend;
+
+			// TODO: make this state transition more efficient
+			if use_blending {sdl_canvas.set_blend_mode(BlendMode::Blend);}
+				sdl_canvas.set_draw_color(color.clone());
+				drawer(sdl_canvas)?;
+			if use_blending {sdl_canvas.set_blend_mode(BlendMode::None);}
+
+			Ok(())
+		}
+
+		//////////
 
 		let sdl_canvas = &mut rendering_params.sdl_canvas;
 
@@ -281,15 +301,7 @@ impl Window {
 			WindowContents::Nothing => {},
 
 			WindowContents::Color(color) => {
-				use sdl2::render::BlendMode;
-
-				let use_blending = color.a != 255 && sdl_canvas.blend_mode() != BlendMode::Blend;
-
-				// TODO: make this state transition more efficient
-				if use_blending {sdl_canvas.set_blend_mode(BlendMode::Blend);}
-					sdl_canvas.set_draw_color(color.clone());
-					sdl_canvas.fill_rect(sdl_rect_area)?;
-				if use_blending {sdl_canvas.set_blend_mode(BlendMode::None);}
+				possibly_draw_with_transparency(color, sdl_canvas, |canvas| Ok(canvas.fill_rect(sdl_rect_area)?))?;
 			},
 
 			/* TODO: eliminate the partially black border around
@@ -300,8 +312,7 @@ impl Window {
 		};
 
 		if let Some(border_color) = &self.maybe_border_color {
-			sdl_canvas.set_draw_color(border_color.clone());
-			sdl_canvas.draw_rect(sdl_rect_area)?;
+			possibly_draw_with_transparency(border_color, sdl_canvas, |canvas| Ok(canvas.draw_rect(sdl_rect_area)?))?;
 		}
 
 		Ok(())
