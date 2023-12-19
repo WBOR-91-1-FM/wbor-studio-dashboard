@@ -21,15 +21,17 @@ The needed structs + data can go there, and the text
 
 pub type TextTextureScrollFn = fn(f64) -> (f64, bool);
 
-/* TODO: make a constructor for this, instead of making everything `pub`.
-For that, verify that the text to display is not null. */
-#[derive(Clone)]
-pub struct TextTextureCreationInfo<'a> {
-	pub text_to_display: String,
-	pub font_path: &'a str,
-
+// TODO: make a constructor for this, instead of making everything `pub`.
+pub struct FontInfo<'a> {
+	pub path: &'a str,
 	pub style: ttf::FontStyle,
-	pub hinting: ttf::Hinting,
+	pub hinting: ttf::Hinting
+}
+
+// TODO: make a constructor for this, instead of making everything `pub`.
+#[derive(Clone)]
+pub struct TextDisplayInfo {
+	pub text: String,
 	pub color: ColorSDL,
 
 	/* Maps the unix time in secs to a scroll fraction
@@ -46,7 +48,7 @@ and a blend mode (those would go in a struct around this enum) */
 pub enum TextureCreationInfo<'a> {
 	Path(&'a str),
 	Url(&'a str),
-	Text(TextTextureCreationInfo<'a>)
+	Text((&'a FontInfo<'a>, TextDisplayInfo))
 }
 
 //////////
@@ -226,12 +228,12 @@ impl<'a> TexturePool<'a> {
 
 		match creation_info {
 			// Add/update the metadata key for this handle
-			TextureCreationInfo::Text(text_creation_info) => {
+			TextureCreationInfo::Text((_, text_display_info)) => {
 				let query = new_texture.query();
 
 				let metadata = SideScrollingTextMetadata {
 					size: (query.width, query.height),
-					scroll_fn: text_creation_info.scroll_fn
+					scroll_fn: text_display_info.scroll_fn
 				};
 
 				self.text_metadata.insert(handle.handle, metadata);
@@ -306,11 +308,13 @@ impl<'a> TexturePool<'a> {
 
 				////////// Calculating the correct font size
 
-				let initial_font = self.ttf_context.load_font(info.font_path, INITIAL_POINT_SIZE)?;
-				let initial_output_size = initial_font.size_of(&info.text_to_display)?;
+				let (font_info, text_display_info) = info;
+
+				let initial_font = self.ttf_context.load_font(font_info.path, INITIAL_POINT_SIZE)?;
+				let initial_output_size = initial_font.size_of(&text_display_info.text)?;
 
 				// TODO: cache the height ratio in a dict that maps a font name and size to a height ratio
-				let height_ratio_from_expected_size = info.pixel_height as f32 / initial_output_size.1 as f32;
+				let height_ratio_from_expected_size = text_display_info.pixel_height as f32 / initial_output_size.1 as f32;
 				let adjusted_point_size = INITIAL_POINT_SIZE as f32 * height_ratio_from_expected_size;
 
 				// Doing `ceil` here seems to make the output surface's height a tiny bit closer to the desired height
@@ -318,12 +322,12 @@ impl<'a> TexturePool<'a> {
 
 				////////// Making a font and surface
 
-				let mut font = self.ttf_context.load_font(info.font_path, nearest_point_size)?;
-				font.set_style(info.style);
-				font.set_hinting(info.hinting.clone());
+				let mut font = self.ttf_context.load_font(font_info.path, nearest_point_size)?;
+				font.set_style(font_info.style);
+				font.set_hinting(font_info.hinting.clone());
 
-				let partial_surface = font.render(&info.text_to_display);
-				let mut surface = partial_surface.blended(info.color)?;
+				let partial_surface = font.render(&text_display_info.text);
+				let mut surface = partial_surface.blended(text_display_info.color)?;
 
 				////////// Accounting for the case where there is a very small amount of text
 
@@ -331,9 +335,9 @@ impl<'a> TexturePool<'a> {
 
 				/* In this case, the text is too small (which will result in it being
 				stretched out otherwise). For that, I am adding some blank padding. */
-				if info.max_pixel_width > surface.width() {
+				if text_display_info.max_pixel_width > surface.width() {
 					let mut with_padding_on_right = sdl2::surface::Surface::new(
-						info.max_pixel_width, surface.height(),
+						text_display_info.max_pixel_width, surface.height(),
 						surface.pixel_format_enum()
 					)?;
 

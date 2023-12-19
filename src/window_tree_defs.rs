@@ -7,7 +7,7 @@ use crate::{
 		generic_result::GenericResult, vec2f::Vec2f
 	},
 
-	texture::{TexturePool, TextTextureCreationInfo, TextureCreationInfo},
+	texture::{TexturePool, FontInfo, TextDisplayInfo, TextureCreationInfo},
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
 	window_tree::{Window, WindowContents, WindowUpdaterParams, PossibleWindowUpdater, PossibleSharedWindowStateUpdater, ColorSDL}
 };
@@ -56,25 +56,29 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 		// TODO: vary the params based on the text window
 		let texture_creation_info = if individual_window_state.is_text_window {
-			TextureCreationInfo::Text(TextTextureCreationInfo {
-				text_to_display,
-				font_path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
-
-				style: FontStyle::ITALIC,
-				hinting: Hinting::Normal,
-				color: text_color,
-
-				scroll_fn: |secs_since_unix_epoch| {
-					// let repeat_rate_secs = 5.0;
-					// ((secs_since_unix_epoch % repeat_rate_secs) / repeat_rate_secs, true)
-
-					(secs_since_unix_epoch.sin() * 0.5 + 0.5, false)
+			TextureCreationInfo::Text((
+				&FontInfo {
+					path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
+					style: FontStyle::ITALIC,
+					hinting: Hinting::Normal
 				},
 
-				// TODO: why does cutting the max pixel width in half still work?
-				max_pixel_width: area_drawn_to_screen.width(),
-				pixel_height: area_drawn_to_screen.height()
-			})
+				TextDisplayInfo {
+					text: text_to_display,
+					color: text_color,
+
+					scroll_fn: |secs_since_unix_epoch| {
+						// let repeat_rate_secs = 5.0;
+						// ((secs_since_unix_epoch % repeat_rate_secs) / repeat_rate_secs, true)
+
+						(secs_since_unix_epoch.sin() * 0.5 + 0.5, false)
+					},
+
+					// TODO: why does cutting the max pixel width in half still work?
+					max_pixel_width: area_drawn_to_screen.width(),
+					pixel_height: area_drawn_to_screen.height()
+				}
+			))
 		}
 		else {
 			match model.get_texture_creation_info() {
