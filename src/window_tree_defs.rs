@@ -35,6 +35,12 @@ struct IndividualWindowState {
 pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
 
+	const FONT_INFO: FontInfo = FontInfo {
+		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
+		style: FontStyle::ITALIC,
+		hinting: Hinting::Normal
+	};
+
 	/* TODO: add the ability to have multiple updaters per window
 	(with different update rates). Or, do async requests. */
 	fn model_updater((window, texture_pool,
@@ -57,11 +63,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		// TODO: vary the params based on the text window
 		let texture_creation_info = if individual_window_state.is_text_window {
 			TextureCreationInfo::Text((
-				&FontInfo {
-					path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
-					style: FontStyle::ITALIC,
-					hinting: Hinting::Normal
-				},
+				&FONT_INFO,
 
 				TextDisplayInfo {
 					text: text_to_display,
