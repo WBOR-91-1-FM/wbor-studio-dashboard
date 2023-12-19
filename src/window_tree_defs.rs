@@ -161,7 +161,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		)
 	}).collect();
 
-	//////////
+	////////// Making a logo window
 
 	// TODO: put more little images in the corners
 	let logo_window = Window::new(
