@@ -156,7 +156,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color); // TODO: remove eventually
 		rendering_params.sdl_canvas.clear();
 
-		top_level_window.render_recursively(&mut rendering_params)?;
+		top_level_window.render(&mut rendering_params)?;
 
 		rendering_params.frame_counter.tick();
 

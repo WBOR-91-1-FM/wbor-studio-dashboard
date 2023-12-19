@@ -170,16 +170,16 @@ impl Window {
 
 	//////////
 
-	pub fn render_recursively(&mut self,
+	pub fn render(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams) -> GenericResult<()> {
 
 		let sdl_window_bounds = FRect {x: 0.0, y: 0.0, width: 1.0, height: 1.0};
-		self.inner_render_recursively(rendering_params, sdl_window_bounds)
+		self.inner_render(rendering_params, sdl_window_bounds)
 	}
 
 	//////////
 
-	fn inner_render_recursively(&mut self,
+	fn inner_render(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
 		parent_rect: FRect) -> GenericResult<()> {
 
@@ -229,7 +229,7 @@ impl Window {
 
 		if let Some(children) = &mut self.children {
 			for child in children {
-				child.inner_render_recursively(rendering_params, rect)?;
+				child.inner_render(rendering_params, rect)?;
 			}
 		}
 
