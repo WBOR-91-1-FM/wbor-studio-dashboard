@@ -31,44 +31,6 @@ struct IndividualWindowState {
 - Run `clippy`
 */
 
-// TODO: should this be a member function for `Window`?
-fn update_window_texture_contents(
-	should_remake: bool,
-	window_contents: &mut WindowContents,
-	texture_pool: &mut TexturePool,
-	texture_creation_info: &TextureCreationInfo,
-	fallback_texture_creation_info: &TextureCreationInfo) -> GenericResult<()> {
-
-	/* This is a macro for making or remaking a texture. If making or
-	remaking fails, a fallback texture is put into that texture's slot. */
-	macro_rules! try_to_make_or_remake_texture {
-		($make_or_remake: expr, $make_or_remake_description: expr, $($extra_args:expr),*) => {{
-			$make_or_remake(texture_creation_info, $($extra_args),*).or_else(
-				|failure_reason| {
-					println!("Unexpectedly failed while trying to {} texture, and reverting to a fallback \
-						texture. Reason: '{}'.", $make_or_remake_description, failure_reason);
-
-					$make_or_remake(fallback_texture_creation_info, $($extra_args),*)
-				}
-			)
-		}};
-	}
-
-	let updated_texture = if let WindowContents::Texture(prev_texture) = window_contents {
-		if should_remake {try_to_make_or_remake_texture!(|a, b| texture_pool.remake_texture(a, b), "remake an existing", prev_texture)?}
-		prev_texture.clone()
-	}
-	else {
-		/* There was not a texture before, and there's an initial one available now,
-		so a first texture is being made. This should only happen once, at the program's
-		start; otherwise, an unbound amount of new textures will be made. */
-		try_to_make_or_remake_texture!(|a| texture_pool.make_texture(a), "make a new",)?
-	};
-
-	*window_contents = WindowContents::Texture(updated_texture);
-	Ok(())
-}
-
 // This returns a top-level window, shared window state, and a shared window state updater
 pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
@@ -121,9 +83,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 			}
 		};
 
-		update_window_texture_contents(
+		window.update_texture_contents(
 			model_was_updated,
-			window.get_contents_mut(),
 			texture_pool,
 			&texture_creation_info,
 			&inner_shared_state.fallback_texture_creation_info

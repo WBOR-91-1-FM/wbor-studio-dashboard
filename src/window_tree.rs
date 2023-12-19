@@ -1,7 +1,7 @@
 use sdl2::{self, rect::Rect};
 
 use crate::{
-	texture::{TexturePool, TextureHandle},
+	texture::{TexturePool, TextureHandle, TextureCreationInfo},
 
 	utility_types::{
 		update_rate::{UpdateRate, FrameCounter},
@@ -156,10 +156,6 @@ impl Window {
 		return self.state.get_inner_value();
 	}
 
-	pub fn get_contents_mut(&mut self) -> &mut WindowContents {
-		return &mut self.contents;
-	}
-
 	pub fn drawing_is_skipped(&self) -> bool {
 		return self.skip_drawing;
 	}
@@ -168,7 +164,46 @@ impl Window {
 		self.skip_drawing = skip_drawing;
 	}
 
-	//////////
+	////////// This is used for updating the texture of a window whose contents is a texture (but starts out as nothing)
+
+	pub fn update_texture_contents(
+		&mut self,
+		should_remake: bool,
+		texture_pool: &mut TexturePool,
+		texture_creation_info: &TextureCreationInfo,
+		fallback_texture_creation_info: &TextureCreationInfo) -> GenericResult<()> {
+
+		/* This is a macro for making or remaking a texture. If making or
+		remaking fails, a fallback texture is put into that texture's slot. */
+		macro_rules! try_to_make_or_remake_texture {
+			($make_or_remake: expr, $make_or_remake_description: expr, $($extra_args:expr),*) => {{
+				$make_or_remake(texture_creation_info, $($extra_args),*).or_else(
+					|failure_reason| {
+						println!("Unexpectedly failed while trying to {} texture, and reverting to a fallback \
+							texture. Reason: '{}'.", $make_or_remake_description, failure_reason);
+
+						$make_or_remake(fallback_texture_creation_info, $($extra_args),*)
+					}
+				)
+			}};
+		}
+
+		let updated_texture = if let WindowContents::Texture(prev_texture) = &self.contents {
+			if should_remake {try_to_make_or_remake_texture!(|a, b| texture_pool.remake_texture(a, b), "remake an existing", prev_texture)?}
+			prev_texture.clone()
+		}
+		else {
+			/* There was not a texture before, and there's an initial one available now,
+			so a first texture is being made. This should only happen once, at the program's
+			start; otherwise, an unbound amount of new textures will be made. */
+			try_to_make_or_remake_texture!(|a| texture_pool.make_texture(a), "make a new",)?
+		};
+
+		self.contents = WindowContents::Texture(updated_texture);
+		Ok(())
+	}
+
+	////////// These are the window rendering functions (both public and private)
 
 	pub fn render(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams) -> GenericResult<()> {
@@ -176,8 +211,6 @@ impl Window {
 		let sdl_window_bounds = FRect {x: 0.0, y: 0.0, width: 1.0, height: 1.0};
 		self.inner_render(rendering_params, sdl_window_bounds)
 	}
-
-	//////////
 
 	fn inner_render(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
