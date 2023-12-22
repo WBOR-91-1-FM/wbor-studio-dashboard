@@ -69,7 +69,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let app_config = AppConfig {
 		name: "WBOR Studio Dashboard",
 		width: 800, height: 800,
-		use_linear_filtering: true,
+		use_linear_filtering: false,
 		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
 		top_level_window_creator: window_tree_defs::make_wbor_dashboard
 	};
