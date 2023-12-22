@@ -290,7 +290,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 		None,
 
-		Vec2f::new(0.0, 0.0),
+		Vec2f::new_from_one(0.0),
 		Vec2f::new(0.1, 0.05),
 		None
 	);
