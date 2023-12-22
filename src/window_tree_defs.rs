@@ -1,3 +1,5 @@
+use chrono::{Local, Timelike};
+
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
@@ -9,19 +11,54 @@ use crate::{
 
 	texture::{TexturePool, FontInfo, TextDisplayInfo, TextureCreationInfo},
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
-	window_tree::{Window, WindowContents, WindowUpdaterParams, PossibleWindowUpdater, PossibleSharedWindowStateUpdater, ColorSDL}
+	window_tree::{Line, Window, WindowContents, WindowUpdaterParams, PossibleWindowUpdater, PossibleSharedWindowStateUpdater, ColorSDL}
 };
 
 struct SharedWindowState<'a> {
 	spinitron_state: SpinitronState,
 
 	// This is used whenever a texture can't be loaded
-	fallback_texture_creation_info: TextureCreationInfo<'a>
+	fallback_texture_creation_info: TextureCreationInfo<'a>,
+
+	unrotated_clock_hands: Vec<Line>
 }
 
-struct IndividualWindowState {
+struct SpinitronModelWindowState {
 	model_name: SpinitronModelName,
 	is_text_window: bool
+}
+
+//////////
+
+const NUM_CLOCK_HANDS: usize = 4;
+const CLOCK_CENTER: (f32, f32) = (0.5, 0.5);
+
+// These extents are defined assuming that the clock is pointing to 12:00
+struct ClockHandConfig {
+	x_extent: f32,
+	minor_y_extent: f32,
+	major_y_extent: f32,
+	color: ColorSDL
+}
+
+impl ClockHandConfig {
+	fn make_geometry(&self) -> Line {
+		let bottom_offset = Vec2f::new(self.x_extent, 0.0);
+		let clock_center = Vec2f::new(CLOCK_CENTER.0, CLOCK_CENTER.1);
+
+		let lefthand_side = [
+			// The minor part of the hand
+			clock_center - bottom_offset,
+			clock_center + Vec2f::new(0.0, self.minor_y_extent),
+			clock_center + bottom_offset,
+
+			// The major part of the hand
+			clock_center - Vec2f::new(0.0, self.major_y_extent),
+			clock_center - bottom_offset
+		];
+
+		(self.color, lefthand_side.to_vec())
+	}
 }
 
 ////////// TODO: maybe split `make_wbor_dashboard` into some smaller sub-functions
@@ -30,6 +67,87 @@ struct IndividualWindowState {
 - Rename all `Possible` types to `Maybe`s (incl. the associated variable names) (and all `inner-prefixed` vars too)
 - Run `clippy`
 */
+
+fn make_clock_window_and_unrotated_hands(
+	update_rate: UpdateRate,
+	top_left: Vec2f,
+	size: Vec2f,
+	ms_sec_min_hour_hand_configs: [ClockHandConfig; NUM_CLOCK_HANDS],
+	dial_texture_path: &str,
+	texture_pool: &mut TexturePool) -> GenericResult<(Window, Vec<Line>)> {
+
+	let clock_hands: Vec<Line> = ms_sec_min_hour_hand_configs
+		.iter().map(ClockHandConfig::make_geometry).collect();
+
+	fn updater_fn((window, _, shared_window_state, _): WindowUpdaterParams) -> GenericResult<()> {
+		let curr_time = Local::now();
+
+		let time_units: [(u32, u32); NUM_CLOCK_HANDS] = [
+			(curr_time.timestamp_subsec_millis(), 1000),
+			(curr_time.second(), 60),
+			(curr_time.minute(), 60),
+			(curr_time.hour() % 12, 12)
+		];
+
+		let inner_shared_window_state: &SharedWindowState = shared_window_state.get_inner_value();
+		let unrotated_clock_hands = &inner_shared_window_state.unrotated_clock_hands;
+		let WindowContents::Lines(rotated_hands) = window.get_contents_mut() else {panic!()};
+
+		let mut prev_time_fract = 0.0;
+
+		for (i, time_unit) in time_units.iter().enumerate() {
+			let time_fract = (time_unit.0 as f32 + prev_time_fract) / time_unit.1 as f32;
+			prev_time_fract = time_fract;
+
+			let angle = time_fract * std::f32::consts::TAU;
+			let (cos_angle, sin_angle) = (angle.cos(), angle.sin());
+
+			let unrotated_hand = &unrotated_clock_hands[i];
+			let rotated_hand = &mut rotated_hands[(NUM_CLOCK_HANDS - 1) - i].1;
+
+			// TODO: supply the unrotated hands as unrotated (that will allow for less math overall)
+			rotated_hand.iter_mut().enumerate().for_each(|(index, dest)| {
+				let uncentered_unrotated = unrotated_hand.1[index];
+
+				let unrotated = (
+					uncentered_unrotated.x() - CLOCK_CENTER.0,
+					uncentered_unrotated.y() - CLOCK_CENTER.1
+				);
+
+				*dest = Vec2f::new(
+					unrotated.0 * cos_angle - unrotated.1 * sin_angle + CLOCK_CENTER.0,
+					unrotated.0 * sin_angle + unrotated.1 * cos_angle + CLOCK_CENTER.1
+				);
+			});
+		}
+
+		Ok(())
+	}
+
+	let clock_window = Window::new(
+		Some((updater_fn, update_rate)),
+		DynamicOptional::none(),
+		WindowContents::Lines(clock_hands.clone().into_iter().rev().collect()),
+		None,
+		Vec2f::new_from_one(0.0),
+		Vec2f::new_from_one(1.0),
+		None
+	);
+
+	Ok((Window::new(
+		None,
+		DynamicOptional::none(),
+
+		WindowContents::Texture(texture_pool.make_texture(
+			&TextureCreationInfo::Path(dial_texture_path)
+		)?),
+
+		None,
+		top_left,
+		size,
+		Some(vec![clock_window])
+	), clock_hands))
+}
 
 // This returns a top-level window, shared window state, and a shared window state updater
 pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
@@ -43,21 +161,19 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	/* TODO: add the ability to have multiple updaters per window
 	(with different update rates). Or, do async requests. */
-	fn model_updater((window, texture_pool,
+	fn spinitron_model_window_updater_fn((window, texture_pool,
 		shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
 
 		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value();
 		let spinitron_state = &inner_shared_state.spinitron_state;
 
-		let individual_window_state: &IndividualWindowState = window.get_state();
+		let individual_window_state: &SpinitronModelWindowState = window.get_state();
 		let model_name = individual_window_state.model_name;
 
 		let model = spinitron_state.get_model_by_name(model_name);
 		let model_was_updated = spinitron_state.model_was_updated(model_name);
 
-		let wrapped_text_color = WindowContents::make_transparent_color(255, 0, 0, 0.7);
-		let text_color = match wrapped_text_color {WindowContents::Color(c) => c, _ => panic!()};
-
+		let text_color = ColorSDL::RGBA(255, 0, 0, 178);
 		let text_to_display = format!("{} ", model.to_string());
 
 		// TODO: vary the params based on the text window
@@ -104,7 +220,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		UpdateRate::new(10.0)
 	);
 
-	let model_window_updater: PossibleWindowUpdater = Some((model_updater, individual_update_rate));
+	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, individual_update_rate));
 
 	// This cannot exceed 0.5
 	let model_window_size = Vec2f::new_from_one(0.4);
@@ -122,20 +238,20 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	let (text_tl, text_size) = (Vec2f::new_from_one(0.0), Vec2f::new(1.0, 0.1));
 
-	let model_window_metadata = [
+	let spinitron_model_window_metadata = [
 		(SpinitronModelName::Spin, spin_tl),
 		(SpinitronModelName::Playlist, playlist_tl),
 		(SpinitronModelName::Persona, persona_tl),
 		(SpinitronModelName::Show, show_tl)
 	];
 
-	let mut all_windows: Vec<Window> = model_window_metadata.iter().map(|metadata| {
+	let mut all_windows: Vec<Window> = spinitron_model_window_metadata.iter().map(|metadata| {
 		let model_name = metadata.0;
 
 		let text_child = Window::new(
-			model_window_updater,
+			spinitron_model_window_updater,
 
-			DynamicOptional::new(IndividualWindowState {
+			DynamicOptional::new(SpinitronModelWindowState {
 				model_name, is_text_window: true
 			}),
 
@@ -146,10 +262,10 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 			None
 		);
 
-		return Window::new(
-			model_window_updater,
+		Window::new(
+			spinitron_model_window_updater,
 
-			DynamicOptional::new(IndividualWindowState {
+			DynamicOptional::new(SpinitronModelWindowState {
 				model_name, is_text_window: false
 			}),
 
@@ -179,7 +295,28 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		None
 	);
 
-	all_windows.insert(0, logo_window);
+	all_windows.push(logo_window);
+
+	////////// Making a clock window
+
+	let (clock_window, unrotated_clock_hands) = make_clock_window_and_unrotated_hands(
+		UpdateRate::new(1.0 / 60.0),
+
+		Vec2f::new(1.0 - gap_size, 0.0),
+		Vec2f::new_from_one(gap_size),
+
+		[
+			ClockHandConfig {minor_y_extent: 0.2, major_y_extent: 0.5, x_extent: 0.01, color: ColorSDL::RGBA(255, 0, 0, 100)}, // Milliseconds
+			ClockHandConfig {minor_y_extent: 0.02, major_y_extent: 0.48, x_extent: 0.01, color: ColorSDL::WHITE}, // Seconds
+			ClockHandConfig {minor_y_extent: 0.02, major_y_extent: 0.35, x_extent: 0.01, color: ColorSDL::YELLOW}, // Minutes
+			ClockHandConfig {minor_y_extent: 0.02, major_y_extent: 0.2, x_extent: 0.01, color: ColorSDL::BLACK} // Hours
+		],
+
+		"assets/wbor_watch_dial.png",
+		texture_pool
+	)?;
+
+	all_windows.push(clock_window);
 
 	//////////
 
@@ -188,7 +325,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let top_level_window = Window::new(
 		None,
 		DynamicOptional::none(),
-		WindowContents::make_color(210, 180, 140),
+		WindowContents::Color(ColorSDL::RGB(210, 180, 140)),
 		None,
 		Vec2f::new_from_one(top_level_edge_size),
 		Vec2f::new_from_one(1.0 - top_level_edge_size * 2.0),
@@ -198,7 +335,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
 			spinitron_state: SpinitronState::new()?,
-			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png")
+			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png"),
+			unrotated_clock_hands: unrotated_clock_hands
 		}
 	);
 

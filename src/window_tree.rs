@@ -7,7 +7,7 @@ use crate::{
 		update_rate::{UpdateRate, FrameCounter},
 		generic_result::GenericResult,
 		dynamic_optional::DynamicOptional,
-		vec2f::{assert_in_unit_interval, Vec2f},
+		vec2f::Vec2f
 	}
 };
 
@@ -52,7 +52,7 @@ pub type PossibleSharedWindowStateUpdater = Option<(
 	UpdateRate
 )>;
 
-// This data remains constant over a recursive rendering call
+// This data remains constant over a recursive rendering call (TODO: make a constructor for this)
 pub struct PerFrameConstantRenderingParams<'a> {
 	pub sdl_canvas: CanvasSDL,
 	pub texture_pool: TexturePool<'a>,
@@ -63,31 +63,20 @@ pub struct PerFrameConstantRenderingParams<'a> {
 
 //////////
 
+// A color paired with a vec of interconnected line points
+pub type Line = (ColorSDL, Vec<Vec2f>);
+
 pub enum WindowContents {
 	Nothing,
 	Color(ColorSDL),
+	Lines(Vec<Line>),
 	Texture(TextureHandle)
-}
-
-impl WindowContents {
-	pub fn make_color(r: u8, g: u8, b: u8) -> Self {
-		Self::Color(ColorSDL::RGB(r, g, b))
-	}
-
-	// `a` ranges from 0 to 1
-	pub fn make_transparent_color(r: u8, g: u8, b: u8, a: f32) -> Self {
-		assert_in_unit_interval(a);
-		Self::Color(ColorSDL::RGBA(r, g, b, (a * 255.0) as u8))
-	}
 }
 
 //////////
 
-/* TODO: add an option for toggling on/off the rendering
-of a window (that may be useful in the future) */
 pub struct Window {
 	possible_updater: PossibleWindowUpdater,
-
 	state: DynamicOptional,
 	contents: WindowContents,
 
@@ -153,11 +142,15 @@ impl Window {
 
 	// TODO: eventually, make a `mut` variant of this
 	pub fn get_state<T: 'static>(&self) -> &T {
-		return self.state.get_inner_value();
+		self.state.get_inner_value()
+	}
+
+	pub fn get_contents_mut(&mut self) -> &mut WindowContents {
+		&mut self.contents
 	}
 
 	pub fn drawing_is_skipped(&self) -> bool {
-		return self.skip_drawing;
+		self.skip_drawing
 	}
 
 	pub fn set_draw_skipping(&mut self, skip_drawing: bool) {
@@ -205,11 +198,14 @@ impl Window {
 
 	////////// These are the window rendering functions (both public and private)
 
-	pub fn render(&mut self,
-		rendering_params: &mut PerFrameConstantRenderingParams) -> GenericResult<()> {
-
-		let sdl_window_bounds = FRect {x: 0.0, y: 0.0, width: 1.0, height: 1.0};
+	pub fn render(&mut self, rendering_params: &mut PerFrameConstantRenderingParams) -> GenericResult<()> {
+		let output_size = rendering_params.sdl_canvas.output_size()?;
+		let sdl_window_bounds = FRect {x: 0.0, y: 0.0, width: output_size.0 as f32, height: output_size.1 as f32};
 		self.inner_render(rendering_params, sdl_window_bounds)
+	}
+
+	fn transform_vec2_to_parent_scale(v: Vec2f, parent_rect: FRect) -> (f32, f32) {
+		(v.x() * parent_rect.width + parent_rect.x, v.y() * parent_rect.height + parent_rect.y)
 	}
 
 	fn inner_render(&mut self,
@@ -219,25 +215,16 @@ impl Window {
 		////////// Getting the new pixel-space bounding box for this window
 
 		let relative_window_size = self.bottom_right - self.top_left;
-
-		let rect = FRect {
-			x: self.top_left.x() * parent_rect.width + parent_rect.x,
-			y: self.top_left.y() * parent_rect.height + parent_rect.y,
-			width: relative_window_size.x() * parent_rect.width,
-			height : relative_window_size.y() * parent_rect.height
-		};
-
-		let sdl_window_size = rendering_params.sdl_canvas.output_size()?;
-		let sdl_window_size_f = (sdl_window_size.0 as f32, sdl_window_size.1 as f32);
+		let rect_origin = Self::transform_vec2_to_parent_scale(self.top_left, parent_rect);
 
 		let rect_in_pixels = FRect {
-			x: rect.x * sdl_window_size_f.0,
-			y: rect.y * sdl_window_size_f.1,
-			width: rect.width * sdl_window_size_f.0,
-			height: rect.height * sdl_window_size_f.1
+			x: rect_origin.0,
+			y: rect_origin.1,
+			width: relative_window_size.x() * parent_rect.width,
+			height: relative_window_size.y() * parent_rect.height
 		};
 
-		let as_sdl_rect: Rect = rect_in_pixels.into();
+		let rect_in_pixels_sdl: Rect = rect_in_pixels.into();
 
 		////////// Updating the window
 
@@ -250,19 +237,19 @@ impl Window {
 
 		if let Some((updater, update_rate)) = self.possible_updater {
 			if update_rate.is_time_to_update(rendering_params.frame_counter) {
-				updater((self, &mut rendering_params.texture_pool, &rendering_params.shared_window_state, as_sdl_rect))?;
+				updater((self, &mut rendering_params.texture_pool, &rendering_params.shared_window_state, rect_in_pixels_sdl))?;
 			}
 		}
 
 		if !self.skip_drawing {
-			self.draw_window_contents(rendering_params, as_sdl_rect)?;
+			self.draw_window_contents(rendering_params, rect_in_pixels, rect_in_pixels_sdl)?;
 		}
 
 		////////// Updating all child windows
 
 		if let Some(children) = &mut self.children {
 			for child in children {
-				child.inner_render(rendering_params, rect)?;
+				child.inner_render(rendering_params, rect_in_pixels)?;
 			}
 		}
 
@@ -272,7 +259,7 @@ impl Window {
 	fn draw_window_contents(
 		&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
-		sdl_rect_area: Rect) -> GenericResult<()> {
+		screen_dest: FRect, screen_dest_sdl: Rect) -> GenericResult<()> {
 
 		////////// A function for drawing colors with transparency
 
@@ -301,18 +288,34 @@ impl Window {
 			WindowContents::Nothing => {},
 
 			WindowContents::Color(color) => {
-				possibly_draw_with_transparency(color, sdl_canvas, |canvas| Ok(canvas.fill_rect(sdl_rect_area)?))?;
+				possibly_draw_with_transparency(color, sdl_canvas, |canvas| Ok(canvas.fill_rect(screen_dest_sdl)?))?;
+			},
+
+			WindowContents::Lines(line_series) => {
+				use sdl2::rect::Point as PointSDL;
+
+				for series in line_series {
+					let converted_series: Vec<PointSDL> = series.1.iter().map(|&point| {
+						let xy = Self::transform_vec2_to_parent_scale(point, screen_dest);
+						PointSDL::new(xy.0 as i32, xy.1 as i32)
+					}).collect();
+
+					possibly_draw_with_transparency(&series.0, sdl_canvas, |canvas| {
+						canvas.draw_lines(&*converted_series)?;
+						Ok(())
+					})?;
+				}
 			},
 
 			/* TODO: eliminate the partially black border around
 			the opaque areas of textures with alpha values */
 			WindowContents::Texture(texture) => {
-				rendering_params.texture_pool.draw_texture_to_canvas(texture, sdl_canvas, sdl_rect_area)?;
+				rendering_params.texture_pool.draw_texture_to_canvas(texture, sdl_canvas, screen_dest_sdl)?;
 			}
 		};
 
 		if let Some(border_color) = &self.maybe_border_color {
-			possibly_draw_with_transparency(border_color, sdl_canvas, |canvas| Ok(canvas.draw_rect(sdl_rect_area)?))?;
+			possibly_draw_with_transparency(border_color, sdl_canvas, |canvas| Ok(canvas.draw_rect(screen_dest_sdl)?))?;
 		}
 
 		Ok(())
