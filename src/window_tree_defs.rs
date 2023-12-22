@@ -11,16 +11,28 @@ use crate::{
 
 	texture::{TexturePool, FontInfo, TextDisplayInfo, TextureCreationInfo},
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
-	window_tree::{Line, Window, WindowContents, WindowUpdaterParams, PossibleWindowUpdater, PossibleSharedWindowStateUpdater, ColorSDL}
+
+	window_tree::{
+		GeneralLine, Window,
+		WindowContents, WindowUpdaterParams,
+		PossibleWindowUpdater, PossibleSharedWindowStateUpdater, ColorSDL
+	}
 };
 
+// TODO: put the clock stuff in its own file
+
+// This is called raw because it's centered at (0, 0) and is unrotated.
+type RawClockHand = GeneralLine<(f32, f32)>;
+
+const NUM_CLOCK_HANDS: usize = 4;
+const CLOCK_CENTER: (f32, f32) = (0.5, 0.5);
+
 struct SharedWindowState<'a> {
+	raw_clock_hands: [RawClockHand; NUM_CLOCK_HANDS],
 	spinitron_state: SpinitronState,
 
 	// This is used whenever a texture can't be loaded
-	fallback_texture_creation_info: TextureCreationInfo<'a>,
-
-	unrotated_clock_hands: Vec<Line>
+	fallback_texture_creation_info: TextureCreationInfo<'a>
 }
 
 struct SpinitronModelWindowState {
@@ -29,9 +41,6 @@ struct SpinitronModelWindowState {
 }
 
 //////////
-
-const NUM_CLOCK_HANDS: usize = 4;
-const CLOCK_CENTER: (f32, f32) = (0.5, 0.5);
 
 // These extents are defined assuming that the clock is pointing to 12:00
 struct ClockHandConfig {
@@ -42,22 +51,19 @@ struct ClockHandConfig {
 }
 
 impl ClockHandConfig {
-	fn make_geometry(&self) -> Line {
-		let bottom_offset = Vec2f::new(self.x_extent, 0.0);
-		let clock_center = Vec2f::new(CLOCK_CENTER.0, CLOCK_CENTER.1);
-
-		let lefthand_side = [
+	fn make_geometry(&self) -> RawClockHand {
+		let hand = [
 			// The minor part of the hand
-			clock_center - bottom_offset,
-			clock_center + Vec2f::new(0.0, self.minor_y_extent),
-			clock_center + bottom_offset,
+			(-self.x_extent, 0.0),
+			(0.0, self.minor_y_extent),
+			(self.x_extent, 0.0),
 
 			// The major part of the hand
-			clock_center - Vec2f::new(0.0, self.major_y_extent),
-			clock_center - bottom_offset
+			(0.0, -self.major_y_extent),
+			(-self.x_extent, 0.0)
 		];
 
-		(self.color, lefthand_side.to_vec())
+		(self.color, hand.to_vec())
 	}
 }
 
@@ -68,16 +74,13 @@ impl ClockHandConfig {
 - Run `clippy`
 */
 
-fn make_clock_window_and_unrotated_hands(
+fn make_clock_window_and_raw_hands(
 	update_rate: UpdateRate,
 	top_left: Vec2f,
 	size: Vec2f,
 	ms_sec_min_hour_hand_configs: [ClockHandConfig; NUM_CLOCK_HANDS],
 	dial_texture_path: &str,
-	texture_pool: &mut TexturePool) -> GenericResult<(Window, Vec<Line>)> {
-
-	let clock_hands: Vec<Line> = ms_sec_min_hour_hand_configs
-		.iter().map(ClockHandConfig::make_geometry).collect();
+	texture_pool: &mut TexturePool) -> GenericResult<(Window, [RawClockHand; NUM_CLOCK_HANDS])> {
 
 	fn updater_fn((window, _, shared_window_state, _): WindowUpdaterParams) -> GenericResult<()> {
 		let curr_time = Local::now();
@@ -90,7 +93,7 @@ fn make_clock_window_and_unrotated_hands(
 		];
 
 		let inner_shared_window_state: &SharedWindowState = shared_window_state.get_inner_value();
-		let unrotated_clock_hands = &inner_shared_window_state.unrotated_clock_hands;
+		let raw_clock_hands = &inner_shared_window_state.raw_clock_hands;
 		let WindowContents::Lines(rotated_hands) = window.get_contents_mut() else {panic!()};
 
 		let mut prev_time_fract = 0.0;
@@ -102,21 +105,15 @@ fn make_clock_window_and_unrotated_hands(
 			let angle = time_fract * std::f32::consts::TAU;
 			let (cos_angle, sin_angle) = (angle.cos(), angle.sin());
 
-			let unrotated_hand = &unrotated_clock_hands[i];
+			let raw_hand = &raw_clock_hands[i];
 			let rotated_hand = &mut rotated_hands[(NUM_CLOCK_HANDS - 1) - i].1;
 
-			// TODO: supply the unrotated hands as unrotated (that will allow for less math overall)
 			rotated_hand.iter_mut().enumerate().for_each(|(index, dest)| {
-				let uncentered_unrotated = unrotated_hand.1[index];
-
-				let unrotated = (
-					uncentered_unrotated.x() - CLOCK_CENTER.0,
-					uncentered_unrotated.y() - CLOCK_CENTER.1
-				);
+				let raw = raw_hand.1[index];
 
 				*dest = Vec2f::new(
-					unrotated.0 * cos_angle - unrotated.1 * sin_angle + CLOCK_CENTER.0,
-					unrotated.0 * sin_angle + unrotated.1 * cos_angle + CLOCK_CENTER.1
+					(raw.0 * cos_angle - raw.1 * sin_angle) + CLOCK_CENTER.0,
+					(raw.0 * sin_angle + raw.1 * cos_angle) + CLOCK_CENTER.1
 				);
 			});
 		}
@@ -124,10 +121,18 @@ fn make_clock_window_and_unrotated_hands(
 		Ok(())
 	}
 
+	let raw_clock_hands = ms_sec_min_hour_hand_configs.map(|config| config.make_geometry());
+
 	let clock_window = Window::new(
 		Some((updater_fn, update_rate)),
 		DynamicOptional::none(),
-		WindowContents::Lines(clock_hands.clone().into_iter().rev().collect()),
+
+		WindowContents::Lines(
+			raw_clock_hands.iter().rev().map(|(color, clock_hand)| {
+				(*color, vec![Vec2f::new_from_one(0.0); clock_hand.len()])
+			}).collect()
+		),
+
 		None,
 		Vec2f::new_from_one(0.0),
 		Vec2f::new_from_one(1.0),
@@ -146,7 +151,7 @@ fn make_clock_window_and_unrotated_hands(
 		top_left,
 		size,
 		Some(vec![clock_window])
-	), clock_hands))
+	), raw_clock_hands))
 }
 
 // This returns a top-level window, shared window state, and a shared window state updater
@@ -299,7 +304,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	////////// Making a clock window
 
-	let (clock_window, unrotated_clock_hands) = make_clock_window_and_unrotated_hands(
+	let (clock_window, raw_clock_hands) = make_clock_window_and_raw_hands(
 		UpdateRate::new(1.0 / 60.0),
 
 		Vec2f::new(1.0 - gap_size, 0.0),
@@ -334,9 +339,9 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
+			raw_clock_hands,
 			spinitron_state: SpinitronState::new()?,
 			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png"),
-			unrotated_clock_hands: unrotated_clock_hands
 		}
 	);
 
