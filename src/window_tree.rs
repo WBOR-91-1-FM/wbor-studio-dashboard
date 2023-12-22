@@ -275,7 +275,7 @@ impl Window {
 
 			// TODO: make this state transition more efficient
 			if use_blending {sdl_canvas.set_blend_mode(BlendMode::Blend);}
-				sdl_canvas.set_draw_color(color.clone());
+				sdl_canvas.set_draw_color(*color);
 				drawer(sdl_canvas)?;
 			if use_blending {sdl_canvas.set_blend_mode(BlendMode::None);}
 

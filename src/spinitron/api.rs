@@ -26,7 +26,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	let typename = &full_typename[last_colon_ind + 1..];
 
 	let mut typename_chars = typename.chars();
-	let first_char = typename_chars.nth(0).ok_or("The typename has no chars in it, which is impossible")?;
+	let first_char = typename_chars.next().ok_or("The typename has no chars in it, which is impossible")?;
 	let api_endpoint = format!("{}{}s", first_char.to_lowercase(), &typename[1..]);
 
 	////////// Checking endpoint validity
