@@ -6,7 +6,7 @@ pub struct ApiKey {
 
 impl ApiKey {
 	pub fn new() -> GenericResult<Self> {
-		const API_KEY_PATH: &'static str = "assets/spinitron_api_key.txt";
+		const API_KEY_PATH: &str = "assets/spinitron_api_key.txt";
 
 		match std::fs::read_to_string(API_KEY_PATH) {
 			Ok(untrimmed_api_key) => {

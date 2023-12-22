@@ -1,5 +1,3 @@
-use serde_json;
-
 use crate::{
 	request,
 	utility_types::generic_result::GenericResult,
@@ -24,7 +22,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	////////// Getting the API endpoint
 
 	let full_typename = std::any::type_name::<T>();
-	let last_colon_ind = full_typename.rfind(":").ok_or("Expected a colon in the model typename")?;
+	let last_colon_ind = full_typename.rfind(':').ok_or("Expected a colon in the model typename")?;
 	let typename = &full_typename[last_colon_ind + 1..];
 
 	let mut typename_chars = typename.chars();

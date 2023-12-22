@@ -1,5 +1,3 @@
-use sdl2;
-
 mod request;
 mod texture;
 mod spinitron;

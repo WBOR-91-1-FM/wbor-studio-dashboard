@@ -171,7 +171,7 @@ impl<'a> TexturePool<'a> {
 		let texture = self.get_texture_from_handle_immut(handle);
 		let possible_text_metadata = self.text_metadata.get(&handle.handle);
 
-		if let None = possible_text_metadata {
+		if possible_text_metadata.is_none() {
 			canvas.copy(texture, None, screen_dest)?;
 			return Ok(());
 		}
@@ -199,7 +199,7 @@ impl<'a> TexturePool<'a> {
 		//////////
 
 		let texture_src = Rect::new(
-			((x as f64 * scroll_fract)) as i32,
+			(x as f64 * scroll_fract) as i32,
 			0, dest_width, texture_size.1
 		);
 

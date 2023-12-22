@@ -32,14 +32,14 @@ impl SpinitronState {
 	}
 
 	fn get_show_while_syncing_show_id(api_key: &ApiKey, playlist: &mut Playlist) -> GenericResult<Show> {
-		let show: Show = get_from_id(&api_key, playlist.get_show_id())?;
+		let show: Show = get_from_id(api_key, playlist.get_show_id())?;
 
 		/* It's possible that the playlist will not have a show id
 		(e.g. if someone plays songs, without making a playlist to log them).
 		In that case, this gets the current show according to the schedule,
 		and the playlist's show ID is set after that. */
 
-		if let None = playlist.get_show_id() {
+		if playlist.get_show_id().is_none() {
 			println!("The playlist's show id was None, so setting it manually to the show id");
 			playlist.set_show_id(show.get_id());
 		}
