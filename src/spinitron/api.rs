@@ -67,7 +67,8 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 
 	////////// Building a URL, submitting the request, and getting the response JSON
 
-	// TODO: later on, cache this URL for the specific request (otherwise, a lot of time is spent rebuilding it)
+	/* TODO: later on, cache this URL for the specific request (otherwise, a lot of time is spent rebuilding it).
+	Actually, don't do that, build the URL, and then cache the request itself (it will then be resent other times). */
 	let url = request::build_url("https://spinitron.com/api", path_params, query_params)?;
 
 	let response = request::get(&url)?;
