@@ -179,7 +179,7 @@ impl<'a> TexturePool<'a> {
 		//////////
 
 		// TODO: how can I scroll at the same speed, irrespective of the text size?
-		let text_metadata = possible_text_metadata.unwrap();
+		let text_metadata = possible_text_metadata.ok_or("Expected text metadata")?;
 		let texture_size = text_metadata.size;
 
 		// TODO: compute the time since the unix epoch outside this fn, somehow (or, use the SDL timer)
