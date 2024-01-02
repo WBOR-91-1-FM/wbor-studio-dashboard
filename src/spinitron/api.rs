@@ -53,7 +53,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	let mut path_params = vec![api_endpoint.to_string()];
 
 	let mut query_params = vec![
-		("access-token", api_key.get_inner_key()),
+		("access-token", api_key.get_inner_key().to_string()),
 		("fields", joined_fields)
 	];
 

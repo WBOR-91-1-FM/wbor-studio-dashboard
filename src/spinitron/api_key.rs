@@ -1,7 +1,9 @@
+use std::sync::Arc;
 use crate::utility_types::generic_result::GenericResult;
 
+#[derive(Clone)]
 pub struct ApiKey {
-	key: String
+	key: Arc<String>
 }
 
 impl ApiKey {
@@ -10,7 +12,7 @@ impl ApiKey {
 
 		match std::fs::read_to_string(API_KEY_PATH) {
 			Ok(untrimmed_api_key) => {
-				Ok(Self {key: untrimmed_api_key.trim().to_string()})
+				Ok(Self {key: Arc::new(untrimmed_api_key.trim().to_string())})
 			},
 			Err(err) => {
 				Err(format!("The API key at path '{}' could not be found. Official error: '{}'.",
@@ -20,7 +22,7 @@ impl ApiKey {
 
 	}
 
-	pub fn get_inner_key(&self) -> String {
-		self.key.clone()
+	pub fn get_inner_key(&self) -> &str {
+		self.key.as_ref().as_str()
 	}
 }

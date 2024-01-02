@@ -1,5 +1,8 @@
 use crate::{
-	utility_types::generic_result::GenericResult,
+	utility_types::{
+		thread_task::ThreadTask,
+		generic_result::{self, GenericResult, SendableGenericResult}
+	},
 
 	spinitron::{
 		api_key::ApiKey,
@@ -8,7 +11,8 @@ use crate::{
 	}
 };
 
-pub struct SpinitronState {
+#[derive(Clone)]
+struct SpinitronStateData {
 	spin: Spin,
 	playlist: Playlist,
 	persona: Persona,
@@ -16,38 +20,20 @@ pub struct SpinitronState {
 
 	api_key: ApiKey,
 
-	/* The boolean at index i is true if the model at index i was recently updated.
-	Model indices are (in order) spin, playlist, persona, and show. */
+	/* The boolean at index `i`` is true if the model at index `i`` was recently
+	updated. Model indices are (in order) spin, playlist, persona, and show. */
 	update_status: [bool; 4]
 }
 
-impl SpinitronState {
-	pub fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {
-		match name {
-			SpinitronModelName::Spin => &self.spin,
-			SpinitronModelName::Playlist => &self.playlist,
-			SpinitronModelName::Persona => &self.persona,
-			SpinitronModelName::Show => &self.show
-		}
-	}
+type SpinitronStateUpdateTask = ThreadTask<SendableGenericResult<SpinitronStateData>>;
 
-	fn get_show_while_syncing_show_id(api_key: &ApiKey, playlist: &mut Playlist) -> GenericResult<Show> {
-		let show: Show = get_from_id(api_key, playlist.get_show_id())?;
+pub struct SpinitronState {
+	data: SpinitronStateData,
+	curr_update_task: Option<SpinitronStateUpdateTask>
+}
 
-		/* It's possible that the playlist will not have a show id
-		(e.g. if someone plays songs, without making a playlist to log them).
-		In that case, this gets the current show according to the schedule,
-		and the playlist's show ID is set after that. */
-
-		if playlist.get_show_id().is_none() {
-			println!("The playlist's show id was None, so setting it manually to the show id");
-			playlist.set_show_id(show.get_id());
-		}
-
-		Ok(show)
-	}
-
-	pub fn new() -> GenericResult<Self> {
+impl SpinitronStateData {
+	fn new() -> GenericResult<Self> {
 		let api_key = ApiKey::new()?;
 
 		// TODO: if there is no current spin, will this only return the last one?
@@ -69,15 +55,31 @@ impl SpinitronState {
 		})
 	}
 
+	fn get_show_while_syncing_show_id(api_key: &ApiKey, playlist: &mut Playlist) -> GenericResult<Show> {
+		let show: Show = get_from_id(api_key, playlist.get_show_id())?;
+
+		/* It's possible that the playlist will not have a show id
+		(e.g. if someone plays songs, without making a playlist to log them).
+		In that case, this gets the current show according to the schedule,
+		and the playlist's show ID is set after that. */
+
+		if playlist.get_show_id().is_none() {
+			println!("The playlist's show id was None, so setting it manually to the show id");
+			playlist.set_show_id(show.get_id());
+		}
+
+		Ok(show)
+	}
+
 	/* This returns a set of 4 booleans, indicating if the
 	spin, playlist, persona, or show updated (in order). */
-	pub fn update(&mut self) -> GenericResult<()> {
+	fn update(&mut self) -> GenericResult<()> {
 		let api_key = &self.api_key;
 		let new_spin = get_current_spin(api_key)?;
 
-		let get_model_ids = |state: &SpinitronState| [
-			state.spin.get_id(), state.playlist.get_id(),
-			state.persona.get_id(), state.show.get_id()
+		let get_model_ids = |data: &SpinitronStateData| [
+			data.spin.get_id(), data.playlist.get_id(),
+			data.persona.get_id(), data.show.get_id()
 		];
 
 		let original_ids = get_model_ids(self);
@@ -142,7 +144,58 @@ impl SpinitronState {
 
 	}
 
+}
+
+impl SpinitronState {
+	pub fn new() -> GenericResult<Self> {
+		Ok(Self {
+			data: SpinitronStateData::new()?,
+			curr_update_task: None
+		})
+	}
+
+	pub fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {
+		let data = &self.data;
+
+		match name {
+			SpinitronModelName::Spin => &data.spin,
+			SpinitronModelName::Playlist => &data.playlist,
+			SpinitronModelName::Persona => &data.persona,
+			SpinitronModelName::Show => &data.show
+		}
+	}
+
 	pub fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {
-		self.update_status[model_name as usize]
+		self.data.update_status[model_name as usize]
+	}
+
+	//////////
+
+	fn make_new_update_task(&mut self) {
+		let mut cloned_data = self.data.clone();
+
+		let task = ThreadTask::new(
+			move || {
+				generic_result::make_sendable(cloned_data.update())?;
+				Ok(cloned_data.clone())
+			}
+		);
+
+		self.curr_update_task = Some(task);
+	}
+
+	pub fn update(&mut self) -> GenericResult<()> {
+		match &self.curr_update_task {
+			Some(task) => {
+				if let Some(data) = task.get_value()? {
+					self.data = data?;
+					self.make_new_update_task();
+				}
+			},
+
+			None => self.make_new_update_task()
+		}
+
+		Ok(())
 	}
 }

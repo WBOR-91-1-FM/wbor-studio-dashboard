@@ -210,6 +210,7 @@ fn make_spinitron_windows(
 			}
 		};
 
+		// TODO: see if threading will be needed for updating textures as well
 		window.update_texture_contents(
 			model_was_updated,
 			texture_pool,
@@ -279,8 +280,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	////////// Making the Spinitron windows
 
 	let (individual_update_rate, shared_update_rate) = (
-		UpdateRate::new(10.0),
-		UpdateRate::new(10.0)
+		UpdateRate::new(1.0),
+		UpdateRate::new(1.0)
 	);
 
 	// This cannot exceed 0.5
