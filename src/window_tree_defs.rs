@@ -154,9 +154,9 @@ fn make_clock_window_and_raw_hands(
 	), raw_clock_hands))
 }
 
-// This returns a top-level window, shared window state, and a shared window state updater
-pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
-	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
+fn make_spinitron_windows(
+	model_window_size: Vec2f, gap_size: f32,
+	model_update_rate: UpdateRate) -> Vec<Window> {
 
 	const FONT_INFO: FontInfo = FontInfo {
 		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
@@ -220,18 +220,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	////////// Making the model windows
 
-	let (individual_update_rate, shared_update_rate) = (
-		UpdateRate::new(10.0),
-		UpdateRate::new(10.0)
-	);
-
-	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, individual_update_rate));
-
-	// This cannot exceed 0.5
-	let model_window_size = Vec2f::new_from_one(0.4);
-
-	let overspill_amount_to_right = -(model_window_size.x() * 2.0 - 1.0);
-	let gap_size = overspill_amount_to_right / 3.0;
+	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
 
 	// `tl` = top left
 
@@ -250,7 +239,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		(SpinitronModelName::Show, show_tl)
 	];
 
-	let mut all_windows: Vec<Window> = spinitron_model_window_metadata.iter().map(|metadata| {
+	spinitron_model_window_metadata.iter().map(|metadata| {
 		let model_name = metadata.0;
 
 		let text_child = Window::new(
@@ -280,7 +269,30 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 			model_window_size,
 			Some(vec![text_child])
 		)
-	}).collect();
+	}).collect()
+}
+
+// This returns a top-level window, shared window state, and a shared window state updater
+pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
+	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
+
+	////////// Making the Spinitron windows
+
+	let (individual_update_rate, shared_update_rate) = (
+		UpdateRate::new(10.0),
+		UpdateRate::new(10.0)
+	);
+
+	// This cannot exceed 0.5
+	let model_window_size = Vec2f::new_from_one(0.4);
+
+	let overspill_amount_to_right = -(model_window_size.x() * 2.0 - 1.0);
+	let gap_size = overspill_amount_to_right / 3.0;
+
+	let mut all_windows = make_spinitron_windows(
+		model_window_size, gap_size,
+		individual_update_rate
+	);
 
 	////////// Making a logo window
 
