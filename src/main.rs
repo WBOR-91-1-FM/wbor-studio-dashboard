@@ -29,7 +29,7 @@ TODO:
 - User interaction with the dashboard via the Stream Deck (toggle display elements, ignore DJ text, etc.)
 - If useful at some point, perhaps cut off rendered text characters with '...' if the text is too long
 - Different themes per each dashboard setup: wooden, garden, neon retro, frutiger aero, etc.
-- Drifting clouds over the screen (seasonal?)
+- Fall: leaves + drifting clouds over the screen, summer: shining run rays, spring: occasional rain with sun, winter: snow
 
 - Async requests (for that, make an async requester object that you can initiate a request with,
 	and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible).
