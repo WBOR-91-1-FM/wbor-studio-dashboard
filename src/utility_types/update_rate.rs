@@ -11,7 +11,7 @@ pub struct UpdateRate {
 }
 
 impl UpdateRate {
-	pub const ONCE_PER_FRAME: UpdateRate = Self {every_n_frames: 1};
+	pub const ONCE_PER_FRAME: Self = Self {every_n_frames: 1};
 
 	pub fn new(num_seconds_between_updates: Seconds) -> Self {
 		let fps = 60.0; // TODO: infer this somehow
