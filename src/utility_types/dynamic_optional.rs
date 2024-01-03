@@ -5,12 +5,10 @@ pub struct DynamicOptional {
 }
 
 impl DynamicOptional {
+	pub const NONE: DynamicOptional = DynamicOptional {inner: None};
+
 	pub fn new<T: 'static>(value: T) -> DynamicOptional {
 		DynamicOptional {inner: Some(Box::new(value))}
-	}
-
-	pub fn none() -> DynamicOptional {
-		DynamicOptional {inner: None}
 	}
 
 	////////// TODO: eliminate the repetition here

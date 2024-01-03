@@ -125,7 +125,7 @@ fn make_clock_window_and_raw_hands(
 
 	let clock_window = Window::new(
 		Some((updater_fn, update_rate)),
-		DynamicOptional::none(),
+		DynamicOptional::NONE,
 
 		WindowContents::Lines(
 			raw_clock_hands.iter().rev().map(|(color, clock_hand)| {
@@ -141,7 +141,7 @@ fn make_clock_window_and_raw_hands(
 
 	Ok((Window::new(
 		None,
-		DynamicOptional::none(),
+		DynamicOptional::NONE,
 
 		WindowContents::Texture(texture_pool.make_texture(
 			&TextureCreationInfo::Path(dial_texture_path)
@@ -297,25 +297,31 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	// TODO: make a temporary error window that pops up when needed
 
-	////////// Making a logo window
+	////////// Making some static texture windows
 
-	// TODO: put more little images in the corners
-	let logo_window = Window::new(
-		None,
-		DynamicOptional::none(),
+	let soup_height = gap_size * 1.5;
 
-		WindowContents::Texture(texture_pool.make_texture(
-			&TextureCreationInfo::Path("assets/wbor_logo.png")
-		)?),
+	let static_texture_info = [
+		("assets/wbor_logo.png", Vec2f::new_from_one(0.0), Vec2f::new(0.1, 0.05)),
+		("assets/wbor_soup.png", Vec2f::new(0.0, 1.0 - soup_height), Vec2f::new(gap_size, soup_height))
+	];
 
-		None,
+	all_windows.extend(static_texture_info.iter().map(|datum| {
+		return Window::new(
+			None,
+			DynamicOptional::NONE,
 
-		Vec2f::new_from_one(0.0),
-		Vec2f::new(0.1, 0.05),
-		None
-	);
+			WindowContents::Texture(texture_pool.make_texture(
+				&TextureCreationInfo::Path(datum.0),
+			).unwrap()),
 
-	all_windows.push(logo_window);
+			None,
+
+			datum.1,
+			datum.2,
+			None
+		)
+	}));
 
 	////////// Making a clock window
 
@@ -344,7 +350,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	let top_level_window = Window::new(
 		None,
-		DynamicOptional::none(),
+		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(210, 180, 140)),
 		None,
 		Vec2f::new_from_one(top_level_edge_size),

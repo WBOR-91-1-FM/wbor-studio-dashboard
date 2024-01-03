@@ -119,7 +119,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 			sdl_canvas,
 			texture_pool: texture::TexturePool::new(&texture_creator, &sdl_ttf_context),
 			frame_counter: utility_types::update_rate::FrameCounter::new(),
-			shared_window_state: utility_types::dynamic_optional::DynamicOptional::none(),
+			shared_window_state: utility_types::dynamic_optional::DynamicOptional::NONE,
 			shared_window_state_updater: None
 		};
 
