@@ -295,6 +295,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		individual_update_rate
 	);
 
+	// TODO: make a temporary error window that pops up when needed
+
 	////////// Making a logo window
 
 	// TODO: put more little images in the corners
