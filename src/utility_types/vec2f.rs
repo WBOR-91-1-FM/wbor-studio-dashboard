@@ -9,8 +9,6 @@ pub struct Vec2f {
 	y: Component
 }
 
-// TODO: make associated constants for the zero and one vectors
-
 //////////
 
 pub fn assert_in_unit_interval(f: Component) {
@@ -20,6 +18,9 @@ pub fn assert_in_unit_interval(f: Component) {
 //////////
 
 impl Vec2f {
+	pub const ZERO: Self = Self {x: 0.0, y: 0.0};
+	pub const ONE: Self = Self {x: 1.0, y: 1.0};
+
 	pub fn new_from_one(f: Component) -> Self {
 		assert_in_unit_interval(f);
 		Self {x: f, y: f}

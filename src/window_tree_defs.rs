@@ -129,13 +129,13 @@ fn make_clock_window_and_raw_hands(
 
 		WindowContents::Lines(
 			raw_clock_hands.iter().rev().map(|(color, clock_hand)| {
-				(*color, vec![Vec2f::new_from_one(0.0); clock_hand.len()])
+				(*color, vec![Vec2f::ZERO; clock_hand.len()])
 			}).collect()
 		),
 
 		None,
-		Vec2f::new_from_one(0.0),
-		Vec2f::new_from_one(1.0),
+		Vec2f::ZERO,
+		Vec2f::ONE,
 		None
 	);
 
@@ -232,7 +232,7 @@ fn make_spinitron_windows(
 	let persona_tl = spin_tl.translate_y(model_window_size.y() + gap_size);
 	let show_tl = Vec2f::new(playlist_tl.x(), persona_tl.y());
 
-	let (text_tl, text_size) = (Vec2f::new_from_one(0.0), Vec2f::new(1.0, 0.1));
+	let (text_tl, text_size) = (Vec2f::ZERO, Vec2f::new(1.0, 0.1));
 
 	let spinitron_model_window_metadata = [
 		(SpinitronModelName::Spin, spin_tl),
@@ -309,7 +309,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let static_texture_info = [
 		(
 			"assets/wbor_logo.png",
-			Vec2f::new_from_one(0.0),
+			Vec2f::ZERO,
 			Vec2f::new(0.1, 0.05)
 		),
 
