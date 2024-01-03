@@ -11,11 +11,11 @@ pub struct UpdateRate {
 }
 
 impl UpdateRate {
+	pub const ONCE_PER_FRAME: UpdateRate = Self {every_n_frames: 1};
+
 	pub fn new(num_seconds_between_updates: Seconds) -> Self {
 		let fps = 60.0; // TODO: infer this somehow
 		let max_frame_index = FrameIndex::MAX;
-
-		//////////
 
 		let num_frames_between_updates = num_seconds_between_updates * fps;
 

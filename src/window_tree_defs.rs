@@ -190,6 +190,7 @@ fn make_spinitron_windows(
 					text: text_to_display,
 					color: text_color,
 
+					// TODO: pass in the scroll fn too
 					scroll_fn: |secs_since_unix_epoch| {
 						// let repeat_rate_secs = 5.0;
 						// ((secs_since_unix_epoch % repeat_rate_secs) / repeat_rate_secs, true)
@@ -288,10 +289,10 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let model_window_size = Vec2f::new_from_one(0.4);
 
 	let overspill_amount_to_right = -(model_window_size.x() * 2.0 - 1.0);
-	let gap_size = overspill_amount_to_right / 3.0;
+	let model_gap_size = overspill_amount_to_right / 3.0;
 
 	let mut all_windows = make_spinitron_windows(
-		model_window_size, gap_size,
+		model_window_size, model_gap_size,
 		individual_update_rate
 	);
 
@@ -299,14 +300,27 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	////////// Making some static texture windows
 
-	let soup_height = gap_size * 1.5;
+	// TODO: make animated textures possible
+	// TODO: remove a bunch of async TODOs, and just old ones in general
 
+	let soup_height = model_gap_size * 1.5;
+
+	// Updater, state, texture path, top left, size
 	let static_texture_info = [
-		("assets/wbor_logo.png", Vec2f::new_from_one(0.0), Vec2f::new(0.1, 0.05)),
-		("assets/wbor_soup.png", Vec2f::new(0.0, 1.0 - soup_height), Vec2f::new(gap_size, soup_height))
+		(
+			"assets/wbor_logo.png",
+			Vec2f::new_from_one(0.0),
+			Vec2f::new(0.1, 0.05)
+		),
+
+		(
+			"assets/wbor_soup.png",
+			Vec2f::new(0.0, 1.0 - soup_height),
+			Vec2f::new(model_gap_size, soup_height)
+		)
 	];
 
-	all_windows.extend(static_texture_info.iter().map(|datum| {
+	all_windows.extend(static_texture_info.into_iter().map(|datum| {
 		return Window::new(
 			None,
 			DynamicOptional::NONE,
@@ -326,10 +340,10 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	////////// Making a clock window
 
 	let (clock_window, raw_clock_hands) = make_clock_window_and_raw_hands(
-		UpdateRate::new(1.0 / 60.0),
+		UpdateRate::ONCE_PER_FRAME,
 
-		Vec2f::new(1.0 - gap_size, 0.0),
-		Vec2f::new_from_one(gap_size),
+		Vec2f::new(1.0 - model_gap_size, 0.0),
+		Vec2f::new_from_one(model_gap_size),
 
 		[
 			ClockHandConfig {minor_y_extent: 0.2, major_y_extent: 0.5, x_extent: 0.01, color: ColorSDL::RGBA(255, 0, 0, 100)}, // Milliseconds

@@ -42,7 +42,7 @@ pub type WindowUpdaterParams<'a, 'b, 'c, 'd> = (
 	Rect // The area on the screen that the window is drawn to
 );
 
-type GenericPossibleUpdater<T> = Option<(fn(T) -> GenericResult<()>, UpdateRate)>;
+// TODO: genericize these two over one typedef
 
 pub type PossibleWindowUpdater = Option<(
 	fn(WindowUpdaterParams) -> GenericResult<()>,
@@ -89,7 +89,7 @@ pub struct Window {
 
 	// TODO: Make a fn to move a window in some direction (in a FPS-independent way)
 	top_left: Vec2f,
-	bottom_right: Vec2f,
+	size: Vec2f,
 
 	/* TODO: maybe do splitting here instead. Ideas for that:
 	KD-tree:
@@ -128,6 +128,8 @@ impl Window {
 		top_left: Vec2f, size: Vec2f,
 		children: Option<Vec<Self>>) -> Self {
 
+		let _bottom_right = top_left + size;
+
 		let none_if_children_vec_is_empty = match &children {
 			Some(inner_children) => {if inner_children.is_empty() {None} else {children}},
 			None => None
@@ -137,14 +139,13 @@ impl Window {
 			possible_updater, state, contents,
 			skip_drawing: false,
 			maybe_border_color,
-			top_left, bottom_right: top_left + size,
+			top_left, size,
 			children: none_if_children_vec_is_empty
 		}
 	}
 
 	////////// Some getters and setters
 
-	// TODO: eventually, make a `mut` variant of this
 	pub fn get_state<T: 'static>(&self) -> &T {
 		self.state.get_inner_value()
 	}
@@ -218,14 +219,13 @@ impl Window {
 
 		////////// Getting the new pixel-space bounding box for this window
 
-		let relative_window_size = self.bottom_right - self.top_left;
 		let rect_origin = Self::transform_vec2_to_parent_scale(self.top_left, parent_rect);
 
 		let rect_in_pixels = FRect {
 			x: rect_origin.0,
 			y: rect_origin.1,
-			width: relative_window_size.x() * parent_rect.width,
-			height: relative_window_size.y() * parent_rect.height
+			width: self.size.x() * parent_rect.width,
+			height: self.size.y() * parent_rect.height
 		};
 
 		let rect_in_pixels_sdl: Rect = rect_in_pixels.into();
