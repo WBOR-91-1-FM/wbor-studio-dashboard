@@ -42,6 +42,8 @@ pub type WindowUpdaterParams<'a, 'b, 'c, 'd> = (
 	Rect // The area on the screen that the window is drawn to
 );
 
+type GenericPossibleUpdater<T> = Option<(fn(T) -> GenericResult<()>, UpdateRate)>;
+
 pub type PossibleWindowUpdater = Option<(
 	fn(WindowUpdaterParams) -> GenericResult<()>,
 	UpdateRate
