@@ -35,6 +35,7 @@ TODO:
 	See here: https://doc.rust-lang.org/std/future/trait.Future.html
 
 - Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
+- Drifting clouds over the screen (seasonal?)
 */
 
 struct AppConfig<'a> {
