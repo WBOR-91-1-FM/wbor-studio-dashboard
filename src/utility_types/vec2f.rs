@@ -11,9 +11,13 @@ pub struct Vec2f {
 
 // TODO: make associated constants for the zero and one vectors
 
+//////////
+
 pub fn assert_in_unit_interval(f: Component) {
 	std::assert!((0.0..=1.0).contains(&f));
 }
+
+//////////
 
 impl Vec2f {
 	pub fn new_from_one(f: Component) -> Self {
