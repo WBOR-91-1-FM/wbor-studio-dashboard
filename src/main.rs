@@ -30,6 +30,7 @@ TODO:
 - If useful at some point, perhaps cut off rendered text characters with '...' if the text is too long
 - Different themes per each dashboard setup: wooden, garden, neon retro, frutiger aero, etc.
 - Fall: leaves + drifting clouds over the screen, summer: shining run rays, spring: occasional rain with sun, winter: snow
+- Subway Surfers gameplay somewhere on screen?
 
 - Async requests (for that, make an async requester object that you can initiate a request with,
 	and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible).
@@ -69,7 +70,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let app_config = AppConfig {
 		name: "WBOR Studio Dashboard",
 		width: 800, height: 800,
-		use_linear_filtering: false,
+		use_linear_filtering: true,
 		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
 		top_level_window_creator: window_tree_defs::make_wbor_dashboard
 	};
