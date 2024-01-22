@@ -221,11 +221,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let (clock_hands, clock_window) = ClockHands::new_with_window(
 		UpdateRate::ONCE_PER_FRAME,
 
-		// Vec2f::new(1.0 - model_gap_size, 0.0),
-		// Vec2f::new_from_one(model_gap_size),
-
-		Vec2f::ZERO,
-		Vec2f::ONE,
+		Vec2f::new(1.0 - model_gap_size, 0.0),
+		Vec2f::new_from_one(model_gap_size),
 
 		ClockHandConfigs {
 			milliseconds: ClockHandConfig::new(0.01, 0.2, 0.5, ColorSDL::RGBA(255, 0, 0, 100)), // Milliseconds
