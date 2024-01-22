@@ -170,7 +170,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let overspill_amount_to_right = -(model_window_size.x() * 2.0 - 1.0);
 	let model_gap_size = overspill_amount_to_right / 3.0;
 
-	let mut all_windows = make_spinitron_windows(
+	let mut all_main_windows = make_spinitron_windows(
 		model_window_size, model_gap_size,
 		individual_update_rate
 	);
@@ -199,7 +199,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		)
 	];
 
-	all_windows.extend(static_texture_info.into_iter().map(|datum| {
+	all_main_windows.extend(static_texture_info.into_iter().map(|datum| {
 		return Window::new(
 			None,
 			DynamicOptional::NONE,
@@ -235,13 +235,21 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		texture_pool
 	)?;
 
-	all_windows.push(clock_window);
+	all_main_windows.push(clock_window);
 
 	//////////
 
-	// let top_level_edge_size = 0.025;
-
 	let small_edge_size = 0.015;
+
+	let top_bar_window = Window::new(
+		None,
+		DynamicOptional::NONE,
+		WindowContents::Color(ColorSDL::RGB(0, 0, 255)),
+		None,
+		Vec2f::new(small_edge_size, 0.01),
+		Vec2f::new(1.0 - small_edge_size * 2.0, 0.06),
+		None
+	);
 
 	let main_window = Window::new(
 		None,
@@ -250,9 +258,17 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		None,
 		Vec2f::new(small_edge_size, 0.08),
 		Vec2f::new(1.0 - small_edge_size * 2.0, 0.9),
-		// Vec2f::new_from_one(top_level_edge_size),
-		// Vec2f::new_from_one(1.0 - top_level_edge_size * 2.0),
-		Some(all_windows)
+		Some(all_main_windows)
+	);
+
+	let all_windows = Window::new(
+		None,
+		DynamicOptional::NONE,
+		WindowContents::Color(ColorSDL::RGB(210, 0, 0)),
+		None,
+		Vec2f::new_from_one(0.01),
+		Vec2f::new_from_one(1.0 - 0.01 * 2.0),
+		Some(vec![top_bar_window, main_window])
 	);
 
 	let boxed_shared_state = DynamicOptional::new(
@@ -273,7 +289,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	// TODO: past a certain point, make sure that the texture pool never grows
 
 	Ok((
-		main_window,
+		all_windows,
 		boxed_shared_state,
 		Some((shared_window_state_updater, shared_update_rate))
 	))
