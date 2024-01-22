@@ -235,8 +235,20 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		texture_pool
 	)?;
 
+	////////// Making a weather window
 
-	//////////
+	// TODO: add a weather API to this
+	let weather_window = Window::new(
+		None,
+		DynamicOptional::NONE,
+		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
+		None,
+		Vec2f::ZERO,
+		Vec2f::new(0.1, 1.0),
+		None
+	);
+
+	////////// Making all of the main windows
 
 	let small_edge_size = 0.015;
 
@@ -247,7 +259,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		None,
 		Vec2f::new(small_edge_size, 0.01),
 		Vec2f::new(1.0 - small_edge_size * 2.0, 0.06),
-		Some(vec![clock_window])
+		Some(vec![clock_window, weather_window])
 	);
 
 	let main_window = Window::new(
@@ -269,6 +281,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		Vec2f::ONE,
 		Some(vec![top_bar_window, main_window])
 	);
+
+	////////// Defining the shared state
 
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
