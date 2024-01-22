@@ -360,15 +360,19 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	//////////
 
-	let top_level_edge_size = 0.025;
+	// let top_level_edge_size = 0.025;
 
-	let top_level_window = Window::new(
+	let small_edge_size = 0.015;
+
+	let main_window = Window::new(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(210, 180, 140)),
 		None,
-		Vec2f::new_from_one(top_level_edge_size),
-		Vec2f::new_from_one(1.0 - top_level_edge_size * 2.0),
+		Vec2f::new(small_edge_size, 0.08),
+		Vec2f::new(1.0 - small_edge_size * 2.0, 0.9),
+		// Vec2f::new_from_one(top_level_edge_size),
+		// Vec2f::new_from_one(1.0 - top_level_edge_size * 2.0),
 		Some(all_windows)
 	);
 
@@ -390,7 +394,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	// TODO: past a certain point, make sure that the texture pool never grows
 
 	Ok((
-		top_level_window,
+		main_window,
 		boxed_shared_state,
 		Some((shared_window_state_updater, shared_update_rate))
 	))
