@@ -221,8 +221,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let (clock_hands, clock_window) = ClockHands::new_with_window(
 		UpdateRate::ONCE_PER_FRAME,
 
-		Vec2f::new(1.0 - model_gap_size, 0.0),
-		Vec2f::new_from_one(model_gap_size),
+		Vec2f::new(0.93, 0.0),
+		Vec2f::new(0.07, 1.0),
 
 		ClockHandConfigs {
 			milliseconds: ClockHandConfig::new(0.01, 0.2, 0.5, ColorSDL::RGBA(255, 0, 0, 100)), // Milliseconds
@@ -235,7 +235,6 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		texture_pool
 	)?;
 
-	all_main_windows.push(clock_window);
 
 	//////////
 
@@ -248,7 +247,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		None,
 		Vec2f::new(small_edge_size, 0.01),
 		Vec2f::new(1.0 - small_edge_size * 2.0, 0.06),
-		None
+		Some(vec![clock_window])
 	);
 
 	let main_window = Window::new(
@@ -264,10 +263,10 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let all_windows = Window::new(
 		None,
 		DynamicOptional::NONE,
-		WindowContents::Color(ColorSDL::RGB(210, 0, 0)),
+		WindowContents::Color(ColorSDL::RGB(0, 127, 0)),
 		None,
-		Vec2f::new_from_one(0.01),
-		Vec2f::new_from_one(1.0 - 0.01 * 2.0),
+		Vec2f::ZERO,
+		Vec2f::ONE,
 		Some(vec![top_bar_window, main_window])
 	);
 
