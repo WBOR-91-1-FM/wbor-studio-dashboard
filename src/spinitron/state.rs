@@ -20,7 +20,7 @@ struct SpinitronStateData {
 
 	api_key: ApiKey,
 
-	/* The boolean at index `i`` is true if the model at index `i`` was recently
+	/* The boolean at index `i` is true if the model at index `i` was recently
 	updated. Model indices are (in order) spin, playlist, persona, and show. */
 	update_status: [bool; 4]
 }
