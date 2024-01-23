@@ -9,34 +9,38 @@ mod window_tree_defs;
 Worked from this in the beginning: https://blog.logrocket.com/using-sdl2-bindings-rust/
 
 TODO:
-- Maybe give a retro theme to everything
-- Maybe put the bounding box definition one layer out (with the parent)
-- Abstract the main loop out, so that just some data and fns are passed into it
-- Check for no box intersections
-- Put the box definitions in a JSON file
-- Avoid screen burn-in somehow
-- Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
-- When an error happens, make it print a message on screen that says that they should email me (make a log of the error on disk too)
-- When the studio door opens and a show is over, display the expected person's name, saying 'welcome, _', until they scrobble any songs
-- Set an update frequency rate for certain windows (will update a certain number of times over a second)
-- DJ tips popping up now and then (like a video game loading screen)
-- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqit)
-- A 'text the DJ' feature
-- Maybe draw rounded rectangles with `sdl_gfx` later on
-- Set more rendering hints later on, if needed (beyond just the scale quality)
-- There is an initial screen flicker on MacOS upon startup, for some reason
-- Render a text drop shadow
-- User interaction with the dashboard via the Stream Deck (toggle display elements, ignore DJ text, etc.)
-- If useful at some point, perhaps cut off rendered text characters with '...' if the text is too long
-- Different themes per each dashboard setup: wooden, garden, neon retro, frutiger aero, etc.
-- Fall: leaves + drifting clouds over the screen, summer: shining run rays, spring: occasional rain with sun, winter: snow
-- Subway Surfers gameplay somewhere on screen?
 
-- Async requests (for that, make an async requester object that you can initiate a request with,
-	and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible).
-	See here: https://doc.rust-lang.org/std/future/trait.Future.html
-
-- Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
+- Features
+	- Avoid screen burn-in somehow
+	- DJ tips popping up now and then (like a video game loading screen)
+	- A 'text the DJ' feature
+	- Display streaming server online status (determined by whether it pings?) address is: 161.35.248.7
+	- User interaction with the dashboard via the Stream Deck (toggle display elements, ignore DJ text, etc.)
+- Technical
+	- Maybe put the bounding box definition one layer out (with the parent)
+	- Abstract the main loop out, so that just some data and fns are passed into it
+	- Check for no box intersections
+	- Put the box definitions in a JSON file
+	- Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
+	- When an error happens, make it print a message on screen that says that they should email me (make a log of the error on disk too)
+	- Maybe draw rounded rectangles with `sdl_gfx` later on
+	- Set more rendering hints later on, if needed (beyond just the scale quality)
+	- Set an update frequency rate for certain windows (will update a certain number of times over a second)
+	- Render a text drop shadow
+	- If useful at some point, perhaps cut off rendered text characters with '...' if the text is too long
+	- Async requests (for that, make an async requester object that you can initiate a request with,
+		and then make it possible to ask if it's ready yet - it should contain its asyncness within itself fully, if possible).
+		See here: https://doc.rust-lang.org/std/future/trait.Future.html
+		- Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
+- Fun ideas
+	- Maybe give a retro theme to everything
+	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqit)
+	- When the studio door opens and a show is over, display the expected person's name, saying 'welcome, _', until they scrobble any songs
+	- Different themes per each dashboard setup: wooden, garden, neon retro, frutiger aero, etc.
+	- Fall: leaves + drifting clouds over the screen, summer: shining run rays, spring: occasional rain with sun, winter: snow
+	- Subway Surfers gameplay somewhere on screen?
+- Misc
+	- There is an initial screen flicker on MacOS upon startup, for some reason
 */
 
 struct AppConfig<'a> {
