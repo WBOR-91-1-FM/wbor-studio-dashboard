@@ -1,7 +1,7 @@
 use crate::{
 	utility_types::{
-		thread_task::ThreadTask,
-		generic_result::{self, GenericResult, SendableGenericResult}
+		generic_result::GenericResult,
+		thread_task::{Updatable, ContinuallyUpdated}
 	},
 
 	spinitron::{
@@ -23,13 +23,6 @@ struct SpinitronStateData {
 	/* The boolean at index `i` is true if the model at index `i` was recently
 	updated. Model indices are (in order) spin, playlist, persona, and show. */
 	update_status: [bool; 4]
-}
-
-type SpinitronStateUpdateTask = ThreadTask<SendableGenericResult<SpinitronStateData>>;
-
-pub struct SpinitronState {
-	data: SpinitronStateData,
-	curr_update_task: Option<SpinitronStateUpdateTask>
 }
 
 impl SpinitronStateData {
@@ -70,9 +63,9 @@ impl SpinitronStateData {
 
 		Ok(show)
 	}
+}
 
-	/* This returns a set of 4 booleans, indicating if the
-	spin, playlist, persona, or show updated (in order). */
+impl Updatable for SpinitronStateData {
 	fn update(&mut self) -> GenericResult<()> {
 		let api_key = &self.api_key;
 		let new_spin = get_current_spin(api_key)?;
@@ -141,21 +134,23 @@ impl SpinitronStateData {
 		}
 
 		Ok(())
-
 	}
+}
 
+//////////
+
+pub struct SpinitronState {
+	continually_updated: ContinuallyUpdated<SpinitronStateData>
 }
 
 impl SpinitronState {
 	pub fn new() -> GenericResult<Self> {
-		Ok(Self {
-			data: SpinitronStateData::new()?,
-			curr_update_task: None
-		})
+		let data = SpinitronStateData::new()?;
+		Ok(Self {continually_updated: ContinuallyUpdated::new(&data)})
 	}
 
 	pub fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {
-		let data = &self.data;
+		let data = &self.continually_updated.get_data();
 
 		match name {
 			SpinitronModelName::Spin => &data.spin,
@@ -166,36 +161,10 @@ impl SpinitronState {
 	}
 
 	pub fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {
-		self.data.update_status[model_name as usize]
-	}
-
-	//////////
-
-	fn make_new_update_task(&mut self) {
-		let mut cloned_data = self.data.clone();
-
-		let task = ThreadTask::new(
-			move || {
-				generic_result::make_sendable(cloned_data.update())?;
-				Ok(cloned_data.clone())
-			}
-		);
-
-		self.curr_update_task = Some(task);
+		self.continually_updated.get_data().update_status[model_name as usize]
 	}
 
 	pub fn update(&mut self) -> GenericResult<()> {
-		match &self.curr_update_task {
-			Some(task) => {
-				if let Some(data) = task.get_value()? {
-					self.data = data?;
-					self.make_new_update_task();
-				}
-			},
-
-			None => self.make_new_update_task()
-		}
-
-		Ok(())
+		self.continually_updated.update()
 	}
 }
