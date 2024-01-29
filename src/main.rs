@@ -16,6 +16,7 @@ TODO:
 	- A 'text the DJ' feature
 	- Display streaming server online status (determined by whether it pings?) address is: 161.35.248.7
 	- User interaction with the dashboard via the Stream Deck (toggle display elements, ignore DJ text, etc.)
+	- Tell DJs in realtime whether they need to increase or decrease the volume of their input
 - Technical:
 	- Maybe put the bounding box definition one layer out (with the parent)
 	- Abstract the main loop out, so that just some data and fns are passed into it
