@@ -14,7 +14,7 @@ impl UpdateRate {
 	pub const ONCE_PER_FRAME: Self = Self {every_n_frames: 1};
 
 	pub fn new(num_seconds_between_updates: Seconds) -> Self {
-		let fps = 60.0; // TODO: infer this somehow
+		let fps = 60.0; // TODO: infer this somehow (or just pass this in in `is_time_to_update`)
 		let max_frame_index = FrameIndex::MAX;
 
 		let num_frames_between_updates = num_seconds_between_updates * fps;
