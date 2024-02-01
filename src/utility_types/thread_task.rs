@@ -11,6 +11,7 @@ impl<T: Send + 'static> ThreadTask<T> {
 		let (thread_sender, thread_receiver) = mpsc::channel();
 
 		thread::spawn(move || {
+			// TODO: fix the panics that occasionally happen here when exiting the app
 			thread_sender.send(computer()).unwrap()
 		});
 
