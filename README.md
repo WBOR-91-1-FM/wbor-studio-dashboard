@@ -21,3 +21,5 @@
 ## Build and Run
 
 - `cargo run --release`
+
+## Troubleshooting
