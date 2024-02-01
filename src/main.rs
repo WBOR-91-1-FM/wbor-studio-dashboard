@@ -40,10 +40,24 @@ TODO:
 	- There is an initial screen flicker on MacOS upon startup, for some reason
 */
 
+// https://gamedev.stackexchange.com/questions/137882/
+enum ScreenOption {
+	// This runs it as a small app window.
+	Windowed(u32, u32),
+
+	/* This allows you to switch windows without shutting
+	down the app. It is slower than real fullscreen. */
+	FullscreenDesktop,
+
+	/* This makes the OS change its output rendering resolution to one of
+	the officially supported ones (which you can find in your settings app).
+	You cannot exit from this window while the app is still running. */
+	Fullscreen
+}
+
 struct AppConfig<'a> {
 	name: &'a str,
-	width: u32,
-	height: u32,
+	screen_option: ScreenOption,
 	use_linear_filtering: bool,
 	bg_color: window_tree::ColorSDL,
 
@@ -70,7 +84,11 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	(maybe make a SDL window init fn, where I pass in state?) */
 	let app_config = AppConfig {
 		name: "WBOR Studio Dashboard",
-		width: 800, height: 800,
+
+		screen_option: ScreenOption::Windowed(800, 800),
+		// screen_option: ScreenOption::FullscreenDesktop,
+		// screen_option: ScreenOption::Fullscreen,
+
 		use_linear_filtering: true,
 		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
 		top_level_window_creator: window_tree_defs::window_tree_defs::make_wbor_dashboard
@@ -80,22 +98,43 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	let sdl_context = sdl2::init()?;
 	let sdl_video_subsystem = sdl_context.video()?;
-
 	let mut sdl_event_pump = sdl_context.event_pump()?;
 
-	let sdl_window = sdl_video_subsystem
-		.window(app_config.name, app_config.width, app_config.height)
-		.position_centered()
-		.opengl()
-		.build()
-		.map_err(|e| e.to_string())?;
+	// TODO: add an option for borderless?
+
+	use sdl2::video::WindowBuilder;
+
+	let build_window = |width: u32, height: u32, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
+		applier(&mut sdl_video_subsystem.window(app_config.name, width, height))
+		.allow_highdpi().opengl().build();
+
+	let sdl_window = match app_config.screen_option {
+		ScreenOption::Windowed(width, height) => build_window(
+			width, height, WindowBuilder::position_centered
+		),
+
+		// The resolution passed in here is irrelevant
+		ScreenOption::FullscreenDesktop => build_window(
+			0, 0, WindowBuilder::fullscreen_desktop
+		),
+
+		ScreenOption::Fullscreen => {
+			let mode = sdl_video_subsystem.desktop_display_mode(0)?;
+
+			build_window(
+				mode.w as u32, mode.h as u32,
+				WindowBuilder::fullscreen
+			)
+		}
+	}?;
+
+	//////////
 
 	let sdl_canvas = sdl_window
 		.into_canvas()
 		.accelerated()
 		.present_vsync()
-		.build()
-		.map_err(|e| e.to_string())?;
+		.build()?;
 
 	//////////
 
@@ -113,7 +152,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	let sdl_timer = sdl_context.timer()?;
 	let sdl_performance_frequency = sdl_timer.performance_frequency();
-	let sdl_ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
+	let sdl_ttf_context = sdl2::ttf::init()?;
 
 	let texture_creator = sdl_canvas.texture_creator();
 
@@ -156,7 +195,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		//////////
 
 		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color); // TODO: remove eventually
-		rendering_params.sdl_canvas.clear();
+		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
 
 		top_level_window.render(&mut rendering_params)?;
 
