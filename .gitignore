@@ -2,5 +2,5 @@
 .vscode/
 Cargo.lock
 scrap_code.txt
-assets/spinitron_api_key.txt
+assets/api_keys.json
 .DS_Store

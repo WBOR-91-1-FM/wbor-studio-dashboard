@@ -5,7 +5,6 @@ use crate::{
 	},
 
 	spinitron::{
-		api_key::ApiKey,
 		api::{get_current_spin, get_from_id},
 		model::{SpinitronModel, SpinitronModelName, Spin, Playlist, Persona, Show}
 	}
@@ -18,7 +17,7 @@ struct SpinitronStateData {
 	persona: Persona,
 	show: Show, // TODO: will there ever not be a show?
 
-	api_key: ApiKey,
+	api_key: String,
 
 	/* The boolean at index `i` is true if the model at index `i` was recently
 	updated. Model indices are (in order) spin, playlist, persona, and show. */
@@ -26,14 +25,13 @@ struct SpinitronStateData {
 }
 
 impl SpinitronStateData {
-	fn new() -> GenericResult<Self> {
-		let api_key = ApiKey::new()?;
+	fn new(api_key: &str) -> GenericResult<Self> {
 
 		// TODO: if there is no current spin, will this only return the last one?
-		let spin = get_current_spin(&api_key)?;
-		let mut playlist: Playlist = get_from_id(&api_key, Some(spin.get_playlist_id()))?;
-		let persona = get_from_id(&api_key, Some(playlist.get_persona_id()))?;
-		let show = Self::get_show_while_syncing_show_id(&api_key, &mut playlist)?;
+		let spin = get_current_spin(api_key)?;
+		let mut playlist: Playlist = get_from_id(api_key, Some(spin.get_playlist_id()))?;
+		let persona = get_from_id(api_key, Some(playlist.get_persona_id()))?;
+		let show = Self::get_show_while_syncing_show_id(api_key, &mut playlist)?;
 
 		/*
 		let spin = Spin::default();
@@ -43,12 +41,13 @@ impl SpinitronStateData {
 		*/
 
 		Ok(Self {
-			spin, playlist, persona, show, api_key,
+			spin, playlist, persona, show,
+			api_key: api_key.to_string(),
 			update_status: [false, false, false, false]
 		})
 	}
 
-	fn get_show_while_syncing_show_id(api_key: &ApiKey, playlist: &mut Playlist) -> GenericResult<Show> {
+	fn get_show_while_syncing_show_id(api_key: &str, playlist: &mut Playlist) -> GenericResult<Show> {
 		let show: Show = get_from_id(api_key, playlist.get_show_id())?;
 
 		/* It's possible that the playlist will not have a show id
@@ -144,8 +143,8 @@ pub struct SpinitronState {
 }
 
 impl SpinitronState {
-	pub fn new() -> GenericResult<Self> {
-		let data = SpinitronStateData::new()?;
+	pub fn new(api_key: &str) -> GenericResult<Self> {
+		let data = SpinitronStateData::new(api_key)?;
 		Ok(Self {continually_updated: ContinuallyUpdated::new(&data)})
 	}
 

@@ -1,8 +1,6 @@
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
-	window_tree_defs::clock::{ClockHandConfig, ClockHandConfigs, ClockHands},
-
 	utility_types::{
 		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
@@ -18,7 +16,11 @@ use crate::{
 		PossibleWindowUpdater, PossibleSharedWindowStateUpdater, ColorSDL
 	},
 
-	window_tree_defs::shared_window_state::SharedWindowState
+	window_tree_defs::{
+		shared_window_state::SharedWindowState,
+		clock::{ClockHandConfig, ClockHandConfigs, ClockHands},
+		twilio::make_twilio_window
+	}
 };
 
 struct SpinitronModelWindowState {
@@ -36,12 +38,6 @@ struct SpinitronModelWindowState {
 fn make_spinitron_windows(
 	model_window_size: Vec2f, gap_size: f32,
 	model_update_rate: UpdateRate) -> Vec<Window> {
-
-	const FONT_INFO: FontInfo = FontInfo {
-		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
-		style: FontStyle::ITALIC,
-		hinting: Hinting::Normal
-	};
 
 	/* TODO: add the ability to have multiple updaters per window
 	(with different update rates). Or, do async requests. */
@@ -63,7 +59,7 @@ fn make_spinitron_windows(
 		// TODO: vary the params based on the text window
 		let texture_creation_info = if individual_window_state.is_text_window {
 			TextureCreationInfo::Text((
-				&FONT_INFO,
+				&inner_shared_state.font_info,
 
 				TextDisplayInfo {
 					text: text_to_display,
@@ -71,9 +67,6 @@ fn make_spinitron_windows(
 
 					// TODO: pass in the scroll fn too
 					scroll_fn: |secs_since_unix_epoch| {
-						// let repeat_rate_secs = 5.0;
-						// ((secs_since_unix_epoch % repeat_rate_secs) / repeat_rate_secs, true)
-
 						(secs_since_unix_epoch.sin() * 0.5 + 0.5, false)
 					},
 
@@ -153,9 +146,42 @@ fn make_spinitron_windows(
 	}).collect()
 }
 
+////////// These are some API key utils
+
+fn load_api_keys_json() -> GenericResult<serde_json::Value> {
+	const API_KEY_JSON_PATH: &str = "assets/api_keys.json";
+
+	let api_keys_file = match std::fs::read_to_string(API_KEY_JSON_PATH) {
+		Ok(contents) => Ok(contents),
+
+		Err(err) => Err(
+			format!("The API key file at path '{}' could not be found. Official error: '{}'.",
+			API_KEY_JSON_PATH, err)
+		)
+	}?;
+
+	Ok(serde_json::from_str(&api_keys_file)?)
+}
+
+fn get_api_key<'a>(json: &'a serde_json::Value, name: &'a str) -> GenericResult<&'a str> {
+	json[name].as_str().ok_or(format!("Could not find the API key with the name '{}' in the API key JSON", name).into())
+}
+
+//////////
+
 // This returns a top-level window, shared window state, and a shared window state updater
 pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
+
+	const FONT_INFO: FontInfo = FontInfo {
+		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
+		style: FontStyle::ITALIC,
+		hinting: Hinting::Normal
+	};
+
+	////////// Loading in all the API keys
+
+	let api_keys_json = load_api_keys_json()?;
 
 	////////// Making the Spinitron windows
 
@@ -171,8 +197,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let model_gap_size = overspill_amount_to_right / 3.0;
 
 	let mut all_main_windows = make_spinitron_windows(
-		model_window_size, model_gap_size,
-		individual_update_rate
+		model_window_size, model_gap_size, individual_update_rate
 	);
 
 	// TODO: make a temporary error window that pops up when needed
@@ -248,6 +273,18 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		None
 	);
 
+	////////// Making a twilio window
+
+	let twilio_window = make_twilio_window(
+		Vec2f::new(0.25, 0.0),
+		Vec2f::new(0.5, 0.5),
+		UpdateRate::new(1.0),
+		ColorSDL::RGB(180, 180, 180),
+		ColorSDL::RGB(20, 20, 20),
+		get_api_key(&api_keys_json, "twilio_account_sid")?,
+		get_api_key(&api_keys_json, "twilio_auth_token")?
+	);
+
 	////////// Making all of the main windows
 
 	let small_edge_size = 0.015;
@@ -259,7 +296,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		None,
 		Vec2f::new(small_edge_size, 0.01),
 		Vec2f::new(1.0 - small_edge_size * 2.0, 0.06),
-		Some(vec![clock_window, weather_window])
+		Some(vec![clock_window, weather_window, twilio_window])
 	);
 
 	let main_window = Window::new(
@@ -287,7 +324,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
 			clock_hands,
-			spinitron_state: SpinitronState::new()?,
+			spinitron_state: SpinitronState::new(get_api_key(&api_keys_json, "spinitron")?)?,
+			font_info: FONT_INFO,
 			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png"),
 		}
 	);

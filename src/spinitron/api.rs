@@ -3,7 +3,6 @@ use crate::{
 	utility_types::generic_result::GenericResult,
 
 	spinitron::{
-		api_key::ApiKey,
 		model::{SpinitronModelWithProps, Spin},
 		wrapper_types::MaybeSpinitronModelId
 	}
@@ -15,7 +14,7 @@ use crate::{
 */
 
 fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
-	api_key: &ApiKey, possible_model_id: MaybeSpinitronModelId,
+	api_key: &str, possible_model_id: MaybeSpinitronModelId,
 	possible_item_count: Option<u16>
 ) -> GenericResult<serde_json::Value> {
 
@@ -53,7 +52,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	let mut path_params = vec![api_endpoint.to_string()];
 
 	let mut query_params = vec![
-		("access-token", api_key.get_inner_key().to_string()),
+		("access-token", api_key.to_string()),
 		("fields", joined_fields)
 	];
 
@@ -91,7 +90,7 @@ fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Va
 }
 
 // This is a singular request
-fn do_request<T: SpinitronModelWithProps>(api_key: &ApiKey, possible_model_id: MaybeSpinitronModelId) -> GenericResult<T> {
+fn do_request<T: SpinitronModelWithProps>(api_key: &str, possible_model_id: MaybeSpinitronModelId) -> GenericResult<T> {
 	let response_json = get_json_from_spinitron_request::<T>(api_key, possible_model_id, Some(1))?;
 
 	if possible_model_id.is_some() {
@@ -107,18 +106,18 @@ fn do_request<T: SpinitronModelWithProps>(api_key: &ApiKey, possible_model_id: M
 	}
 }
 
-fn do_plural_request<T: SpinitronModelWithProps>(api_key: &ApiKey, possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
+fn do_plural_request<T: SpinitronModelWithProps>(api_key: &str, possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
 	let response_json = get_json_from_spinitron_request::<T>(api_key, None, possible_item_count)?;
 	get_vec_from_spinitron_json(&response_json)
 }
 
 //////////
 
-pub fn get_current_spin(api_key: &ApiKey) -> GenericResult<Spin> {
+pub fn get_current_spin(api_key: &str) -> GenericResult<Spin> {
 	do_request(api_key, None)
 }
 
 // TODO: can I make `id` non-optional?
-pub fn get_from_id<T: SpinitronModelWithProps>(api_key: &ApiKey, id: MaybeSpinitronModelId) -> GenericResult<T> {
+pub fn get_from_id<T: SpinitronModelWithProps>(api_key: &str, id: MaybeSpinitronModelId) -> GenericResult<T> {
 	do_request(api_key, id) // TODO: stop using this as a wrapper?
 }
