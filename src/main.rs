@@ -58,6 +58,7 @@ enum ScreenOption {
 struct AppConfig<'a> {
 	name: &'a str,
 	screen_option: ScreenOption,
+	hide_cursor: bool,
 	use_linear_filtering: bool,
 	bg_color: window_tree::ColorSDL,
 
@@ -89,6 +90,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		// screen_option: ScreenOption::FullscreenDesktop,
 		// screen_option: ScreenOption::Fullscreen,
 
+		hide_cursor: true,
 		use_linear_filtering: true,
 		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
 		top_level_window_creator: window_tree_defs::window_tree_defs::make_wbor_dashboard
@@ -147,6 +149,10 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		);
 
 	std::assert!(using_texture_filtering_option);
+
+	if app_config.hide_cursor {
+		sdl_context.mouse().show_cursor(false);
+	}
 
 	//////////
 
