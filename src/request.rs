@@ -38,13 +38,21 @@ pub fn build_url(base_url: &str, path_params: Vec<String>,
 	Ok(String::from_utf8(url)?)
 }
 
-/* TODO: maybe switch to async requests eventually, if the Spinitron API keeps
-being this slow. For that, only update with new data once the request completes. */
-pub fn get(url: &str) -> GenericResult<minreq::Response> {
-	let response = minreq::get(url).send()?;
+pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> GenericResult<minreq::Response> {
+	let mut request = minreq::get(url);
+
+	if let Some(header) = maybe_header {
+		request = request.with_header(header.0, header.1);
+	}
+
+	let response = request.send()?;
 
 	check_request_failure("status code", url, 200, response.status_code)?;
 	check_request_failure("reason phrase", url, "OK", &response.reason_phrase)?;
 
 	Ok(response)
+}
+
+pub fn get(url: &str) -> GenericResult<minreq::Response> {
+	get_with_maybe_header(url, None)
 }
