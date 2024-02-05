@@ -9,11 +9,9 @@ use crate::{
 	texture::{TextDisplayInfo, TextureCreationInfo},
 
 	window_tree::{
-		Window,
-		WindowContents,
-		WindowUpdaterParams,
-		PossibleWindowUpdater,
-		ColorSDL
+		ColorSDL,
+		Window, WindowContents,
+		WindowUpdaterParams, PossibleWindowUpdater
 	},
 
 	window_tree_defs::shared_window_state::SharedWindowState
