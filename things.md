@@ -1,0 +1,3 @@
+- Organizing calendar
+- Making a module for the window tree defs - done
+- Separating the clock code - done
