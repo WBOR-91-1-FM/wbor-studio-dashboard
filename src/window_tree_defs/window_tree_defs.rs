@@ -71,19 +71,25 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	////////// Making the Spinitron windows
 
-	let (individual_update_rate, shared_update_rate) = (
-		UpdateRate::new(1.0),
-		UpdateRate::new(1.0)
-	);
+	let shared_update_rate = UpdateRate::new(1.0);
 
-	// This cannot exceed 0.5
-	let model_window_size = Vec2f::new_from_one(0.4);
-
+	let model_window_size = Vec2f::new_from_one(0.4); // This cannot exceed 0.5
 	let overspill_amount_to_right = -(model_window_size.x() * 2.0 - 1.0);
 	let model_gap_size = overspill_amount_to_right / 3.0;
 
+	// `tl` = top left
+	let spin_tl = Vec2f::new_from_one(model_gap_size);
+	let playlist_tl = spin_tl.translate_x(model_window_size.x() + model_gap_size);
+	let persona_tl = spin_tl.translate_y(model_window_size.y() + model_gap_size);
+	let show_tl = Vec2f::new(playlist_tl.x(), persona_tl.y());
+
+	let (text_tl, text_size) = (Vec2f::ZERO, Vec2f::new(1.0, 0.1));
+
 	let mut all_main_windows = make_spinitron_windows(
-		model_window_size, model_gap_size, individual_update_rate
+		text_tl, text_size,
+		model_window_size,
+		[spin_tl, playlist_tl, persona_tl, show_tl],
+		shared_update_rate // This updates at the same rate as the shared update rate
 	);
 
 	// TODO: make a temporary error window that pops up when needed

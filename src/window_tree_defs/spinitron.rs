@@ -23,7 +23,8 @@ struct SpinitronModelWindowState {
 }
 
 pub fn make_spinitron_windows(
-	model_window_size: Vec2f, gap_size: f32,
+	text_tl: Vec2f, text_size: Vec2f,
+	model_window_size: Vec2f, model_tls: [Vec2f; 4],
 	model_update_rate: UpdateRate) -> Vec<Window> {
 
 	/* TODO: add the ability to have multiple updaters per window
@@ -83,21 +84,11 @@ pub fn make_spinitron_windows(
 
 	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
 
-	// `tl` = top left
-
-	let spin_tl = Vec2f::new_from_one(gap_size);
-	let playlist_tl = spin_tl.translate_x(model_window_size.x() + gap_size);
-
-	let persona_tl = spin_tl.translate_y(model_window_size.y() + gap_size);
-	let show_tl = Vec2f::new(playlist_tl.x(), persona_tl.y());
-
-	let (text_tl, text_size) = (Vec2f::ZERO, Vec2f::new(1.0, 0.1));
-
 	let spinitron_model_window_metadata = [
-		(SpinitronModelName::Spin, spin_tl),
-		(SpinitronModelName::Playlist, playlist_tl),
-		(SpinitronModelName::Persona, persona_tl),
-		(SpinitronModelName::Show, show_tl)
+		(SpinitronModelName::Spin, model_tls[0]),
+		(SpinitronModelName::Playlist, model_tls[1]),
+		(SpinitronModelName::Persona, model_tls[2]),
+		(SpinitronModelName::Show, model_tls[3])
 	];
 
 	spinitron_model_window_metadata.iter().map(|metadata| {
