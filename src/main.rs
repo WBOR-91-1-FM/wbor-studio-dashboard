@@ -209,7 +209,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 		//////////
 
-		let _fps_without_vsync = get_fps(&sdl_timer,
+		let fps_without_vsync = get_fps(&sdl_timer,
 			sdl_performance_counter_before,
 			sdl_performance_frequency
 		);
@@ -218,17 +218,15 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 		rendering_params.sdl_canvas.present();
 
-		let _fps_with_vsync = get_fps(&sdl_timer,
+		//////////
+
+		let fps_with_vsync = get_fps(&sdl_timer,
 			sdl_performance_counter_before,
 			sdl_performance_frequency
 		);
 
-		//////////
-
-		/*
 		println!("fps without and with vsync = {:.3}, {:.3}",
-			_fps_without_vsync, _fps_with_vsync);
-		*/
+			fps_without_vsync, fps_with_vsync);
 
 		//////////
 	}
