@@ -154,7 +154,7 @@ impl SpinitronState {
 	}
 
 	pub fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {
-		let data = &self.continually_updated.get_data();
+		let data = self.continually_updated.get_data();
 
 		match name {
 			SpinitronModelName::Spin => &data.spin,
