@@ -1,17 +1,21 @@
 use crate::{
-	utility_types::{
-		update_rate::UpdateRate,
-		dynamic_optional::DynamicOptional,
-		generic_result::GenericResult, vec2f::Vec2f
-	},
-
-	spinitron::model::SpinitronModelName,
 	texture::{TextDisplayInfo, TextureCreationInfo},
+
+	spinitron::model::{SpinitronModelName, NUM_SPINITRON_MODEL_TYPES},
+
+	utility_types::{
+		vec2f::Vec2f,
+		update_rate::UpdateRate,
+		generic_result::GenericResult,
+		dynamic_optional::DynamicOptional
+	},
 
 	window_tree::{
 		ColorSDL,
-		Window, WindowContents,
-		WindowUpdaterParams, PossibleWindowUpdater
+		Window,
+		WindowContents,
+		WindowUpdaterParams,
+		PossibleWindowUpdater
 	},
 
 	window_tree_defs::shared_window_state::SharedWindowState
@@ -19,12 +23,26 @@ use crate::{
 
 struct SpinitronModelWindowState {
 	model_name: SpinitronModelName,
-	is_text_window: bool
+	maybe_text_color: Option<ColorSDL> // If this is `None`, it is not a text window
 }
 
+pub struct SpinitronModelWindowInfo {
+	pub tl: Vec2f,
+	pub size: Vec2f,
+	pub border_color: Option<ColorSDL>
+}
+
+pub struct SpinitronModelWindowsInfo {
+	pub model_name: SpinitronModelName,
+	pub texture_window: SpinitronModelWindowInfo,
+	pub text_window: SpinitronModelWindowInfo,
+	pub text_color: ColorSDL
+}
+
+//////////
+
 pub fn make_spinitron_windows(
-	text_tl: Vec2f, text_size: Vec2f,
-	model_window_size: Vec2f, model_tls: [Vec2f; 4],
+	all_model_windows_info: &[SpinitronModelWindowsInfo; NUM_SPINITRON_MODEL_TYPES],
 	model_update_rate: UpdateRate) -> Vec<Window> {
 
 	/* TODO: add the ability to have multiple updaters per window
@@ -41,11 +59,9 @@ pub fn make_spinitron_windows(
 		let model = spinitron_state.get_model_by_name(model_name);
 		let model_was_updated = spinitron_state.model_was_updated(model_name);
 
-		let text_color = ColorSDL::RGBA(255, 0, 0, 178);
 		let text_to_display = format!("{} ", model.to_string());
 
-		// TODO: vary the params based on the text window
-		let texture_creation_info = if individual_window_state.is_text_window {
+		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			TextureCreationInfo::Text((
 				&inner_shared_state.font_info,
 
@@ -84,42 +100,39 @@ pub fn make_spinitron_windows(
 
 	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
 
-	let spinitron_model_window_metadata = [
-		(SpinitronModelName::Spin, model_tls[0]),
-		(SpinitronModelName::Playlist, model_tls[1]),
-		(SpinitronModelName::Persona, model_tls[2]),
-		(SpinitronModelName::Show, model_tls[3])
-	];
+	// TODO: stop the repetition here
 
-	spinitron_model_window_metadata.iter().map(|metadata| {
-		let model_name = metadata.0;
-
-		let text_child = Window::new(
-			spinitron_model_window_updater,
-
-			DynamicOptional::new(SpinitronModelWindowState {
-				model_name, is_text_window: true
-			}),
-
-			WindowContents::Nothing,
-			Some(ColorSDL::GREEN),
-			text_tl,
-			text_size,
-			None
-		);
-
+	let mut spinitron_windows: Vec<Window> = all_model_windows_info.iter().map(|info| {
 		Window::new(
 			spinitron_model_window_updater,
 
 			DynamicOptional::new(SpinitronModelWindowState {
-				model_name, is_text_window: false
+				model_name: info.model_name, maybe_text_color: None
 			}),
 
 			WindowContents::Nothing,
-			Some(ColorSDL::BLUE),
-			metadata.1,
-			model_window_size,
-			Some(vec![text_child])
+			info.texture_window.border_color,
+			info.texture_window.tl,
+			info.texture_window.size,
+			None
 		)
-	}).collect()
+	}).collect();
+
+	spinitron_windows.extend(all_model_windows_info.iter().map(|info| {
+		Window::new(
+			spinitron_model_window_updater,
+
+			DynamicOptional::new(SpinitronModelWindowState {
+				model_name: info.model_name, maybe_text_color: Some(info.text_color)
+			}),
+
+			WindowContents::Nothing,
+			info.text_window.border_color,
+			info.text_window.tl,
+			info.text_window.size,
+			None
+		)
+	}).collect::<Vec<Window>>());
+
+	spinitron_windows
 }

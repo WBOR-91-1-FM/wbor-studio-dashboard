@@ -1,27 +1,29 @@
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
-	utility_types::{
-		update_rate::UpdateRate,
-		dynamic_optional::DynamicOptional,
-		generic_result::GenericResult, vec2f::Vec2f
-	},
+	texture::{FontInfo, TextureCreationInfo, TexturePool},
 
-	spinitron::state::SpinitronState,
-	texture::{TexturePool, FontInfo, TextureCreationInfo},
+	spinitron::{model::SpinitronModelName, state::SpinitronState},
+
+	utility_types::{
+		vec2f::Vec2f,
+		update_rate::UpdateRate,
+		generic_result::GenericResult,
+		dynamic_optional::DynamicOptional
+	},
 
 	window_tree::{
 		ColorSDL,
 		Window,
 		WindowContents,
-		PossibleSharedWindowStateUpdater,
+		PossibleSharedWindowStateUpdater
 	},
 
 	window_tree_defs::{
+		twilio::make_twilio_window,
 		shared_window_state::SharedWindowState,
 		clock::{ClockHandConfig, ClockHandConfigs, ClockHands},
-		twilio::make_twilio_window,
-		spinitron::make_spinitron_windows
+		spinitron::{make_spinitron_windows, SpinitronModelWindowInfo, SpinitronModelWindowsInfo}
 	}
 };
 
@@ -83,13 +85,46 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let persona_tl = spin_tl.translate_y(model_window_size.y() + model_gap_size);
 	let show_tl = Vec2f::new(playlist_tl.x(), persona_tl.y());
 
-	let (text_tl, text_size) = (Vec2f::ZERO, Vec2f::new(1.0, 0.1));
+	let model_tls = [spin_tl, playlist_tl, persona_tl, show_tl];
+	let model_text_tls = model_tls;
 
+	let model_text_sizes = model_tls.map(|_| {
+		Vec2f::new(model_window_size.x(), model_window_size.y() * 0.075)
+	});
+
+	let all_model_windows_info = [
+		SpinitronModelWindowsInfo {
+			model_name: SpinitronModelName::Spin,
+			text_color: ColorSDL::RED,
+			texture_window: SpinitronModelWindowInfo {tl: spin_tl, size: model_window_size, border_color: None},
+			text_window: SpinitronModelWindowInfo {tl: model_text_tls[0], size: model_text_sizes[0], border_color: Some(ColorSDL::GREEN)}
+		},
+
+		SpinitronModelWindowsInfo {
+			model_name: SpinitronModelName::Playlist,
+			text_color: ColorSDL::RED,
+			texture_window: SpinitronModelWindowInfo {tl: playlist_tl, size: model_window_size, border_color: None},
+			text_window: SpinitronModelWindowInfo {tl: model_text_tls[1], size: model_text_sizes[1], border_color: Some(ColorSDL::GREEN)}
+		},
+
+		SpinitronModelWindowsInfo {
+			model_name: SpinitronModelName::Persona,
+			text_color: ColorSDL::RED,
+			texture_window: SpinitronModelWindowInfo {tl: persona_tl, size: model_window_size, border_color: None},
+			text_window: SpinitronModelWindowInfo {tl: model_text_tls[2], size: model_text_sizes[2], border_color: Some(ColorSDL::GREEN)}
+		},
+
+		SpinitronModelWindowsInfo {
+			model_name: SpinitronModelName::Show,
+			text_color: ColorSDL::RED,
+			texture_window: SpinitronModelWindowInfo {tl: show_tl, size: model_window_size, border_color: None},
+			text_window: SpinitronModelWindowInfo {tl: model_text_tls[3], size: model_text_sizes[3], border_color: Some(ColorSDL::GREEN)}
+		}
+	];
+
+	// The Spinitron windows update at the same rate as the shared update rate
 	let mut all_main_windows = make_spinitron_windows(
-		text_tl, text_size,
-		model_window_size,
-		[spin_tl, playlist_tl, persona_tl, show_tl],
-		shared_update_rate // This updates at the same rate as the shared update rate
+		&all_model_windows_info, shared_update_rate
 	);
 
 	// TODO: make a temporary error window that pops up when needed

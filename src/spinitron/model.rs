@@ -6,6 +6,8 @@ use crate::{
 	texture::TextureCreationInfo
 };
 
+pub const NUM_SPINITRON_MODEL_TYPES: usize = 4;
+
 ////////// This is a set of model-related traits
 
 pub type MaybeTextureCreationInfo<'a> = Option<TextureCreationInfo<'a>>;

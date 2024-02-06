@@ -3,8 +3,13 @@ use crate::{
 	utility_types::generic_result::GenericResult,
 
 	spinitron::{
-		model::{SpinitronModelWithProps, Spin},
-		wrapper_types::MaybeSpinitronModelId
+		wrapper_types::MaybeSpinitronModelId,
+
+		model::{
+			Spin,
+			SpinitronModelWithProps,
+			NUM_SPINITRON_MODEL_TYPES
+		}
 	}
 };
 
@@ -30,7 +35,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 
 	////////// Checking endpoint validity
 
-	const VALID_ENDPOINTS: [&str; 4] = ["spins", "playlists", "personas", "shows"];
+	const VALID_ENDPOINTS: [&str; NUM_SPINITRON_MODEL_TYPES] = ["spins", "playlists", "personas", "shows"];
 
 	if !VALID_ENDPOINTS.contains(&api_endpoint.as_str()) {
 		return Err(format!("Invalid Spinitron API endpoint '{}'", api_endpoint).into());

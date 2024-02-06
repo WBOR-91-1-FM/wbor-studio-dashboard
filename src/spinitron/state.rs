@@ -6,7 +6,12 @@ use crate::{
 
 	spinitron::{
 		api::{get_current_spin, get_from_id},
-		model::{SpinitronModel, SpinitronModelName, Spin, Playlist, Persona, Show}
+
+		model::{
+			Spin, Playlist, Persona, Show,
+			SpinitronModel, SpinitronModelName,
+			NUM_SPINITRON_MODEL_TYPES
+		}
 	}
 };
 
@@ -21,7 +26,7 @@ struct SpinitronStateData {
 
 	/* The boolean at index `i` is true if the model at index `i` was recently
 	updated. Model indices are (in order) spin, playlist, persona, and show. */
-	update_status: [bool; 4]
+	update_status: [bool; NUM_SPINITRON_MODEL_TYPES]
 }
 
 impl SpinitronStateData {
