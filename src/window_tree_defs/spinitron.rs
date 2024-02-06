@@ -100,10 +100,8 @@ pub fn make_spinitron_windows(
 
 	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
 
-	// TODO: stop the repetition here
-
-	let mut spinitron_windows: Vec<Window> = all_model_windows_info.iter().map(|info| {
-		Window::new(
+	all_model_windows_info.iter().flat_map(|info| {
+		let texture_window = Window::new(
 			spinitron_model_window_updater,
 
 			DynamicOptional::new(SpinitronModelWindowState {
@@ -115,11 +113,9 @@ pub fn make_spinitron_windows(
 			info.texture_window.tl,
 			info.texture_window.size,
 			None
-		)
-	}).collect();
+		);
 
-	spinitron_windows.extend(all_model_windows_info.iter().map(|info| {
-		Window::new(
+		let text_window = Window::new(
 			spinitron_model_window_updater,
 
 			DynamicOptional::new(SpinitronModelWindowState {
@@ -131,8 +127,8 @@ pub fn make_spinitron_windows(
 			info.text_window.tl,
 			info.text_window.size,
 			None
-		)
-	}).collect::<Vec<Window>>());
+		);
 
-	spinitron_windows
+		[texture_window, text_window]
+	}).collect()
 }
