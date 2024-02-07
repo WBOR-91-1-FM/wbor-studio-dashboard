@@ -54,7 +54,7 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 
 	pub fn update(&mut self) -> GenericResult<()> {
 		if let Some(data) = self.update_task.get_value()? {
-			self.data = data?;
+			self.data = data?; // TODO: remove this redundant set
 			*self = Self::new(&self.data);
 		}
 
