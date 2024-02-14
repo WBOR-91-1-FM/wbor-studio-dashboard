@@ -108,6 +108,7 @@ impl Updatable for TwilioState {
 			else {
 				// Build an initial message
 				self.current_message = Some(serde_json::from_value(newest.clone())?);
+				// TODO: should this also set `self.just_received_new_message`?
 			}
 		}
 
@@ -131,6 +132,7 @@ pub fn make_twilio_window(
 	}
 
 	fn twilio_updater_fn((window, texture_pool, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
+		// TODO: test the state transition between no msgs today -> a new msg (also for the boundary between days)
 		{window.get_state_mut::<TwilioWindowState>().twilio_state.update()?;}
 
 		let window_state: &TwilioWindowState = window.get_state();
@@ -151,8 +153,14 @@ pub fn make_twilio_window(
 				color: window_state.text_color,
 
 				scroll_fn: |secs_since_unix_epoch| {
-					let repeat_rate_secs = 5.0; // TODO: pass this in, or vary it per the text
-					((secs_since_unix_epoch % repeat_rate_secs) / repeat_rate_secs, true)
+					let total_cycle_time = 8.0;
+					let scroll_time_percent  = 0.25;
+
+					let wait_boundary = total_cycle_time * scroll_time_percent;
+					let scroll_value = secs_since_unix_epoch % total_cycle_time;
+
+					let scroll_fract = if scroll_value < wait_boundary {scroll_value / wait_boundary} else {0.0};
+					(scroll_fract, true)
 				},
 
 				max_pixel_width: area_drawn_to_screen.width(),
