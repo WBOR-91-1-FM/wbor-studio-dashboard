@@ -31,13 +31,13 @@ TODO:
 	- Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
 - Fun ideas:
 	- Maybe give a retro theme to everything
-	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqit)
+	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
 	- When the studio door opens and a show is over, display the expected person's name, saying 'welcome, _', until they scrobble any songs
 	- Different themes per each dashboard setup: wooden, garden, neon retro, frutiger aero, etc.
 	- Fall: leaves + drifting clouds over the screen, summer: shining run rays, spring: occasional rain with sun, winter: snow
 	- Subway Surfers gameplay somewhere on screen?
 - Misc:
-	- There is an initial screen flicker on MacOS upon startup, for some reason
+	- There is an initial screen flicker on MacOS upon startup (and randomly when running), for some reason
 */
 
 // https://gamedev.stackexchange.com/questions/137882/
