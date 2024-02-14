@@ -1,7 +1,7 @@
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
-	texture::{FontInfo, TextureCreationInfo, TexturePool},
+	texture::{FontInfo, TextureCreationInfo, TextDisplayInfo, TexturePool},
 
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
 
@@ -16,6 +16,7 @@ use crate::{
 		ColorSDL,
 		Window,
 		WindowContents,
+		WindowUpdaterParams,
 		PossibleSharedWindowStateUpdater
 	},
 
@@ -61,64 +62,87 @@ fn get_api_key<'a>(json: &'a serde_json::Value, name: &'a str) -> GenericResult<
 pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
 
+	////////// Defining some shared global variables
+
 	const FONT_INFO: FontInfo = FontInfo {
 		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
 		style: FontStyle::ITALIC,
 		hinting: Hinting::Normal
 	};
 
-	////////// Loading in all the API keys
-
 	let api_keys_json = load_api_keys_json()?;
-
-	////////// Making the Spinitron windows
-
+	let theme_color_1 = ColorSDL::WHITE;
 	let shared_update_rate = UpdateRate::new(1.0);
 
-	let model_window_size = Vec2f::new_scalar(0.4); // This cannot exceed 0.5
-	let overspill_amount_to_right = -(model_window_size.x() * 2.0 - 1.0);
-	let model_gap_size = overspill_amount_to_right / 3.0;
+	////////// Defining the Spinitron window extents
 
-	// `tl` = top left
-	let spin_tl = Vec2f::new_scalar(model_gap_size);
-	let playlist_tl = spin_tl.translate_x(model_window_size.x() + model_gap_size);
-	let persona_tl = spin_tl.translate_y(model_window_size.y() + model_gap_size);
-	let show_tl = Vec2f::new(playlist_tl.x(), persona_tl.y());
+	// Note: `tl` = top left
+	let spin_tl = Vec2f::new_scalar(0.02);
+	let spin_size = Vec2f::new_scalar(0.55);
+	let spin_text_height = 0.03;
 
-	let model_tls = [spin_tl, playlist_tl, persona_tl, show_tl];
-	let model_text_tls = model_tls;
+	let welcome_sign_size = Vec2f::new(0.25, 0.04);
+	let persona_tl = Vec2f::new(1.0 - spin_tl.y() - welcome_sign_size.x(), spin_tl.y());
 
-	let model_text_sizes = model_tls.map(|_| {
-		Vec2f::new(model_window_size.x(), model_window_size.y() * 0.075)
-	});
+	let show_text_tl = Vec2f::translate(&(spin_tl + spin_size), 0.03, -0.28);
+	let show_text_size = Vec2f::new(0.37, 0.05);
+
+	// TODO: make a type for the top-left/size combo (and add useful utility functions from there)
+
+	//////////
 
 	let all_model_windows_info = [
 		SpinitronModelWindowsInfo {
 			model_name: SpinitronModelName::Spin,
-			text_color: ColorSDL::RED,
-			texture_window: SpinitronModelWindowInfo {tl: spin_tl, size: model_window_size, border_color: None},
-			text_window: SpinitronModelWindowInfo {tl: model_text_tls[0], size: model_text_sizes[0], border_color: Some(ColorSDL::GREEN)}
+			text_color: theme_color_1,
+
+			texture_window: Some(SpinitronModelWindowInfo {
+				tl: spin_tl,
+				size: spin_size,
+				border_color: Some(theme_color_1)
+			}),
+
+			text_window: Some(SpinitronModelWindowInfo {
+				tl: Vec2f::translate_y(&spin_tl, spin_size.y()),
+				size: Vec2f::new(spin_size.x(), spin_text_height),
+				border_color: Some(theme_color_1)
+			})
 		},
 
 		SpinitronModelWindowsInfo {
 			model_name: SpinitronModelName::Playlist,
-			text_color: ColorSDL::RED,
-			texture_window: SpinitronModelWindowInfo {tl: playlist_tl, size: model_window_size, border_color: None},
-			text_window: SpinitronModelWindowInfo {tl: model_text_tls[1], size: model_text_sizes[1], border_color: Some(ColorSDL::GREEN)}
+			text_color: theme_color_1,
+			texture_window: None,
+			text_window: None
 		},
 
 		SpinitronModelWindowsInfo {
 			model_name: SpinitronModelName::Persona,
-			text_color: ColorSDL::RED,
-			texture_window: SpinitronModelWindowInfo {tl: persona_tl, size: model_window_size, border_color: None},
-			text_window: SpinitronModelWindowInfo {tl: model_text_tls[2], size: model_text_sizes[2], border_color: Some(ColorSDL::GREEN)}
+			text_color: theme_color_1,
+
+			texture_window: Some(SpinitronModelWindowInfo {
+				tl: persona_tl,
+				size: Vec2f::new_scalar(welcome_sign_size.x()),
+				border_color: Some(theme_color_1)
+			}),
+
+			text_window: Some(SpinitronModelWindowInfo {
+				tl: persona_tl,
+				size: welcome_sign_size,
+				border_color: Some(theme_color_1)
+			})
 		},
 
 		SpinitronModelWindowsInfo {
 			model_name: SpinitronModelName::Show,
-			text_color: ColorSDL::RED,
-			texture_window: SpinitronModelWindowInfo {tl: show_tl, size: model_window_size, border_color: None},
-			text_window: SpinitronModelWindowInfo {tl: model_text_tls[3], size: model_text_sizes[3], border_color: Some(ColorSDL::GREEN)}
+			text_color: theme_color_1,
+			texture_window: None,
+
+			text_window: Some(SpinitronModelWindowInfo {
+				tl: show_text_tl,
+				size: show_text_size,
+				border_color: Some(theme_color_1)
+			})
 		}
 	];
 
@@ -127,32 +151,23 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		&all_model_windows_info, shared_update_rate
 	);
 
-	// TODO: make a temporary error window that pops up when needed
+	// TODO: make a temporary error window that pops up when needed (or log it somehow; but just handle it)
 
 	////////// Making some static texture windows
 
-	// TODO: make animated textures possible
-	// TODO: remove a bunch of async TODOs, and just old ones in general
+	/* TODO:
+	- Make animated textures possible
+	- Remove a bunch of async TODOs, and just old ones in general
+	*/
 
-	let soup_height = model_gap_size * 1.5;
-
-	// Updater, state, texture path, top left, size
+	// Texture path, top left, size
 	let static_texture_info = [
-		(
-			"assets/wbor_logo.png",
-			Vec2f::ZERO,
-			Vec2f::new(0.1, 0.05)
-		),
-
-		(
-			"assets/wbor_soup.png",
-			Vec2f::new(0.0, 1.0 - soup_height),
-			Vec2f::new(model_gap_size, soup_height)
-		)
+		("assets/wbor_logo.png", Vec2f::new(0.7, 0.7), Vec2f::new(0.1, 0.05)),
+		("assets/wbor_soup.png", Vec2f::new(0.85, 0.6), Vec2f::new(0.06666666, 0.1))
 	];
 
 	all_main_windows.extend(static_texture_info.into_iter().map(|datum| {
-		return Window::new(
+		Window::new(
 			None,
 			DynamicOptional::NONE,
 
@@ -189,14 +204,54 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	////////// Making a weather window
 
-	// TODO: add a weather API to this
+	/* TODO:
+	- Actually implement this
+	- Make the general structure of the text updater fns less repetitive
+	*/
+
+	fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
+		let weather_changed = true;
+		let weather_string = "Rain (32f). So cold.";
+		let weather_text_color = ColorSDL::BLACK;
+
+		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value();
+
+		let texture_creation_info = TextureCreationInfo::Text((
+			&inner_shared_state.font_info,
+
+			TextDisplayInfo {
+				text: format!("{} ", weather_string),
+				color: weather_text_color,
+
+				scroll_fn: |secs_since_unix_epoch| {
+					let repeat_rate_secs = 3.0; // TODO: don't repeat this over the Twilio code
+					let base_scroll = (secs_since_unix_epoch % repeat_rate_secs) / repeat_rate_secs;
+					(1.0 - base_scroll, true)
+				},
+
+				max_pixel_width: area_drawn_to_screen.width(),
+				pixel_height: area_drawn_to_screen.height()
+			}
+		));
+
+		window.update_texture_contents(
+			weather_changed,
+			texture_pool,
+			&texture_creation_info,
+			&inner_shared_state.fallback_texture_creation_info)?;
+
+		Ok(())
+	}
+
+	let weather_update_rate = UpdateRate::new(60.0);
+
 	let weather_window = Window::new(
-		None,
+		Some((weather_updater_fn, weather_update_rate)),
 		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
-		None,
+		Some(ColorSDL::RED),
 		Vec2f::ZERO,
-		Vec2f::new(0.1, 1.0),
+		Vec2f::new(0.2, 0.5),
 		None
 	);
 
@@ -219,7 +274,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let top_bar_window = Window::new(
 		None,
 		DynamicOptional::NONE,
-		WindowContents::Color(ColorSDL::RGB(0, 0, 255)),
+		WindowContents::Color(ColorSDL::RGB(128, 0, 32)),
 		None,
 		Vec2f::new(small_edge_size, 0.01),
 		Vec2f::new(1.0 - small_edge_size * 2.0, 0.06),
@@ -229,8 +284,12 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let main_window = Window::new(
 		None,
 		DynamicOptional::NONE,
-		WindowContents::Color(ColorSDL::RGB(210, 180, 140)),
-		None,
+
+		WindowContents::Texture(texture_pool.make_texture(
+			&TextureCreationInfo::Path("assets/wbor_dashboard_background.png")
+		)?),
+
+		Some(theme_color_1),
 		Vec2f::new(small_edge_size, 0.08),
 		Vec2f::new(1.0 - small_edge_size * 2.0, 0.9),
 		Some(all_main_windows)
@@ -239,7 +298,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let all_windows = Window::new(
 		None,
 		DynamicOptional::NONE,
-		WindowContents::Color(ColorSDL::RGB(0, 127, 0)),
+		WindowContents::Color(ColorSDL::RGB(0, 128, 128)),
 		None,
 		Vec2f::ZERO,
 		Vec2f::ONE,

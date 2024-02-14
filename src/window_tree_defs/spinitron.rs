@@ -34,8 +34,8 @@ pub struct SpinitronModelWindowInfo {
 
 pub struct SpinitronModelWindowsInfo {
 	pub model_name: SpinitronModelName,
-	pub texture_window: SpinitronModelWindowInfo,
-	pub text_window: SpinitronModelWindowInfo,
+	pub texture_window: Option<SpinitronModelWindowInfo>,
+	pub text_window: Option<SpinitronModelWindowInfo>,
 	pub text_color: ColorSDL
 }
 
@@ -69,7 +69,11 @@ pub fn make_spinitron_windows(
 					text: text_to_display,
 					color: text_color,
 
-					// TODO: pass in the scroll fn too
+					/* TODO:
+					- Pass in the scroll fn
+					- Figure out how to make a scroll fn that pauses a bit at each end
+					*/
+
 					scroll_fn: |secs_since_unix_epoch| {
 						(secs_since_unix_epoch.sin() * 0.5 + 0.5, false)
 					},
@@ -101,34 +105,44 @@ pub fn make_spinitron_windows(
 	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
 
 	all_model_windows_info.iter().flat_map(|info| {
-		let texture_window = Window::new(
-			spinitron_model_window_updater,
+		let mut output_windows = vec![];
 
-			DynamicOptional::new(SpinitronModelWindowState {
-				model_name: info.model_name, maybe_text_color: None
-			}),
+		if let Some(texture_window_info) = &info.texture_window {
+			let texture_window = Window::new(
+				spinitron_model_window_updater,
 
-			WindowContents::Nothing,
-			info.texture_window.border_color,
-			info.texture_window.tl,
-			info.texture_window.size,
-			None
-		);
+				DynamicOptional::new(SpinitronModelWindowState {
+					model_name: info.model_name, maybe_text_color: None
+				}),
 
-		let text_window = Window::new(
-			spinitron_model_window_updater,
+				WindowContents::Nothing,
+				texture_window_info.border_color,
+				texture_window_info.tl,
+				texture_window_info.size,
+				None
+			);
 
-			DynamicOptional::new(SpinitronModelWindowState {
-				model_name: info.model_name, maybe_text_color: Some(info.text_color)
-			}),
+			output_windows.push(texture_window);
+		}
 
-			WindowContents::Nothing,
-			info.text_window.border_color,
-			info.text_window.tl,
-			info.text_window.size,
-			None
-		);
+		if let Some(text_window_info) = &info.text_window {
+			let text_window = Window::new(
+				spinitron_model_window_updater,
 
-		[texture_window, text_window]
+				DynamicOptional::new(SpinitronModelWindowState {
+					model_name: info.model_name, maybe_text_color: Some(info.text_color)
+				}),
+
+				WindowContents::Nothing,
+				text_window_info.border_color,
+				text_window_info.tl,
+				text_window_info.size,
+				None
+			);
+
+			output_windows.push(text_window)
+		}
+
+		output_windows
 	}).collect()
 }

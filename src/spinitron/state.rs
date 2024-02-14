@@ -120,7 +120,7 @@ impl Updatable for SpinitronStateData {
 					From this, the current show will be inferred based on the schedule,
 					and the current playlist's show will be synced with the one from that show. */
 					println!("Do unconventional refresh for show id");
-					self.show = Self::get_show_while_syncing_show_id(&api_key, &mut new_playlist)?;
+					self.show = Self::get_show_while_syncing_show_id(api_key, &mut new_playlist)?;
 				}
 
 				self.playlist = new_playlist;

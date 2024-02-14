@@ -47,6 +47,10 @@ impl Vec2f {
 	pub fn translate_y(&self, y: Component) -> Self {
 		Vec2f::new(self.x, self.y + y)
 	}
+
+	pub fn translate(&self, x: Component, y: Component) -> Self {
+		Vec2f::new(self.x + x, self.y + y)
+	}
 }
 
 /* TODO:

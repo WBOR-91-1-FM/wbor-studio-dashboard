@@ -45,7 +45,7 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 impl SpinitronModel for Spin {
 	fn get_id(&self) -> SpinitronModelId {self.id}
 	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
-	fn to_string(&self) -> String {format!("Song: '{}', by '{}', from '{}'", self.song, self.artist, self.release)}
+	fn to_string(&self) -> String {format!("{} (from {}), by {}.", self.song, self.release, self.artist)}
 }
 
 impl SpinitronModel for Playlist {
@@ -57,13 +57,13 @@ impl SpinitronModel for Playlist {
 impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
 	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
-	fn to_string(&self) -> String {format!("Host: {}", self.name)}
+	fn to_string(&self) -> String {format!("Welcome, {}!", self.name)}
 }
 
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
 	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
-	fn to_string(&self) -> String {format!("You are listening to '{}'", self.title)}
+	fn to_string(&self) -> String {format!("This is '{}'.", self.title)}
 }
 
 impl Spin {

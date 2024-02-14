@@ -62,6 +62,6 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 	}
 
 	pub fn get_data(&self) -> &T {
-		return &self.data;
+		&self.data
 	}
 }
