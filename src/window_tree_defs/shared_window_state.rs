@@ -1,7 +1,7 @@
 use crate::{
     window_tree_defs::clock::ClockHands,
     texture::{FontInfo, TextureCreationInfo},
-    spinitron::state::SpinitronState,
+    spinitron::state::SpinitronState
 };
 
 pub struct SharedWindowState<'a> {
