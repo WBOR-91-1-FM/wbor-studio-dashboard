@@ -13,11 +13,10 @@ pub struct UpdateRate {
 impl UpdateRate {
 	pub const ONCE_PER_FRAME: Self = Self {every_n_frames: 1};
 
-	pub fn new(num_seconds_between_updates: Seconds) -> Self {
-		let fps = 60.0; // TODO: infer this somehow (or just pass this in in `is_time_to_update`)
+	fn new(num_seconds_between_updates: Seconds, fps: u16) -> Self {
 		let max_frame_index = FrameIndex::MAX;
 
-		let num_frames_between_updates = num_seconds_between_updates * fps;
+		let num_frames_between_updates = num_seconds_between_updates * fps as Seconds;
 
 		let report_update_rate_error =
 			|below_or_above_str: &str, min_or_max_str: &str, boundary: &str|
@@ -57,5 +56,22 @@ impl FrameCounter {
 
 	pub fn tick(&mut self) {
 		self.wrapping_frame_index += 1;
+	}
+}
+
+//////////
+
+#[derive(Copy, Clone)]
+pub struct UpdateRateCreator {
+	fps: u16
+}
+
+impl UpdateRateCreator {
+	pub fn new(fps: u16) -> Self {
+		Self {fps}
+	}
+
+	pub fn new_instance(self, num_seconds_between_updates: Seconds) -> UpdateRate {
+		UpdateRate::new(num_seconds_between_updates, self.fps)
 	}
 }

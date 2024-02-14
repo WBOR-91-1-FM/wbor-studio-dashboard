@@ -1,15 +1,15 @@
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
-	texture::{FontInfo, TextureCreationInfo, TextDisplayInfo, TexturePool},
-
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
+
+	texture::{FontInfo, TextureCreationInfo, TextDisplayInfo, TexturePool},
 
 	utility_types::{
 		vec2f::Vec2f,
-		update_rate::UpdateRate,
 		generic_result::GenericResult,
-		dynamic_optional::DynamicOptional
+		dynamic_optional::DynamicOptional,
+		update_rate::{UpdateRate, UpdateRateCreator}
 	},
 
 	window_tree::{
@@ -59,7 +59,7 @@ fn get_api_key<'a>(json: &'a serde_json::Value, name: &'a str) -> GenericResult<
 //////////
 
 // This returns a top-level window, shared window state, and a shared window state updater
-pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
+pub fn make_wbor_dashboard(texture_pool: &mut TexturePool, update_rate_creator: UpdateRateCreator)
 	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
 
 	////////// Defining some shared global variables
@@ -72,7 +72,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 
 	let api_keys_json = load_api_keys_json()?;
 	let theme_color_1 = ColorSDL::WHITE;
-	let shared_update_rate = UpdateRate::new(1.0);
+	let shared_update_rate = update_rate_creator.new_instance(1.0);
 
 	////////// Defining the Spinitron window extents
 
@@ -243,7 +243,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 		Ok(())
 	}
 
-	let weather_update_rate = UpdateRate::new(60.0);
+	let weather_update_rate = update_rate_creator.new_instance(60.0);
 
 	let weather_window = Window::new(
 		Some((weather_updater_fn, weather_update_rate)),
@@ -260,7 +260,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool)
 	let twilio_window = make_twilio_window(
 		Vec2f::new(0.25, 0.0),
 		Vec2f::new(0.5, 0.5),
-		UpdateRate::new(1.0),
+		update_rate_creator.new_instance(1.0),
 		ColorSDL::RGB(180, 180, 180),
 		ColorSDL::RGB(20, 20, 20),
 		get_api_key(&api_keys_json, "twilio_account_sid")?,

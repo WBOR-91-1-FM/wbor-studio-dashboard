@@ -62,7 +62,10 @@ struct AppConfig<'a> {
 	use_linear_filtering: bool,
 	bg_color: window_tree::ColorSDL,
 
-	top_level_window_creator: fn(&mut texture::TexturePool)
+	top_level_window_creator: fn(
+		&mut texture::TexturePool,
+		utility_types::update_rate::UpdateRateCreator
+	)
 		-> utility_types::generic_result::GenericResult<(
 			window_tree::Window, utility_types::dynamic_optional::DynamicOptional,
 			window_tree::PossibleSharedWindowStateUpdater)>
@@ -162,6 +165,8 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	let texture_creator = sdl_canvas.texture_creator();
 
+	let fps = sdl_video_subsystem.current_display_mode(0)?.refresh_rate as u16;
+
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
 			sdl_canvas,
@@ -172,7 +177,10 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		};
 
 	let (mut top_level_window, shared_window_state, shared_window_state_updater) =
-		(app_config.top_level_window_creator)(&mut rendering_params.texture_pool)?;
+		(app_config.top_level_window_creator)(
+			&mut rendering_params.texture_pool,
+			utility_types::update_rate::UpdateRateCreator::new(fps)
+		)?;
 
 	rendering_params.shared_window_state = shared_window_state;
 	rendering_params.shared_window_state_updater = shared_window_state_updater;
