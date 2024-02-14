@@ -45,8 +45,6 @@ pub fn make_spinitron_windows(
 	all_model_windows_info: &[SpinitronModelWindowsInfo; NUM_SPINITRON_MODEL_TYPES],
 	model_update_rate: UpdateRate) -> Vec<Window> {
 
-	/* TODO: add the ability to have multiple updaters per window
-	(with different update rates). Or, do async requests. */
 	fn spinitron_model_window_updater_fn((window, texture_pool,
 		shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
 
