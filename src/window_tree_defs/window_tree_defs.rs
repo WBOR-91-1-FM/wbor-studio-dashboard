@@ -155,10 +155,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool, update_rate_creator: 
 
 	////////// Making some static texture windows
 
-	/* TODO:
-	- Make animated textures possible
-	- Remove a bunch of async TODOs, and just old ones in general
-	*/
+	// TODO: make animated textures possible
 
 	// Texture path, top left, size
 	let static_texture_info = [
