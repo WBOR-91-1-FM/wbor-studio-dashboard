@@ -40,6 +40,16 @@ impl Vec2f {
 		self.y
 	}
 
+	pub fn set_x(&mut self, x: Component) {
+		assert_in_unit_interval(x);
+		self.x = x;
+	}
+
+	pub fn set_y(&mut self, y: Component) {
+		assert_in_unit_interval(y);
+		self.y = y;
+	}
+
 	pub fn translate_x(&self, x: Component) -> Self {
 		Vec2f::new(self.x + x, self.y)
 	}

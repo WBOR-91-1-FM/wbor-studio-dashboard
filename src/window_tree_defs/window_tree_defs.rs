@@ -59,7 +59,9 @@ fn get_api_key<'a>(json: &'a serde_json::Value, name: &'a str) -> GenericResult<
 //////////
 
 // This returns a top-level window, shared window state, and a shared window state updater
-pub fn make_wbor_dashboard(texture_pool: &mut TexturePool, update_rate_creator: UpdateRateCreator)
+pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
+	sdl_window_size_in_pixels: (u32, u32),
+	update_rate_creator: UpdateRateCreator)
 	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
 
 	////////// Defining some shared global variables
@@ -292,13 +294,28 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool, update_rate_creator: 
 		Some(all_main_windows)
 	);
 
+	////////// Making the highest-level window (and accounting for window stretching)
+
+	let size_pixels = (sdl_window_size_in_pixels.0 as f32, sdl_window_size_in_pixels.1 as f32);
+
+	let (mut tl, mut size) = (Vec2f::ZERO, Vec2f::ONE);
+
+	if size_pixels.0 < size_pixels.1 {
+		size.set_y(size_pixels.0 / size_pixels.1);
+		tl.set_y(tl.y() + (1.0 - size.y()) * 0.5);
+	}
+	else {
+		size.set_x(size_pixels.1 / size_pixels.0);
+		tl.set_x(tl.x() + (1.0 - size.x()) * 0.5);
+	}
+
 	let all_windows = Window::new(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(0, 128, 128)),
 		None,
-		Vec2f::ZERO,
-		Vec2f::ONE,
+		tl,
+		size,
 		Some(vec![top_bar_window, main_window])
 	);
 

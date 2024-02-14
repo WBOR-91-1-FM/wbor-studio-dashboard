@@ -64,6 +64,7 @@ struct AppConfig<'a> {
 
 	top_level_window_creator: fn(
 		&mut texture::TexturePool,
+		(u32, u32),
 		utility_types::update_rate::UpdateRateCreator
 	)
 		-> utility_types::generic_result::GenericResult<(
@@ -166,6 +167,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let texture_creator = sdl_canvas.texture_creator();
 
 	let fps = sdl_video_subsystem.current_display_mode(0)?.refresh_rate as u16;
+	let output_size = sdl_canvas.output_size()?;
 
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
@@ -179,6 +181,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let (mut top_level_window, shared_window_state, shared_window_state_updater) =
 		(app_config.top_level_window_creator)(
 			&mut rendering_params.texture_pool,
+			output_size,
 			utility_types::update_rate::UpdateRateCreator::new(fps)
 		)?;
 
