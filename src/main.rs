@@ -153,7 +153,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 			&sdl2::hint::Hint::Override
 		);
 
-	std::assert!(using_texture_filtering_option);
+	assert!(using_texture_filtering_option);
 
 	if app_config.hide_cursor {
 		sdl_context.mouse().show_cursor(false);

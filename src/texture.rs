@@ -131,7 +131,7 @@ impl<'a> TexturePool<'a> {
 		let how_much_wider_the_texture_is_than_its_screen_dest =
 			texture_size.0 as i32 - screen_dest.width() as i32;
 
-		std::assert!(how_much_wider_the_texture_is_than_its_screen_dest >= 0);
+		assert!(how_much_wider_the_texture_is_than_its_screen_dest >= 0);
 
 		/* If the texture can be cropped so that it ends up fully
 		on the left side, without spilling onto the right */
