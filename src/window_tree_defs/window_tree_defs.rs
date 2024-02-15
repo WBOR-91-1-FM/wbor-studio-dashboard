@@ -76,6 +76,10 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	let theme_color_1 = ColorSDL::WHITE;
 	let shared_update_rate = update_rate_creator.new_instance(1.0);
 
+	let top_bar_window_size_y = 0.1;
+	let main_windows_gap_size = 0.01;
+	let weather_and_twilio_window_size_y = 0.32;
+
 	////////// Defining the Spinitron window extents
 
 	// Note: `tl` = top left
@@ -184,11 +188,14 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	////////// Making a clock window
 
+	let clock_size_x = top_bar_window_size_y;
+	let clock_tl = Vec2f::new(1.0 - clock_size_x, 0.0);
+	let clock_size = Vec2f::new(clock_size_x, 1.0);
+
 	let (clock_hands, clock_window) = ClockHands::new_with_window(
 		UpdateRate::ONCE_PER_FRAME,
-
-		Vec2f::new(0.93, 0.0),
-		Vec2f::new(0.07, 1.0),
+		clock_tl,
+		clock_size,
 
 		ClockHandConfigs {
 			milliseconds: ClockHandConfig::new(0.01, 0.2, 0.5, ColorSDL::RGBA(255, 0, 0, 100)), // Milliseconds
@@ -250,7 +257,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
 		Some(ColorSDL::RED),
 		Vec2f::ZERO,
-		Vec2f::new(0.2, 0.5),
+		Vec2f::new(0.2, weather_and_twilio_window_size_y),
 		None
 	);
 
@@ -258,7 +265,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	let twilio_window = make_twilio_window(
 		Vec2f::new(0.25, 0.0),
-		Vec2f::new(0.5, 0.5),
+		Vec2f::new(0.5, weather_and_twilio_window_size_y),
 		update_rate_creator.new_instance(1.0),
 		ColorSDL::RGB(180, 180, 180),
 		ColorSDL::RGB(20, 20, 20),
@@ -268,15 +275,17 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	////////// Making all of the main windows
 
-	let small_edge_size = 0.015;
+	let main_window_tl_y = main_windows_gap_size + top_bar_window_size_y + main_windows_gap_size;
+	let main_window_size_y = 1.0 - main_window_tl_y - main_windows_gap_size;
+	let x_width_from_main_window_gap_size = 1.0 - main_windows_gap_size * 2.0;
 
 	let top_bar_window = Window::new(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(128, 0, 32)),
 		None,
-		Vec2f::new(small_edge_size, 0.01),
-		Vec2f::new(1.0 - small_edge_size * 2.0, 0.06),
+		Vec2f::new_scalar(main_windows_gap_size),
+		Vec2f::new(x_width_from_main_window_gap_size, top_bar_window_size_y),
 		Some(vec![clock_window, weather_window, twilio_window])
 	);
 
@@ -289,8 +298,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 		)?),
 
 		Some(theme_color_1),
-		Vec2f::new(small_edge_size, 0.08),
-		Vec2f::new(1.0 - small_edge_size * 2.0, 0.9),
+		Vec2f::new(main_windows_gap_size, main_window_tl_y),
+		Vec2f::new(x_width_from_main_window_gap_size, main_window_size_y),
 		Some(all_main_windows)
 	);
 
