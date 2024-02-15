@@ -45,8 +45,8 @@ impl TwilioState {
 			account_sid: account_sid.to_string(),
 			auth_token: auth_token.to_string(),
 
-			no_message_available_message: "No text messages available!".to_string(),
-			failed_to_get_message_message: "Failed to get text messages!".to_string(),
+			no_message_available_message: "No text messages available! ".to_string(),
+			failed_to_get_message_message: "Failed to get text messages! ".to_string(),
 
 			current_message: None,
 			just_received_new_message: false
