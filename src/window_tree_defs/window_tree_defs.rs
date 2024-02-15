@@ -266,7 +266,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	let twilio_window = make_twilio_window(
 		Vec2f::new(0.25, 0.0),
 		Vec2f::new(0.5, weather_and_twilio_window_size_y),
-		update_rate_creator.new_instance(1.0),
+		update_rate_creator.new_instance(10.0),
 		ColorSDL::RGB(180, 180, 180),
 		ColorSDL::RGB(20, 20, 20),
 		get_api_key(&api_keys_json, "twilio_account_sid")?,
