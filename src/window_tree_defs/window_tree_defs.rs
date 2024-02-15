@@ -68,7 +68,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	const FONT_INFO: FontInfo = FontInfo {
 		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
-		style: FontStyle::ITALIC,
+		style: FontStyle::NORMAL,
 		hinting: Hinting::Normal
 	};
 
