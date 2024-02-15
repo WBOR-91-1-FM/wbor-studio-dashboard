@@ -29,6 +29,7 @@ TODO:
 	- Set more rendering hints later on, if needed (beyond just the scale quality)
 	- If useful at some point, perhaps cut off rendered text characters with '...' if the text is too long
 	- Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
+	- Connect the Pi to Ethernet, for a more stable internet connection (try this at home first)
 - Fun ideas:
 	- Maybe give a retro theme to everything
 	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
