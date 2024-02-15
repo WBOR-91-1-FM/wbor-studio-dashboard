@@ -72,8 +72,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 		hinting: Hinting::Normal
 	};
 
+	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
 	let api_keys_json = load_api_keys_json()?;
-	let theme_color_1 = ColorSDL::WHITE;
 	let shared_update_rate = update_rate_creator.new_instance(1.0);
 
 	let top_bar_window_size_y = 0.1;
