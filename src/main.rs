@@ -42,8 +42,8 @@ TODO:
 
 // https://gamedev.stackexchange.com/questions/137882/
 enum ScreenOption {
-	// This runs it as a small app window.
-	Windowed(u32, u32),
+	// This runs it as a small app window, which can optionally be borderless.
+	Windowed(u32, u32, bool),
 
 	/* This allows you to switch windows without shutting
 	down the app. It is slower than real fullscreen. */
@@ -90,7 +90,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let app_config = AppConfig {
 		name: "WBOR Studio Dashboard",
 
-		screen_option: ScreenOption::Windowed(800, 800),
+		screen_option: ScreenOption::Windowed(800, 800, false),
 		// screen_option: ScreenOption::FullscreenDesktop,
 		// screen_option: ScreenOption::Fullscreen,
 
@@ -106,17 +106,16 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let sdl_video_subsystem = sdl_context.video()?;
 	let mut sdl_event_pump = sdl_context.event_pump()?;
 
-	// TODO: add an option for borderless?
-
 	use sdl2::video::WindowBuilder;
 
 	let build_window = |width: u32, height: u32, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
-		applier(&mut sdl_video_subsystem.window(app_config.name, width, height))
-		.allow_highdpi().opengl().build();
+		applier(&mut sdl_video_subsystem.window(app_config.name, width, height)).allow_highdpi().opengl().build();
 
 	let sdl_window = match app_config.screen_option {
-		ScreenOption::Windowed(width, height) => build_window(
-			width, height, WindowBuilder::position_centered
+		ScreenOption::Windowed(width, height, borderless) => build_window(
+			width, height,
+			if borderless {|wb| wb.position_centered().borderless()}
+			else {WindowBuilder::position_centered}
 		),
 
 		// The resolution passed in here is irrelevant
