@@ -248,7 +248,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 			sdl_performance_frequency
 		);
 
-		// println!("fps without and with vsync = {:.3}, {:.3}", fps_without_vsync, fps_with_vsync);
+		// println!("fps without and with vsync = {:.3}, {:.3}", _fps_without_vsync, _fps_with_vsync);
 
 		////////// Checking for a possible texture memory leak
 
