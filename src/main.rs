@@ -64,6 +64,7 @@ struct AppConfig<'a> {
 	hide_cursor: bool,
 	use_linear_filtering: bool,
 	bg_color: window_tree::ColorSDL,
+	icon_path: &'a str,
 
 	top_level_window_creator: fn(
 		&mut texture::TexturePool,
@@ -100,6 +101,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		hide_cursor: true,
 		use_linear_filtering: true,
 		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
+		icon_path: "assets/wbor_plane.bmp",
 		top_level_window_creator: window_tree_defs::window_tree_defs::make_wbor_dashboard
 	};
 
@@ -136,7 +138,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		}
 	}?;
 
-	////////// Setting the opacity
+	////////// Setting the window opacity and icon
 
 	// TODO: why does not setting the opacity result in broken fullscreen screen clearing?
 	if let ScreenOption::Windowed(.., Some(opacity)) = app_config.screen_option {
@@ -144,6 +146,9 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 			println!("Window translucency not supported by your current platform! Official error: '{}'.", err);
 		}
 	}
+
+	use sdl2::image::LoadSurface;
+	sdl_window.set_icon(sdl2::surface::Surface::from_file(app_config.icon_path)?);
 
 	//////////
 
