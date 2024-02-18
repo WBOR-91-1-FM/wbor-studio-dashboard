@@ -89,12 +89,24 @@ pub fn make_spinitron_windows(
 			}
 		};
 
+		//////////
+
+		let mut fallback_texture_creation_info = &inner_shared_state.fallback_texture_creation_info;
+
+		if let SpinitronModelName::Persona = model_name {
+			if individual_window_state.maybe_text_color.is_none() {
+				fallback_texture_creation_info = &TextureCreationInfo::Path("assets/wbor_no_persona_image.png");
+			}
+		}
+
+		//////////
+
 		// TODO: see if threading will be needed for updating textures as well
 		window.update_texture_contents(
 			model_was_updated,
 			texture_pool,
 			&texture_creation_info,
-			&inner_shared_state.fallback_texture_creation_info
+			fallback_texture_creation_info
 		)
 	}
 
