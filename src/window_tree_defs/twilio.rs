@@ -54,12 +54,12 @@ impl TwilioState {
 	}
 
 	fn make_request(&self) -> GenericResult<minreq::Response> {
-		let date = chrono::Local::now().format("%Y-%m-%d");
+		let date = chrono::Utc::now().format("%Y-%m-%d");
+		let num_messages_to_ask_for = 1; // This may change later, since I might display more messages at a time
 
-		// TODO: do the request URL building thing instead, and how to make a request for just one message?
-		let request_url = format!(
-			"https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json?DateSent={}",
-			self.account_sid, date
+		let request_url = format!( // TODO: do the request URL building thing instead
+			"https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json?DateSent={}&PageSize={}",
+			self.account_sid, date, num_messages_to_ask_for
 		);
 
 		use base64::{engine::general_purpose, Engine as _};
@@ -81,7 +81,7 @@ impl Updatable for TwilioState {
 
 		let messages_json = &json["messages"];
 
-		let num_messages_today = if let serde_json::Value::Array(inner_messages_json) = messages_json {
+		let num_messages = if let serde_json::Value::Array(inner_messages_json) = messages_json {
 			Ok(inner_messages_json.len())
 		}
 		else {
@@ -92,7 +92,8 @@ impl Updatable for TwilioState {
 
 		self.just_received_new_message = false;
 
-		if num_messages_today == 0 {
+		if num_messages == 0 {
+			// TODO: will this result in a texture pool leak possibly once a day?
 			self.current_message = None;
 		}
 		else {
