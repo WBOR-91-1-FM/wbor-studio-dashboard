@@ -335,7 +335,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 			clock_hands,
 			spinitron_state: SpinitronState::new(get_api_key(&api_keys_json, "spinitron")?)?,
 			font_info: FONT_INFO,
-			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png"),
+			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png")
 		}
 	);
 
@@ -345,8 +345,6 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	}
 
 	//////////
-
-	// TODO: past a certain point, make sure that the texture pool never grows
 
 	Ok((
 		all_windows,
