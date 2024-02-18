@@ -135,7 +135,7 @@ impl<'a> TexturePool<'a> {
 		let how_much_wider_the_texture_is_than_its_screen_dest =
 			texture_size.0 as i32 - screen_dest.width() as i32;
 
-		// TODO: for this, if the assertion fails, perhaps print the screen dest, and the associated text?
+		// TODO: for this, if the assertion fails, perhaps print the screen dest, and the associated text? Or, save the failing texture to disk.
 		assert!(how_much_wider_the_texture_is_than_its_screen_dest >= 0);
 
 		/* If the texture can be cropped so that it ends up fully
