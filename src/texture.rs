@@ -115,6 +115,10 @@ impl<'a> TexturePool<'a> {
 		}
 	}
 
+	pub fn size(&self) -> usize {
+		self.textures.len()
+	}
+
 	/* This returns the left/righthand screen dest, and a possible other texture
 	src and screen dest that may wrap around to the left side of the screen */
 	fn split_overflowing_scrolled_rect(texture_src: Rect, screen_dest: Rect,

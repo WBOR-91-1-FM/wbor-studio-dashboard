@@ -191,6 +191,8 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	//////////
 
+	let mut initial_num_textures_in_pool = None;
+
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
 			use sdl2::{event::Event, keyboard::Keycode};
@@ -219,18 +221,12 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 		rendering_params.frame_counter.tick();
 
-		//////////
-
 		let _fps_without_vsync = get_fps(&sdl_timer,
 			sdl_performance_counter_before,
 			sdl_performance_frequency
 		);
 
-		//////////
-
 		rendering_params.sdl_canvas.present();
-
-		//////////
 
 		let _fps_with_vsync = get_fps(&sdl_timer,
 			sdl_performance_counter_before,
@@ -238,6 +234,21 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		);
 
 		// println!("fps without and with vsync = {:.3}, {:.3}", fps_without_vsync, fps_with_vsync);
+
+		////////// Checking for a possible texture memory leak
+
+		let num_textures_in_pool = rendering_params.texture_pool.size();
+
+		match initial_num_textures_in_pool {
+			Some(initial_amount) => {
+				if initial_amount != num_textures_in_pool {
+					panic!("Memory leak! Texture pool grew by {} past the first frame", num_textures_in_pool - initial_amount);
+				}
+			},
+			None => {
+				initial_num_textures_in_pool = Some(num_textures_in_pool);
+			}
+		}
 
 		//////////
 	}
