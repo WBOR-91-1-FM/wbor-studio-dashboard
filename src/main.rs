@@ -33,6 +33,7 @@ TODO:
 	- If possible, figure out how to use the extra wasted space lost when doing aspect ratio correction
 	- Substitute in placeholder media links with custom ones, eventually
 	- Run the dashboard on a PVM, or an original iMac, eventually?
+	- Sleep when the window is unfocused (test to see that that works)
 - Fun ideas:
 	- Maybe give a retro theme to everything
 	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
@@ -91,8 +92,9 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	stress on the Pi, if a high framerate isn't needed later on.
 	Maybe make the FPS equate with the highest poll rate, eventually? */
 
-	/* TODO: make this more configurable, somehow
-	(maybe make a SDL window init fn, where I pass in state?) */
+	/* TODO: make this more configurable, somehow.
+	(maybe make a SDL window init fn, where I pass in state?)
+	Or, put it in a JSON file in `assets`, and then deserialize it here. */
 	let app_config = AppConfig {
 		name: "WBOR Studio Dashboard",
 
