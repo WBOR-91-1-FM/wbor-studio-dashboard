@@ -31,6 +31,7 @@ TODO:
 	- If useful at some point, perhaps cut off rendered text characters with '...' if the text is too long
 	- Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
 	- If possible, figure out how to use the extra wasted space lost when doing aspect ratio correction
+	- Substitute in placeholder media links with custom ones, eventually
 - Fun ideas:
 	- Maybe give a retro theme to everything
 	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
