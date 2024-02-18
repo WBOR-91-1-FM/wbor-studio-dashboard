@@ -44,8 +44,9 @@ TODO:
 
 // https://gamedev.stackexchange.com/questions/137882/
 enum ScreenOption {
-	// This runs it as a small app window, which can optionally be borderless.
-	Windowed(u32, u32, bool),
+	/* This runs it as a small app window, which can optionally
+	be borderless, and optionally be translucent too. */
+	Windowed(u32, u32, bool, Option<f32>),
 
 	/* This allows you to switch windows without shutting
 	down the app. It is slower than real fullscreen. */
@@ -92,7 +93,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let app_config = AppConfig {
 		name: "WBOR Studio Dashboard",
 
-		screen_option: ScreenOption::Windowed(800, 800, false),
+		screen_option: ScreenOption::Windowed(800, 800, false, None),
 		// screen_option: ScreenOption::FullscreenDesktop,
 		// screen_option: ScreenOption::Fullscreen,
 
@@ -113,8 +114,8 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let build_window = |width: u32, height: u32, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
 		applier(&mut sdl_video_subsystem.window(app_config.name, width, height)).allow_highdpi().opengl().build();
 
-	let sdl_window = match app_config.screen_option {
-		ScreenOption::Windowed(width, height, borderless) => build_window(
+	let mut sdl_window = match app_config.screen_option {
+		ScreenOption::Windowed(width, height, borderless, _) => build_window(
 			width, height,
 			if borderless {|wb| wb.position_centered().borderless()}
 			else {WindowBuilder::position_centered}
@@ -134,6 +135,15 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 			)
 		}
 	}?;
+
+	////////// Setting the opacity
+
+	// TODO: why does not setting the opacity result in broken fullscreen screen clearing?
+	if let ScreenOption::Windowed(.., Some(opacity)) = app_config.screen_option {
+		if let Err(err) = sdl_window.set_opacity(opacity) {
+			println!("Window translucency not supported by your current platform! Official error: '{}'.", err);
+		}
+	}
 
 	//////////
 
