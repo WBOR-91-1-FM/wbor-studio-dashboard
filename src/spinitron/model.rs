@@ -56,7 +56,21 @@ impl SpinitronModel for Playlist {
 
 impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
+
+	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {
+		let maybe_url = Self::evaluate_image_url(&self.image);
+
+		if let Some(TextureCreationInfo::Url(url)) = maybe_url {
+			let default_show_image_pattern = regex::Regex::new(r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#).unwrap(); // TODO: cache this
+
+			if default_show_image_pattern.is_match(url) {
+				return Some(TextureCreationInfo::Path("assets/wbor_no_persona_image.png"));
+			}
+		}
+
+		maybe_url
+	}
+
 	fn to_string(&self) -> String {format!("Welcome, {}!", self.name)}
 }
 

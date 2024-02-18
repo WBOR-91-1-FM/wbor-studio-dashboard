@@ -55,16 +55,13 @@ pub fn make_spinitron_windows(
 		let model_name = individual_window_state.model_name;
 
 		let model = spinitron_state.get_model_by_name(model_name);
-		let model_was_updated = spinitron_state.model_was_updated(model_name);
-
-		let text_to_display = format!("{} ", model.to_string());
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			TextureCreationInfo::Text((
 				&inner_shared_state.font_info,
 
 				TextDisplayInfo {
-					text: text_to_display,
+					text: format!("{} ", model.to_string()),
 					color: text_color,
 
 					/* TODO:
@@ -85,24 +82,13 @@ pub fn make_spinitron_windows(
 		else {
 			match model.get_texture_creation_info() {
 				Some(texture_creation_info) => texture_creation_info,
-				None => {
-					let mut fallback_texture_creation_info = &inner_shared_state.fallback_texture_creation_info;
-
-					// Setting a custom no-persona image if needed
-					if let SpinitronModelName::Persona = model_name {
-						if individual_window_state.maybe_text_color.is_none() {
-							fallback_texture_creation_info = &TextureCreationInfo::Path("assets/wbor_no_persona_image.png");
-						}
-					}
-
-					fallback_texture_creation_info.clone()
-				}
+				None => inner_shared_state.fallback_texture_creation_info.clone()
 			}
 		};
 
 		// TODO: see if threading will be needed for updating textures as well
 		window.update_texture_contents(
-			model_was_updated,
+			spinitron_state.model_was_updated(model_name),
 			texture_pool,
 			&texture_creation_info,
 			&inner_shared_state.fallback_texture_creation_info
