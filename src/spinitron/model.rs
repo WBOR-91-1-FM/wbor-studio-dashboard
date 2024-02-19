@@ -25,6 +25,17 @@ pub trait SpinitronModel {
 		}
 		None
 	}
+
+	fn evaluate_image_url_replacing_default<'a>(url: &'a Option<String>, fallback_path: &'a str) -> MaybeTextureCreationInfo<'a> where Self: Sized {
+		let maybe_url = Self::evaluate_image_url(url);
+		let wrapped_fallback = Some(TextureCreationInfo::Path(fallback_path));
+
+		if let Some(TextureCreationInfo::Url(url)) = maybe_url {
+			let default_image_pattern = regex::Regex::new(r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#).unwrap(); // TODO: cache this
+			return if default_image_pattern.is_match(url) {wrapped_fallback} else {maybe_url};
+		}
+		wrapped_fallback
+	}
 }
 
 /* These properties are used for building spinitron models in `api.rs`.
@@ -58,17 +69,7 @@ impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
 
 	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {
-		let maybe_url = Self::evaluate_image_url(&self.image);
-
-		if let Some(TextureCreationInfo::Url(url)) = maybe_url {
-			let default_show_image_pattern = regex::Regex::new(r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#).unwrap(); // TODO: cache this
-
-			if default_show_image_pattern.is_match(url) {
-				return Some(TextureCreationInfo::Path("assets/wbor_no_persona_image.png"));
-			}
-		}
-
-		maybe_url
+		Self::evaluate_image_url_replacing_default(&self.image, "assets/wbor_no_persona_image.png")
 	}
 
 	fn to_string(&self) -> String {format!("Welcome, {}!", self.name)}
@@ -76,7 +77,11 @@ impl SpinitronModel for Persona {
 
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
+
+	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {
+		Self::evaluate_image_url_replacing_default(&self.image, "assets/wbor_no_show_image.png")
+	}
+
 	fn to_string(&self) -> String {format!("This is '{}'.", self.title)}
 }
 

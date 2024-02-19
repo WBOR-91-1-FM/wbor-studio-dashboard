@@ -83,15 +83,21 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	////////// Defining the Spinitron window extents
 
 	// Note: `tl` = top left
-	let spin_tl = Vec2f::new_scalar(0.02);
+	let spin_tl = Vec2f::new_scalar(main_windows_gap_size);
 	let spin_size = Vec2f::new_scalar(0.55);
 	let spin_text_height = 0.03;
+	let spin_tr = spin_tl.x() + spin_size.x();
 
-	let welcome_sign_size = Vec2f::new(0.25, 0.04);
-	let persona_tl = Vec2f::new(1.0 - spin_tl.y() - welcome_sign_size.x(), spin_tl.y());
+	let persona_tl = Vec2f::new(spin_tr + main_windows_gap_size, spin_tl.y());
+	let persona_size = Vec2f::new_scalar(0.1);
 
-	let show_text_tl = Vec2f::translate(&(spin_tl + spin_size), 0.03, -0.28);
+	let show_tl = Vec2f::new(persona_tl.x() + persona_size.x() + main_windows_gap_size, spin_tl.y());
+	let show_size = Vec2f::new_scalar(1.0 - show_tl.x() - main_windows_gap_size);
+
+	let show_text_tl = Vec2f::translate(&(spin_tl + spin_size), 0.03, -0.2);
 	let show_text_size = Vec2f::new(0.37, 0.05);
+
+	let welcome_sign_size = Vec2f::new(persona_size.x(), persona_size.y() * 0.2);
 
 	// TODO: make a type for the top-left/size combo (and add useful utility functions from there)
 
@@ -122,31 +128,37 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 			text_window: None
 		},
 
+		// Putting show before persona here so that the persona text is drawn over
+		SpinitronModelWindowsInfo {
+			model_name: SpinitronModelName::Show,
+			text_color: theme_color_1,
+
+			texture_window: Some(SpinitronModelWindowInfo {
+				tl: show_tl,
+				size: show_size,
+				border_color: Some(theme_color_1)
+			}),
+
+			text_window: Some(SpinitronModelWindowInfo {
+				tl: show_text_tl,
+				size: show_text_size,
+				border_color: Some(theme_color_1)
+			})
+		},
+
 		SpinitronModelWindowsInfo {
 			model_name: SpinitronModelName::Persona,
 			text_color: theme_color_1,
 
 			texture_window: Some(SpinitronModelWindowInfo {
 				tl: persona_tl,
-				size: Vec2f::new_scalar(welcome_sign_size.x()),
+				size: persona_size,
 				border_color: Some(theme_color_1)
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
 				tl: persona_tl,
 				size: welcome_sign_size,
-				border_color: Some(theme_color_1)
-			})
-		},
-
-		SpinitronModelWindowsInfo {
-			model_name: SpinitronModelName::Show,
-			text_color: theme_color_1,
-			texture_window: None,
-
-			text_window: Some(SpinitronModelWindowInfo {
-				tl: show_text_tl,
-				size: show_text_size,
 				border_color: Some(theme_color_1)
 			})
 		}
