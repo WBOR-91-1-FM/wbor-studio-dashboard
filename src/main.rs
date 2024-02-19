@@ -268,7 +268,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 		//////////
 
-		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color); // TODO: remove eventually
+		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color);
 		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
 
 		top_level_window.render(&mut rendering_params)?;
