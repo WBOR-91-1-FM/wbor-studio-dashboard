@@ -34,6 +34,7 @@ TODO:
 	- Substitute in placeholder media links with custom ones, eventually
 	- Run the dashboard on a PVM, or an original iMac, eventually?
 	- Sleep when the window is unfocused (test to see that that works)
+	- Crop profile photos, instead of stretching them
 - Fun ideas:
 	- Maybe give a retro theme to everything
 	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
