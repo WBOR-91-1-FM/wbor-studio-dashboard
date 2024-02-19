@@ -70,7 +70,8 @@ pub struct TextureHandle {
 
 pub struct SideScrollingTextMetadata {
 	size: (u32, u32),
-	scroll_fn: TextTextureScrollFn
+	scroll_fn: TextTextureScrollFn,
+	text: String
 }
 
 /* TODO:
@@ -121,8 +122,10 @@ impl<'a> TexturePool<'a> {
 
 	/* This returns the left/righthand screen dest, and a possible other texture
 	src and screen dest that may wrap around to the left side of the screen */
-	fn split_overflowing_scrolled_rect(texture_src: Rect, screen_dest: Rect,
-		texture_size: (u32, u32)) -> (Rect, Option<(Rect, Rect)>) {
+	fn split_overflowing_scrolled_rect(
+		texture_src: Rect, screen_dest: Rect,
+		texture_size: (u32, u32),
+		text: &String) -> (Rect, Option<(Rect, Rect)>) {
 
 		/* Input data notes:
 		- `texture_src.width == screen_dest.width`
@@ -135,8 +138,11 @@ impl<'a> TexturePool<'a> {
 		let how_much_wider_the_texture_is_than_its_screen_dest =
 			texture_size.0 as i32 - screen_dest.width() as i32;
 
-		// TODO: for this, if the assertion fails, perhaps print the screen dest, and the associated text? Or, save the failing texture to disk.
-		assert!(how_much_wider_the_texture_is_than_its_screen_dest >= 0);
+		if how_much_wider_the_texture_is_than_its_screen_dest < 0 {
+			panic!("The texture was not wider than its screen dest, which will yield incorrect results.\n\
+				Difference = {}. Texture src = {:?}, screen dest = {:?}. The text was '{}'.",
+				how_much_wider_the_texture_is_than_its_screen_dest, texture_src, screen_dest, text);
+		}
 
 		/* If the texture can be cropped so that it ends up fully
 		on the left side, without spilling onto the right */
@@ -216,7 +222,7 @@ impl<'a> TexturePool<'a> {
 		//////////
 
 		let (right_screen_dest, possible_left_rects) = Self::split_overflowing_scrolled_rect(
-			texture_src, screen_dest, texture_size
+			texture_src, screen_dest, texture_size, &text_metadata.text
 		);
 
 		canvas.copy(texture, texture_src, right_screen_dest)?;
@@ -238,7 +244,8 @@ impl<'a> TexturePool<'a> {
 
 				let metadata = SideScrollingTextMetadata {
 					size: (query.width, query.height),
-					scroll_fn: text_display_info.scroll_fn
+					scroll_fn: text_display_info.scroll_fn,
+					text: text_display_info.text.clone()
 				};
 
 				self.text_metadata.insert(handle.handle, metadata);
