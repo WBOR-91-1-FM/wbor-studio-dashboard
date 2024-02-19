@@ -89,6 +89,21 @@ fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 	sdl_performance_frequency as f64 / delta_time as f64
 }
 
+fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<usize>, texture_pool: &texture::TexturePool) {
+	let num_textures_in_pool = texture_pool.size();
+
+	match initial_num_textures_in_pool {
+		Some(initial_amount) => {
+			if *initial_amount != num_textures_in_pool {
+				panic!("Memory leak! Texture pool grew by {} past the first frame", num_textures_in_pool - *initial_amount);
+			}
+		},
+		None => {
+			*initial_num_textures_in_pool = Some(num_textures_in_pool);
+		}
+	}
+}
+
 fn main() -> utility_types::generic_result::GenericResult<()> {
 	/* TODO: maybe artificially lower the FPS to reduce
 	stress on the Pi, if a high framerate isn't needed later on.
@@ -274,22 +289,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 		// println!("fps without and with vsync = {:.3}, {:.3}", _fps_without_vsync, _fps_with_vsync);
 
-		////////// Checking for a possible texture memory leak
-
-		let num_textures_in_pool = rendering_params.texture_pool.size();
-
-		match initial_num_textures_in_pool {
-			Some(initial_amount) => {
-				if initial_amount != num_textures_in_pool {
-					panic!("Memory leak! Texture pool grew by {} past the first frame", num_textures_in_pool - initial_amount);
-				}
-			},
-			None => {
-				initial_num_textures_in_pool = Some(num_textures_in_pool);
-			}
-		}
-
-		//////////
+		check_for_texture_pool_memory_leak(&mut initial_num_textures_in_pool, &rendering_params.texture_pool);
 	}
 
 	Ok(())
