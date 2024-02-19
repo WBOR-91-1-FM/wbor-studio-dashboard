@@ -33,7 +33,6 @@ TODO:
 	- If possible, figure out how to use the extra wasted space lost when doing aspect ratio correction
 	- Substitute in placeholder media links with custom ones, eventually
 	- Run the dashboard on a PVM, or an original iMac, eventually?
-	- Sleep when the window is unfocused (test to see that that works)
 	- Crop profile photos, instead of stretching them
 - Fun ideas:
 	- Maybe give a retro theme to everything
@@ -64,11 +63,13 @@ enum ScreenOption {
 
 struct AppConfig<'a> {
 	name: &'a str,
+	icon_path: &'a str,
+	pause_subduration_ms_when_window_unfocused: u32,
+
 	screen_option: ScreenOption,
 	hide_cursor: bool,
 	use_linear_filtering: bool,
 	bg_color: window_tree::ColorSDL,
-	icon_path: &'a str,
 
 	top_level_window_creator: fn(
 		&mut texture::TexturePool,
@@ -98,6 +99,8 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	Or, put it in a JSON file in `assets`, and then deserialize it here. */
 	let app_config = AppConfig {
 		name: "WBOR Studio Dashboard",
+		icon_path: "assets/wbor_plane.bmp",
+		pause_subduration_ms_when_window_unfocused: 250,
 
 		screen_option: ScreenOption::Windowed(800, 800, false, None),
 		// screen_option: ScreenOption::FullscreenDesktop,
@@ -106,7 +109,6 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		hide_cursor: true,
 		use_linear_filtering: true,
 		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
-		icon_path: "assets/wbor_plane.bmp",
 		top_level_window_creator: window_tree_defs::window_tree_defs::make_wbor_dashboard
 	};
 
@@ -211,17 +213,34 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	//////////
 
+	let mut pausing_window = false;
 	let mut initial_num_textures_in_pool = None;
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
-			use sdl2::{event::Event, keyboard::Keycode};
+			use sdl2::{event::{self, Event}, keyboard::Keycode};
 
 			match sdl_event {
 				Event::Quit {..} | Event::KeyDown {keycode: Some(Keycode::Escape), ..} => break 'running,
+
+				Event::Window {win_event, ..} => {
+					match win_event {
+						event::WindowEvent::FocusLost => pausing_window = true,
+						event::WindowEvent::FocusGained => pausing_window = false,
+						_ => {}
+					}
+				},
+
 				_ => {}
 			}
 		}
+
+		if pausing_window {
+			sdl_timer.delay(app_config.pause_subduration_ms_when_window_unfocused);
+			continue;
+		}
+
+		//////////
 
 		// TODO: should I put this before event polling?
 		let sdl_performance_counter_before = sdl_timer.performance_counter();
