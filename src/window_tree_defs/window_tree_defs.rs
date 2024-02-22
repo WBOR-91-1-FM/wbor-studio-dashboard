@@ -230,7 +230,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
 		let weather_changed = true;
-		let weather_string = "Rain (32f). So cold.";
+		let weather_string = "Rain (32f). So cold. ";
 		let weather_text_color = ColorSDL::BLACK;
 
 		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value();
@@ -239,7 +239,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 			&inner_shared_state.font_info,
 
 			TextDisplayInfo {
-				text: format!("{} ", weather_string),
+				text: weather_string,
 				color: weather_text_color,
 
 				scroll_fn: |secs_since_unix_epoch| {

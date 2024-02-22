@@ -56,12 +56,14 @@ pub fn make_spinitron_windows(
 
 		let model = spinitron_state.get_model_by_name(model_name);
 
+		let model_as_string = format!("{} ", model.to_string());
+
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			TextureCreationInfo::Text((
 				&inner_shared_state.font_info,
 
 				TextDisplayInfo {
-					text: format!("{} ", model.to_string()),
+					text: &model_as_string,
 					color: text_color,
 
 					/* TODO:

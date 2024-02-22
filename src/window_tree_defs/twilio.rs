@@ -269,7 +269,7 @@ pub fn make_twilio_window(
 			&inner_shared_state.font_info,
 
 			TextDisplayInfo {
-				text: twilio_message.clone(),
+				text: twilio_message,
 				color: window_state.text_color,
 
 				scroll_fn: |secs_since_unix_epoch| {
@@ -293,7 +293,7 @@ pub fn make_twilio_window(
 		let mut fallback_texture_creation_info = texture_creation_info.clone();
 
 		if let TextureCreationInfo::Text((_, text_display_info)) = &mut fallback_texture_creation_info
-			{text_display_info.text = twilio_state_data.failed_to_get_message_message.clone();} else {panic!();};
+			{text_display_info.text = &twilio_state_data.failed_to_get_message_message;} else {panic!();};
 
 		//////////
 

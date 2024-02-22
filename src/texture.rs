@@ -30,8 +30,8 @@ pub struct FontInfo<'a> {
 
 // TODO: make a constructor for this, instead of making everything `pub`.
 #[derive(Clone)]
-pub struct TextDisplayInfo {
-	pub text: String, // TODO: make this a `&str`
+pub struct TextDisplayInfo<'a> {
+	pub text: &'a str,
 	pub color: ColorSDL,
 
 	/* Maps the unix time in secs to a scroll fraction
@@ -48,7 +48,7 @@ and a blend mode (those would go in a struct around this enum) */
 pub enum TextureCreationInfo<'a> {
 	Path(&'a str),
 	Url(&'a str),
-	Text((&'a FontInfo<'a>, TextDisplayInfo))
+	Text((&'a FontInfo<'a>, TextDisplayInfo<'a>))
 }
 
 //////////
@@ -245,7 +245,7 @@ impl<'a> TexturePool<'a> {
 				let metadata = SideScrollingTextMetadata {
 					size: (query.width, query.height),
 					scroll_fn: text_display_info.scroll_fn,
-					text: text_display_info.text.clone()
+					text: text_display_info.text.to_string()
 				};
 
 				self.text_metadata.insert(handle.handle, metadata);
