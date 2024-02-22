@@ -31,7 +31,7 @@ pub struct FontInfo<'a> {
 // TODO: make a constructor for this, instead of making everything `pub`.
 #[derive(Clone)]
 pub struct TextDisplayInfo {
-	pub text: String,
+	pub text: String, // TODO: make this a `&str`
 	pub color: ColorSDL,
 
 	/* Maps the unix time in secs to a scroll fraction
