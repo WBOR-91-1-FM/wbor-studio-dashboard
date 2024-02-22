@@ -29,7 +29,7 @@ struct MessageInfo {
 }
 
 #[derive(Clone)]
-struct TwilioState {
+struct TwilioStateData {
 	account_sid: String,
 	auth_token: String,
 
@@ -40,10 +40,17 @@ struct TwilioState {
 	failed_to_get_message_message: String,
 
 	// Mapping messages' URIs to info about them
-	current_messages: HashMap<String, MessageInfo>
+	current_messages: HashMap<String, MessageInfo>,
+	just_cleared_all_messages: bool
 }
 
-impl TwilioState {
+pub struct TwilioState {
+	continually_updated: ContinuallyUpdated<TwilioStateData>
+}
+
+//////////
+
+impl TwilioStateData {
 	fn new(account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
 		message_history_duration: chrono::Duration) -> Self {
@@ -59,7 +66,9 @@ impl TwilioState {
 			no_message_available_message: "No recent text messages! ".to_string(),
 			failed_to_get_message_message: "Failed to get text messages! ".to_string(),
 
-			current_messages: HashMap::new()
+			current_messages: HashMap::new(),
+
+			just_cleared_all_messages: false
 		}
 	}
 
@@ -131,9 +140,13 @@ impl TwilioState {
 
 		////////// Step 1: remove cached messages not present in the returned request
 
+		let num_messages_before_clearing = self.current_messages.len();
+
 		self.current_messages.retain(|current_message_url, _| {
 			incoming_message_map.contains_key(current_message_url.as_str())
 		});
+
+		self.just_cleared_all_messages = num_messages_before_clearing != 0 && self.current_messages.len() == 0;
 
 		////////// Step 2: add new messages not present in the cache
 
@@ -180,47 +193,58 @@ impl TwilioState {
 	}
 }
 
-impl Updatable for TwilioState {
+impl Updatable for TwilioStateData {
 	fn update(&mut self) -> GenericResult<()> {
 		self.update_current_messages()
 	}
 }
 
+/* TODO: eventually, integrate `new` into `Updatable`, and
+reduce the boilerplate for the `Updatable` stuff in general */
+impl TwilioState {
+	pub fn new(
+		account_sid: &str, auth_token: &str,
+		max_num_messages_in_history: usize,
+		message_history_duration: chrono::Duration) -> Self {
+
+		let data = TwilioStateData::new(
+			account_sid, auth_token, max_num_messages_in_history,
+			message_history_duration
+		);
+
+		Self {continually_updated: ContinuallyUpdated::new(&data)}
+	}
+
+	pub fn update(&mut self) -> GenericResult<()> {
+		self.continually_updated.update()
+	}
+}
+
+
 //////////
 
 pub fn make_twilio_window(
-	account_sid: &str, auth_token: &str,
-	max_num_messages_in_history: usize,
-	message_history_duration: chrono::Duration,
 	top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 	text_color: ColorSDL, bg_color: ColorSDL) -> Window {
 
 	struct TwilioWindowState {
-		twilio_state: ContinuallyUpdated<TwilioState>,
 		text_color: ColorSDL
 	}
 
 	fn twilio_updater_fn((window, texture_pool, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
-		let num_messages_before = {
-			let twilio_state = &mut window.get_state_mut::<TwilioWindowState>().twilio_state;
-			let num_messages_before = twilio_state.get_data().current_messages.len();
-			twilio_state.update()?;
-			num_messages_before
-		};
-
 		let window_state: &TwilioWindowState = window.get_state();
-		let inner_twilio_state = window_state.twilio_state.get_data();
 		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value();
+		let twilio_state_data = shared_state.get_inner_value::<SharedWindowState>().twilio_state.continually_updated.get_data();
 
 		//////////
 
-		let sorted_messages = inner_twilio_state.get_messages_in_history_order();
+		let sorted_messages = twilio_state_data.get_messages_in_history_order();
 
 		let (twilio_message, just_updated) = if let Some(most_recent) = sorted_messages.last() {
 			(&most_recent.display_text, most_recent.just_updated)
 		}
 		else {
-			(&inner_twilio_state.no_message_available_message, num_messages_before != inner_twilio_state.current_messages.len())
+			(&twilio_state_data.no_message_available_message, twilio_state_data.just_cleared_all_messages)
 		};
 
 		// println!("{}", if just_updated {">>> Updating the curr message!"} else {"<<< Keeping it the same..."});
@@ -255,7 +279,7 @@ pub fn make_twilio_window(
 		let mut fallback_texture_creation_info = texture_creation_info.clone();
 
 		if let TextureCreationInfo::Text((_, text_display_info)) = &mut fallback_texture_creation_info
-			{text_display_info.text = inner_twilio_state.failed_to_get_message_message.clone();} else {panic!();};
+			{text_display_info.text = twilio_state_data.failed_to_get_message_message.clone();} else {panic!();};
 
 		//////////
 
@@ -268,14 +292,10 @@ pub fn make_twilio_window(
 
 	//////////
 
-	let state = TwilioState::new(account_sid, auth_token,
-		max_num_messages_in_history, message_history_duration);
-
 	let twilio_window = Window::new(
 		Some((twilio_updater_fn, update_rate)),
 
 		DynamicOptional::new(TwilioWindowState {
-			twilio_state: ContinuallyUpdated::new(&state),
 			text_color
 		}),
 

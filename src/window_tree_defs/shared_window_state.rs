@@ -1,12 +1,13 @@
 use crate::{
-    window_tree_defs::clock::ClockHands,
+    spinitron::state::SpinitronState,
     texture::{FontInfo, TextureCreationInfo},
-    spinitron::state::SpinitronState
+    window_tree_defs::{twilio::TwilioState, clock::ClockHands}
 };
 
 pub struct SharedWindowState<'a> {
 	pub clock_hands: ClockHands,
 	pub spinitron_state: SpinitronState,
+	pub twilio_state: TwilioState,
 
 	pub font_info: FontInfo<'a>,
 
