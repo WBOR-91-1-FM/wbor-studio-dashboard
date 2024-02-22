@@ -30,6 +30,7 @@ pub trait SpinitronModel {
 		let maybe_url = Self::evaluate_image_url(url);
 		let wrapped_fallback = Some(TextureCreationInfo::Path(fallback_path));
 
+		// TODO: should I remove this, since the default images are gone?
 		if let Some(TextureCreationInfo::Url(url)) = maybe_url {
 			let default_image_pattern = regex::Regex::new(r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#).unwrap(); // TODO: cache this
 			return if default_image_pattern.is_match(url) {wrapped_fallback} else {maybe_url};
