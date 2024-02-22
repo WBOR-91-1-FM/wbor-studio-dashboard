@@ -66,6 +66,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	////////// Defining some shared global variables
 
+	// TODO: find a font that works with both emojis and normal text
 	const FONT_INFO: FontInfo = FontInfo {
 		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
 		style: FontStyle::NORMAL,
@@ -78,7 +79,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	let top_bar_window_size_y = 0.1;
 	let main_windows_gap_size = 0.01;
-	let weather_and_twilio_window_size_y = 0.32;
+	let weather_and_twilio_window_size_y = 0.2;
 
 	////////// Defining the Spinitron window extents
 
@@ -276,13 +277,17 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	////////// Making a twilio window
 
 	let twilio_window = make_twilio_window(
-		Vec2f::new(0.25, 0.0),
-		Vec2f::new(0.5, weather_and_twilio_window_size_y),
-		update_rate_creator.new_instance(10.0),
-		ColorSDL::RGB(180, 180, 180),
-		ColorSDL::RGB(20, 20, 20),
 		get_api_key(&api_keys_json, "twilio_account_sid")?,
-		get_api_key(&api_keys_json, "twilio_auth_token")?
+		get_api_key(&api_keys_json, "twilio_auth_token")?,
+
+		5,
+		chrono::Duration::minutes(30),
+
+		Vec2f::new(0.25, 0.0), Vec2f::new(0.5, weather_and_twilio_window_size_y),
+		update_rate_creator.new_instance(2.0),
+
+		ColorSDL::RGB(180, 180, 180),
+		ColorSDL::RGB(20, 20, 20)
 	);
 
 	////////// Making all of the main windows
