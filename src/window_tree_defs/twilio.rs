@@ -41,6 +41,16 @@ struct TwilioStateData {
 
 	// Mapping messages' URIs to info about them
 	current_messages: HashMap<String, MessageInfo>,
+
+	/*
+	This is a `Vec` of message URIs that holds the messages in a chronogically sorted order.
+
+	TODO:
+	- How to avoid repeating the string allocations with `current_messages`?
+	- Can I keep it sorted as I go, somehow, instead of fully resorting each time?
+	*/
+	historically_sorted_messages_by_uri: Vec<String>,
+
 	just_cleared_all_messages: bool
 }
 
@@ -67,6 +77,7 @@ impl TwilioStateData {
 			failed_to_get_message_message: "Failed to get text messages! ".to_string(),
 
 			current_messages: HashMap::new(),
+			historically_sorted_messages_by_uri: vec![],
 
 			just_cleared_all_messages: false
 		}
@@ -179,17 +190,19 @@ impl TwilioStateData {
 			}
 		}
 
+		////////// Step 3: sort the messages that I have into a separate `Vec`
+
+		self.historically_sorted_messages_by_uri = self.current_messages.iter().map(|(uri, _)| uri.clone()).collect();
+		self.historically_sorted_messages_by_uri.sort_by_key(|uri| self.current_messages[uri].time_sent_utc);
+
+		//////////
+
 		assert!(self.current_messages.len() <= self.max_num_messages_in_history);
+		assert!(self.current_messages.len() == self.historically_sorted_messages_by_uri.len());
 
 		// println!("I have {} messages.\n---", self.current_messages.len());
 
 		Ok(())
-	}
-
-	fn get_messages_in_history_order(&self) -> Vec<&MessageInfo> {
-		let mut messages: Vec<&MessageInfo> = self.current_messages.iter().map(|(_, v)| v).collect();
-		messages.sort_by_key(|message| message.time_sent_utc);
-		messages
 	}
 }
 
@@ -238,9 +251,10 @@ pub fn make_twilio_window(
 
 		//////////
 
-		let sorted_messages = twilio_state_data.get_messages_in_history_order();
+		let sorted_message_uris = &twilio_state_data.historically_sorted_messages_by_uri;
 
-		let (twilio_message, just_updated) = if let Some(most_recent) = sorted_messages.last() {
+		let (twilio_message, just_updated) = if let Some(most_recent_uri) = sorted_message_uris.last() {
+			let most_recent = &twilio_state_data.current_messages[most_recent_uri];
 			(&most_recent.display_text, most_recent.just_updated)
 		}
 		else {
