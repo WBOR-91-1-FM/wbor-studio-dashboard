@@ -1,14 +1,15 @@
 use sdl2::{self, rect::Rect};
 
 use crate::{
-	texture::{TexturePool, TextureHandle, TextureCreationInfo},
-
 	utility_types::{
-		update_rate::{UpdateRate, FrameCounter},
+		vec2f::Vec2f,
 		generic_result::GenericResult,
 		dynamic_optional::DynamicOptional,
-		vec2f::Vec2f
-	}
+		update_rate::{UpdateRate, FrameCounter}
+	},
+
+	texture::{TexturePool, TextureHandle, TextureCreationInfo}
+
 };
 
 ////////// These are some general utility types (TODO: put some of them in `utility_types`)
