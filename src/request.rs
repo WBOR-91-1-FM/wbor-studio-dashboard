@@ -1,18 +1,5 @@
 use crate::utility_types::generic_result::GenericResult;
 
-fn check_request_failure<T: std::fmt::Display + std::cmp::PartialEq>
-	(value_name: &str, url: &str, expected: T, gotten: T) -> GenericResult<()> {
-
-	if expected != gotten {
-		return Err(
-			format!("Response {} for URL '{}' was not '{}', but '{}'",
-			value_name, url, expected, gotten).into()
-		)
-	}
-
-	Ok(())
-}
-
 pub fn build_url(base_url: &str, path_params: Vec<String>,
 	query_params: Vec<(&str, String)>) -> GenericResult<String> {
 
@@ -39,6 +26,8 @@ pub fn build_url(base_url: &str, path_params: Vec<String>,
 }
 
 pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> GenericResult<minreq::Response> {
+	const EXPECTED_STATUS_CODE: i32 = 200;
+
 	let mut request = minreq::get(url);
 
 	if let Some(header) = maybe_header {
@@ -47,10 +36,16 @@ pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> G
 
 	let response = request.send()?;
 
-	check_request_failure("status code", url, 200, response.status_code)?;
-	check_request_failure("reason phrase", url, "OK", &response.reason_phrase)?;
 
-	Ok(response)
+	if response.status_code == EXPECTED_STATUS_CODE {
+		Ok(response)
+	}
+	else {
+		Err(
+			format!("Response status code for URL '{}' was not '{}', but '{}', with this reason: '{}'",
+			url, EXPECTED_STATUS_CODE, response.status_code, response.reason_phrase).into()
+		)
+	}
 }
 
 pub fn get(url: &str) -> GenericResult<minreq::Response> {
