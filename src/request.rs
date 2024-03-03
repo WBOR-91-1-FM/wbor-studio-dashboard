@@ -25,6 +25,7 @@ pub fn build_url(base_url: &str, path_params: Vec<String>,
 	Ok(String::from_utf8(url)?)
 }
 
+// TODO: in order to effectively do request stuff, maybe eliminate this wrapper code altogether? Just keep this code then as request submitting code...
 pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> GenericResult<minreq::Response> {
 	const EXPECTED_STATUS_CODE: i32 = 200;
 
@@ -35,7 +36,6 @@ pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> G
 	}
 
 	let response = request.send()?;
-
 
 	if response.status_code == EXPECTED_STATUS_CODE {
 		Ok(response)
