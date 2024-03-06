@@ -22,6 +22,7 @@ The needed structs + data can go there, and the text
 pub type TextTextureScrollFn = fn(f64) -> (f64, bool);
 
 // TODO: make a constructor for this, instead of making everything `pub`.
+#[derive(Clone)]
 pub struct FontInfo<'a> {
 	pub path: &'a str,
 	pub style: ttf::FontStyle,
@@ -323,7 +324,7 @@ impl<'a> TexturePool<'a> {
 				let (font_info, text_display_info) = info;
 
 				let initial_font = self.ttf_context.load_font(font_info.path, INITIAL_POINT_SIZE)?;
-				let initial_output_size = initial_font.size_of(&text_display_info.text)?;
+				let initial_output_size = initial_font.size_of(text_display_info.text)?;
 
 				// TODO: cache the height ratio in a dict that maps a font name and size to a height ratio
 				let height_ratio_from_expected_size = text_display_info.pixel_height as f32 / initial_output_size.1 as f32;
@@ -338,7 +339,7 @@ impl<'a> TexturePool<'a> {
 				font.set_style(font_info.style);
 				font.set_hinting(font_info.hinting.clone());
 
-				let partial_surface = font.render(&text_display_info.text);
+				let partial_surface = font.render(text_display_info.text);
 				let mut surface = partial_surface.blended(text_display_info.color)?;
 
 				////////// Accounting for the case where there is a very small amount of text
