@@ -2,12 +2,12 @@ use std::thread;
 use std::sync::mpsc;
 use crate::utility_types::generic_result::{self, GenericResult, SendableGenericResult};
 
-pub struct ThreadTask<T> {
+struct ThreadTask<T> {
 	thread_receiver: mpsc::Receiver<T>
 }
 
 impl<T: Send + 'static> ThreadTask<T> {
-	pub fn new(mut computer: impl FnMut() -> T + Send + 'static) -> Self {
+	fn new(mut computer: impl FnMut() -> T + Send + 'static) -> Self {
 		let (thread_sender, thread_receiver) = mpsc::channel();
 
 		thread::spawn(move || {
@@ -18,7 +18,7 @@ impl<T: Send + 'static> ThreadTask<T> {
 		Self {thread_receiver}
 	}
 
-	pub fn get_value(&self) -> GenericResult<Option<T>> {
+	fn get_value(&self) -> GenericResult<Option<T>> {
 		match self.thread_receiver.try_recv() {
 			Ok(value) => Ok(Some(value)),
 			Err(mpsc::TryRecvError::Empty) => Ok(None),
@@ -38,7 +38,10 @@ pub struct ContinuallyUpdated<T> {
 	update_task: ThreadTask<SendableGenericResult<T>>
 }
 
+// TODO: inline `ThreadTask` into this?
 impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
+	/* TODO: can I make this lazy, so that it only starts working once I call `update`,
+	and possibly only update again after a successful `update` call (with a pause?) */
 	pub fn new(data: &T) -> Self {
 		let mut cloned_data = data.clone();
 
