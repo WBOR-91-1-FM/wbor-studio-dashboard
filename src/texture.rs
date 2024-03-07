@@ -62,6 +62,8 @@ Textures can still be lost if they're reassigned (TODO: find some way to avoid t
 TODO: perhaps when doing the remaking thing, pass the handle in as `mut`, even when the handle is not modified (would this help?).
 */
 
+// TODO: shorten strings above a certain length (or, if they fail upon texture creation, try cutting off 2/3rds of them until it works)
+
 type InnerTextureHandle = u16;
 
 #[derive(Hash, Eq, PartialEq, Clone)] // TODO: remove `Clone`
