@@ -102,7 +102,7 @@ pub fn make_spinitron_windows(
 	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
 
 	all_model_windows_info.iter().flat_map(|info| {
-		let mut output_windows = vec![];
+		let mut output_windows = Vec::new();
 
 		if let Some(texture_window_info) = &info.texture_window {
 			let texture_window = Window::new(
