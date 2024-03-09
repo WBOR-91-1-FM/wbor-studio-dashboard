@@ -282,7 +282,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 		get_api_key(&api_keys_json, "twilio_account_sid")?,
 		get_api_key(&api_keys_json, "twilio_auth_token")?,
 		6,
-		chrono::Duration::hours(2)
+		chrono::Duration::hours(30)
 	);
 
 	let twilio_window = make_twilio_window(

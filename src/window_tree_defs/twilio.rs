@@ -13,7 +13,7 @@ use crate::{
 
 	window_tree_defs::shared_window_state::SharedWindowState,
 	window_tree::{ColorSDL, Window, WindowContents, WindowUpdaterParams},
-	texture::{FontInfo, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool},
+	texture::{FontInfo, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool}
 };
 
 // TODO: split this file up into some smaller files
@@ -120,10 +120,10 @@ impl TextureSubpoolManager {
 
 type MessageID = std::sync::Arc<str>;
 
-enum SyncedMessageMapAction {
-	ExpireLocal,
-	MaybeUpdateLocal,
-	MakeLocalFromOffshore
+enum SyncedMessageMapAction<'a, V, OffshoreV> {
+	ExpireLocal(&'a V),
+	MaybeUpdateLocal(&'a mut V, &'a OffshoreV),
+	MakeLocalFromOffshore(&'a OffshoreV)
 }
 
 /* This is a utility type used for synchronizing
@@ -146,10 +146,10 @@ impl<V> SyncedMessageMap<V> {
 	}
 
 	fn sync<OffshoreV>(&mut self,
-		// TODO: make the params enums, so that I can limit the optionality
 		max_size: usize,
 		offshore_map: &SyncedMessageMap<OffshoreV>,
-		mut syncer: impl FnMut(Option<&mut V>, Option<&OffshoreV>, SyncedMessageMapAction) -> GenericResult<Option<V>>)
+		// TODO: make the output an enum too (would that be a dependent type?)
+		mut syncer: impl FnMut(SyncedMessageMapAction<'_, V, OffshoreV>) -> GenericResult<Option<V>>)
 
 		-> GenericResult<()> {
 
@@ -159,18 +159,18 @@ impl<V> SyncedMessageMap<V> {
 		// 1. Removing local ones that are not in the offshore
 		local.retain(|local_key, local_value| {
 			let keep_local_key = offshore.contains_key(local_key);
-			if !keep_local_key {syncer(Some(local_value), None, SyncedMessageMapAction::ExpireLocal).unwrap();}
+			if !keep_local_key {syncer(SyncedMessageMapAction::ExpireLocal(local_value)).unwrap();}
 			keep_local_key
 		});
 
 		for (offshore_key, offshore_value) in offshore {
 			if let Some(local_value) = local.get_mut(offshore_key) {
 				// 2. If there's a local value already in the ofshore, update it
-				syncer(Some(local_value), Some(offshore_value), SyncedMessageMapAction::MaybeUpdateLocal)?;
+				syncer(SyncedMessageMapAction::MaybeUpdateLocal(local_value, offshore_value))?;
 			}
 			else {
 				// 3. Otherwise, adding local ones that are not in the offshore
-				let as_local_value = syncer(None, Some(offshore_value), SyncedMessageMapAction::MakeLocalFromOffshore)?.unwrap();
+				let as_local_value = syncer(SyncedMessageMapAction::MakeLocalFromOffshore(offshore_value))?.unwrap();
 				local.insert(offshore_key.clone(), as_local_value);
 			}
 		}
@@ -357,13 +357,11 @@ impl Updatable for TwilioStateData {
 			self.max_num_messages_in_history,
 			&SyncedMessageMap::from(incoming_message_map, self.max_num_messages_in_history),
 
-			|maybe_curr_message, maybe_api_message_info, action_type| {
+			|action_type| {
 				match action_type {
-					SyncedMessageMapAction::ExpireLocal => {},
+					SyncedMessageMapAction::ExpireLocal(_) => {},
 
-					SyncedMessageMapAction::MaybeUpdateLocal => {
-						let curr_message = maybe_curr_message.unwrap();
-
+					SyncedMessageMapAction::MaybeUpdateLocal(curr_message, _) => {
 						// Only making a new string if the age data became expired
 						let age_data = Self::get_message_age_data(curr_time, curr_message.time_sent);
 
@@ -375,9 +373,7 @@ impl Updatable for TwilioStateData {
 						}
 					},
 
-					SyncedMessageMapAction::MakeLocalFromOffshore => {
-						let (from, body, wrongly_typed_time_sent) = maybe_api_message_info.unwrap();
-
+					SyncedMessageMapAction::MakeLocalFromOffshore((from, body, wrongly_typed_time_sent)) => {
 						let time_sent = (*wrongly_typed_time_sent).into();
 						let age_data = Self::get_message_age_data(curr_time, time_sent);
 
@@ -462,32 +458,32 @@ impl TwilioState<'_> {
 			curr_continual_data.max_num_messages_in_history,
 			offshore,
 
-			|maybe_local_texture, maybe_offshore_message_info, action_type| {
-				let mut update_texture_creation_info = || {
+			|action_type| {
+				let mut update_texture_creation_info = |offshore_message_info: &MessageInfo| {
 					if let TextureCreationInfo::Text((_, ref mut text_display_info)) = &mut texture_creation_info {
 						// println!(">>> Update texture display info");
-						text_display_info.text = Cow::Owned(maybe_offshore_message_info.unwrap().display_text.clone());
+						text_display_info.text = Cow::Owned(offshore_message_info.display_text.clone());
 					}
 				};
 
 				match action_type {
-					SyncedMessageMapAction::ExpireLocal => {
+					SyncedMessageMapAction::ExpireLocal(local_texture) => {
 						// println!(">>> Give texture slot back");
-						self.texture_subpool_manager.give_back_slot(maybe_local_texture.unwrap());
+						self.texture_subpool_manager.give_back_slot(local_texture);
 					},
 
-					SyncedMessageMapAction::MaybeUpdateLocal => {
-						if maybe_offshore_message_info.unwrap().just_updated {
+					SyncedMessageMapAction::MaybeUpdateLocal(local_texture, offshore_message_info) => {
+						if offshore_message_info.just_updated {
 							// println!(">>> Update local texture");
-							update_texture_creation_info();
-							self.texture_subpool_manager.re_request_slot(maybe_local_texture.unwrap(), &texture_creation_info, texture_pool)?;
+							update_texture_creation_info(offshore_message_info);
+							self.texture_subpool_manager.re_request_slot(local_texture, &texture_creation_info, texture_pool)?;
 						}
 					},
 
-					SyncedMessageMapAction::MakeLocalFromOffshore => {
+					SyncedMessageMapAction::MakeLocalFromOffshore(offshore_message_info) => {
 						// println!(">>> Allocate texture from base slot");
-						assert!(maybe_offshore_message_info.unwrap().just_updated);
-						update_texture_creation_info();
+						assert!(offshore_message_info.just_updated);
+						update_texture_creation_info(offshore_message_info);
 						return Ok(Some(self.texture_subpool_manager.request_slot(&texture_creation_info, texture_pool)?));
 					}
 				}
