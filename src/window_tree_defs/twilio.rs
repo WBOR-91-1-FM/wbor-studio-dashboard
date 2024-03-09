@@ -348,7 +348,6 @@ impl Updatable for TwilioStateData {
 					Some((id_on_heap, (message_field("from"), message_field("body"), time_sent)))
 				}
 				else {None}
-
 			})
 		);
 
