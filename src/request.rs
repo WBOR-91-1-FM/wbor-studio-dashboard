@@ -1,7 +1,8 @@
 use crate::utility_types::generic_result::GenericResult;
 
-pub fn build_url(base_url: &str, path_params: Vec<String>,
-	query_params: Vec<(&str, String)>) -> GenericResult<String> {
+// TODO: use a string list concat fn in here somehow instead
+pub fn build_url(base_url: &str, path_params: &[String],
+	query_params: &[(&str, String)]) -> GenericResult<String> {
 
 	let mut url = Vec::new();
 

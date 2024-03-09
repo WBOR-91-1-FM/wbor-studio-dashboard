@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
 	texture::{TextDisplayInfo, TextureCreationInfo},
 
@@ -56,21 +58,15 @@ pub fn make_spinitron_windows(
 
 		let model = spinitron_state.get_model_by_name(model_name);
 
-		let model_as_string = format!("{} ", model.to_string());
-
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			TextureCreationInfo::Text((
 				&inner_shared_state.font_info,
 
 				TextDisplayInfo {
-					text: &model_as_string,
+					text: Cow::Owned(format!("{} ", model.to_string())),
 					color: text_color,
 
-					/* TODO:
-					- Pass in the scroll fn
-					- Figure out how to make a scroll fn that pauses a bit at each end
-					*/
-
+					// TODO: pass this in
 					scroll_fn: |secs_since_unix_epoch| {
 						(secs_since_unix_epoch.sin() * 0.5 + 0.5, false)
 					},

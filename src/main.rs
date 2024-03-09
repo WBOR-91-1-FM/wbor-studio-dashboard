@@ -34,6 +34,11 @@ TODO:
 	- Substitute in placeholder media links with custom ones, eventually
 	- Run the dashboard on a PVM, or an original iMac, eventually?
 	- Crop profile photos, instead of stretching them
+	- For logging, write the current spin to a file once it updates
+	- Make a little script on the Pi to clear the message history every 2 weeks - or maybe do it from within the dashboard - checking the date via modulus?
+	- Increase the resolution of the `No Texture Available` texture
+	- Use the max durations of Spinitron spins to reduce the number of API calls
+	- Add a 'no recent spins' message if no spins in the last 60 minutes
 - Fun ideas:
 	- Maybe give a retro theme to everything
 	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
@@ -89,6 +94,7 @@ fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 	sdl_performance_frequency as f64 / delta_time as f64
 }
 
+/*
 fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<usize>, texture_pool: &texture::TexturePool) {
 	let num_textures_in_pool = texture_pool.size();
 
@@ -103,6 +109,7 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 		}
 	}
 }
+*/
 
 fn main() -> utility_types::generic_result::GenericResult<()> {
 	/* TODO: maybe artificially lower the FPS to reduce
@@ -229,7 +236,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	//////////
 
 	let mut pausing_window = false;
-	let mut initial_num_textures_in_pool = None;
+	// let mut initial_num_textures_in_pool = None;
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
@@ -262,7 +269,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 		if let Some((shared_window_state_updater, shared_update_rate)) = shared_window_state_updater {
 			if shared_update_rate.is_time_to_update(rendering_params.frame_counter) {
-				shared_window_state_updater(&mut rendering_params.shared_window_state)?;
+				shared_window_state_updater(&mut rendering_params.shared_window_state, &mut rendering_params.texture_pool)?;
 			}
 		}
 
@@ -289,7 +296,8 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 		// println!("fps without and with vsync = {:.3}, {:.3}", _fps_without_vsync, _fps_with_vsync);
 
-		check_for_texture_pool_memory_leak(&mut initial_num_textures_in_pool, &rendering_params.texture_pool);
+		// TODO: add this back later
+		// check_for_texture_pool_memory_leak(&mut initial_num_textures_in_pool, &rendering_params.texture_pool);
 	}
 
 	Ok(())

@@ -5,7 +5,7 @@ use crate::{
 	},
 
 	spinitron::{
-		api::{get_current_spin, get_from_id},
+		api::{get_curr_spin, get_from_id},
 
 		model::{
 			Spin, Playlist, Persona, Show,
@@ -31,9 +31,8 @@ struct SpinitronStateData {
 
 impl SpinitronStateData {
 	fn new(api_key: &str) -> GenericResult<Self> {
-
 		// TODO: if there is no current spin, will this only return the last one?
-		let spin = get_current_spin(api_key)?;
+		let spin = get_curr_spin(api_key)?;
 		let mut playlist: Playlist = get_from_id(api_key, Some(spin.get_playlist_id()))?;
 		let persona = get_from_id(api_key, Some(playlist.get_persona_id()))?;
 		let show = Self::get_show_while_syncing_show_id(api_key, &mut playlist)?;
@@ -72,7 +71,7 @@ impl SpinitronStateData {
 impl Updatable for SpinitronStateData {
 	fn update(&mut self) -> GenericResult<()> {
 		let api_key = &self.api_key;
-		let new_spin = get_current_spin(api_key)?;
+		let new_spin = get_curr_spin(api_key)?;
 
 		let get_model_ids = |data: &SpinitronStateData| [
 			data.spin.get_id(), data.playlist.get_id(),

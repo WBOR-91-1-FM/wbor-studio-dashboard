@@ -39,7 +39,7 @@ pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 pub type WindowUpdaterParams<'a, 'b, 'c, 'd> = (
 	&'a mut Window,
 	&'b mut TexturePool<'c>,
-	&'d DynamicOptional, // This is the state that is shared among windows
+	&'d mut DynamicOptional, // This is the state that is shared among windows (TODO: reduce how much is kept in here)
 	Rect // The area on the screen that the window is drawn to
 );
 
@@ -51,7 +51,7 @@ pub type PossibleWindowUpdater = Option<(
 )>;
 
 pub type PossibleSharedWindowStateUpdater = Option<(
-	fn(&mut DynamicOptional) -> GenericResult<()>,
+	fn(&mut DynamicOptional, &mut TexturePool) -> GenericResult<()>,
 	UpdateRate
 )>;
 
@@ -71,6 +71,7 @@ pub struct PerFrameConstantRenderingParams<'a> {
 pub type GeneralLine<T> = (ColorSDL, Vec<T>);
 pub type Line = (ColorSDL, Vec<Vec2f>);
 
+#[derive(Clone)]
 pub enum WindowContents {
 	Nothing,
 	Color(ColorSDL),
@@ -246,7 +247,7 @@ impl Window {
 
 		if let Some((updater, update_rate)) = self.possible_updater {
 			if update_rate.is_time_to_update(rendering_params.frame_counter) {
-				updater((self, &mut rendering_params.texture_pool, &rendering_params.shared_window_state, rect_in_pixels_sdl))?;
+				updater((self, &mut rendering_params.texture_pool, &mut rendering_params.shared_window_state, rect_in_pixels_sdl))?;
 			}
 		}
 

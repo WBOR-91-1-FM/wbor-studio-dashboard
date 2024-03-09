@@ -1,6 +1,7 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 
-use sdl2::{self, ttf, render, rect::Rect, image::LoadTexture};
+use sdl2::{self, ttf, render::{self, Texture}, rect::Rect, image::LoadTexture};
 
 use crate::{
 	request,
@@ -32,7 +33,7 @@ pub struct FontInfo<'a> {
 // TODO: make a constructor for this, instead of making everything `pub`.
 #[derive(Clone)]
 pub struct TextDisplayInfo<'a> {
-	pub text: &'a str,
+	pub text: Cow<'a, str>,
 	pub color: ColorSDL,
 
 	/* Maps the unix time in secs to a scroll fraction
@@ -75,7 +76,7 @@ pub struct TextureHandle {
 pub struct SideScrollingTextMetadata {
 	size: (u32, u32),
 	scroll_fn: TextTextureScrollFn,
-	text: String
+	text: String // TODO: keep the `Cow` string from earlier
 }
 
 /* TODO:
@@ -92,7 +93,7 @@ pub struct TexturePool<'a> {
 	textures: Vec<Texture<'a>>,
 
 	// This maps texture handles of side-scrolling text textures to metadata about that scrolling text
-	text_metadata: HashMap<InnerTextureHandle, SideScrollingTextMetadata>,
+	text_metadata: HashMap<TextureHandle, SideScrollingTextMetadata>,
 
 	texture_creator: &'a TextureCreator,
 	ttf_context: &'a ttf::Sdl2TtfContext
@@ -100,7 +101,6 @@ pub struct TexturePool<'a> {
 
 //////////
 
-type Texture<'a> = render::Texture<'a>;
 type TextureCreator = render::TextureCreator<sdl2::video::WindowContext>;
 type TextureHandleResult = GenericResult<TextureHandle>;
 
@@ -120,9 +120,11 @@ impl<'a> TexturePool<'a> {
 		}
 	}
 
+	/*
 	pub fn size(&self) -> usize {
 		self.textures.len()
 	}
+	*/
 
 	/* This returns the left/righthand screen dest, and a possible other texture
 	src and screen dest that may wrap around to the left side of the screen */
@@ -184,7 +186,7 @@ impl<'a> TexturePool<'a> {
 		canvas: &mut CanvasSDL, screen_dest: Rect) -> GenericResult<()> {
 
 		let texture = self.get_texture_from_handle_immut(handle);
-		let possible_text_metadata = self.text_metadata.get(&handle.handle);
+		let possible_text_metadata = self.text_metadata.get(handle);
 
 		if possible_text_metadata.is_none() {
 			canvas.copy(texture, None, screen_dest)?;
@@ -249,17 +251,17 @@ impl<'a> TexturePool<'a> {
 				let metadata = SideScrollingTextMetadata {
 					size: (query.width, query.height),
 					scroll_fn: text_display_info.scroll_fn,
-					text: text_display_info.text.to_string()
+					text: text_display_info.text.to_string() // TODO: copy it with a reference count instead
 				};
 
-				self.text_metadata.insert(handle.handle, metadata);
+				self.text_metadata.insert(handle.clone(), metadata);
 			},
 
 			_ => {
 				/* If it is not text anymore, but text metadata still
 				exists for this handle, then remove that metadata */
-				if self.text_metadata.contains_key(&handle.handle) {
-					self.text_metadata.remove(&handle.handle);
+				if self.text_metadata.contains_key(handle) {
+					self.text_metadata.remove(handle);
 				}
 			}
 		}
@@ -320,14 +322,20 @@ impl<'a> TexturePool<'a> {
 			}
 
 			TextureCreationInfo::Text(info) => {
-				const INITIAL_POINT_SIZE: u16 = 100; // TODO: put this in a better place
+				// TODO: put these in a better place
+				const INITIAL_POINT_SIZE: u16 = 100; // TODO: reduce size to avoid crashes?
+				const BLANK_TEXT_DEFAULT: &str = "<BLANK TEXT>";
 
 				////////// Calculating the correct font size
 
 				let (font_info, text_display_info) = info;
 
+				// Blank text can't be rendered by SDL, so handling that here
+				let text = if text_display_info.text == "" {BLANK_TEXT_DEFAULT} else {&text_display_info.text};
+
+				// TODO: cache the initial font and other font sizes
 				let initial_font = self.ttf_context.load_font(font_info.path, INITIAL_POINT_SIZE)?;
-				let initial_output_size = initial_font.size_of(text_display_info.text)?;
+				let initial_output_size = initial_font.size_of(text)?;
 
 				// TODO: cache the height ratio in a dict that maps a font name and size to a height ratio
 				let height_ratio_from_expected_size = text_display_info.pixel_height as f32 / initial_output_size.1 as f32;
@@ -342,7 +350,7 @@ impl<'a> TexturePool<'a> {
 				font.set_style(font_info.style);
 				font.set_hinting(font_info.hinting.clone());
 
-				let partial_surface = font.render(text_display_info.text);
+				let partial_surface = font.render(text);
 				let mut surface = partial_surface.blended(text_display_info.color)?;
 
 				////////// Accounting for the case where there is a very small amount of text

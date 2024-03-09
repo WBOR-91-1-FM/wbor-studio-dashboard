@@ -49,7 +49,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 		.ok_or("Expected JSON to be an object for the default Spinitron model")?;
 
 	// TODO: stop the `collect` allocation below
-	let fields: Vec<&str> = default_model_as_serde_obj.iter().map(|(key, _)| -> &str {key}).collect();
+	let fields: Vec<&str> = default_model_as_serde_obj.iter().map(|(key, _)| key.as_str()).collect();
 	let joined_fields = fields.join(",");
 
 	////////// Making some initial path and query params, and possibly adding a model id and item count to them
@@ -73,7 +73,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 
 	/* TODO: later on, cache this URL for the specific request (otherwise, a lot of time is spent rebuilding it).
 	Actually, don't do that, build the URL, and then cache the request itself (it will then be resent other times). */
-	let url = request::build_url("https://spinitron.com/api", path_params, query_params)?;
+	let url = request::build_url("https://spinitron.com/api", &path_params, &query_params)?;
 
 	let response = request::get(&url)?;
 	let body = response.as_str()?;
@@ -118,7 +118,7 @@ fn do_plural_request<T: SpinitronModelWithProps>(api_key: &str, possible_item_co
 
 //////////
 
-pub fn get_current_spin(api_key: &str) -> GenericResult<Spin> {
+pub fn get_curr_spin(api_key: &str) -> GenericResult<Spin> {
 	do_request(api_key, None)
 }
 

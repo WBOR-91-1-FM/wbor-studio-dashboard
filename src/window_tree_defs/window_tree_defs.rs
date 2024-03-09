@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
@@ -21,8 +23,8 @@ use crate::{
 	},
 
 	window_tree_defs::{
-		twilio::{make_twilio_window, TwilioState},
 		shared_window_state::SharedWindowState,
+		twilio::{make_twilio_window, TwilioState},
 		clock::{ClockHandConfig, ClockHandConfigs, ClockHands},
 		spinitron::{make_spinitron_windows, SpinitronModelWindowInfo, SpinitronModelWindowsInfo}
 	}
@@ -52,6 +54,7 @@ fn load_api_keys_json() -> GenericResult<serde_json::Value> {
 	Ok(serde_json::from_str(&api_keys_file)?)
 }
 
+// TODO: make this a closure
 fn get_api_key<'a>(json: &'a serde_json::Value, name: &'a str) -> GenericResult<&'a str> {
 	json[name].as_str().ok_or(format!("Could not find the API key with the name '{}' in the API key JSON", name).into())
 }
@@ -75,11 +78,10 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
 	let api_keys_json = load_api_keys_json()?;
-	let shared_update_rate = update_rate_creator.new_instance(1.0);
+	let shared_update_rate = update_rate_creator.new_instance(15.0);
 
 	let top_bar_window_size_y = 0.1;
 	let main_windows_gap_size = 0.01;
-	let weather_and_twilio_window_size_y = 0.2;
 
 	////////// Defining the Spinitron window extents
 
@@ -178,8 +180,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	// Texture path, top left, size
 	let static_texture_info = [
-		("assets/wbor_logo.png", Vec2f::new(0.7, 0.7), Vec2f::new(0.1, 0.05)),
-		("assets/wbor_soup.png", Vec2f::new(0.85, 0.6), Vec2f::new(0.06666666, 0.1))
+		("assets/wbor_logo.png", Vec2f::new(0.7, 0.75), Vec2f::new(0.1, 0.05)),
+		("assets/wbor_soup.png", Vec2f::new(0.85, 0.72), Vec2f::new(0.06666666, 0.1))
 	];
 
 	all_main_windows.extend(static_texture_info.into_iter().map(|datum| {
@@ -239,11 +241,11 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 			&inner_shared_state.font_info,
 
 			TextDisplayInfo {
-				text: weather_string,
+				text: Cow::Borrowed(weather_string),
 				color: weather_text_color,
 
 				scroll_fn: |secs_since_unix_epoch| {
-					let repeat_rate_secs = 3.0; // TODO: don't repeat this over the Twilio code
+					let repeat_rate_secs = 3.0;
 					let base_scroll = (secs_since_unix_epoch % repeat_rate_secs) / repeat_rate_secs;
 					(1.0 - base_scroll, true)
 				},
@@ -270,19 +272,33 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
 		Some(ColorSDL::RED),
 		Vec2f::ZERO,
-		Vec2f::new(0.2, weather_and_twilio_window_size_y),
+		Vec2f::new(0.2, 0.2),
 		None
 	);
 
-	////////// Making a twilio window
+	////////// Making a Twilio window
+
+	let twilio_state = TwilioState::new(
+		get_api_key(&api_keys_json, "twilio_account_sid")?,
+		get_api_key(&api_keys_json, "twilio_auth_token")?,
+		6,
+		chrono::Duration::hours(2)
+	);
 
 	let twilio_window = make_twilio_window(
-		Vec2f::new(0.25, 0.0), Vec2f::new(0.5, weather_and_twilio_window_size_y),
+		&twilio_state,
 		shared_update_rate,
 
-		ColorSDL::RGB(180, 180, 180),
-		ColorSDL::RGB(20, 20, 20)
+		Vec2f::new(0.58, 0.42), Vec2f::new(0.4, 0.3),
+		Vec2f::new(0.1, 0.45),
+		theme_color_1, ColorSDL::RED,
+
+		WindowContents::Texture(
+			texture_pool.make_texture(&TextureCreationInfo::Path("assets/wbor_text_bubble.png"))?
+		),
 	);
+
+	all_main_windows.push(twilio_window);
 
 	////////// Making all of the main windows
 
@@ -297,7 +313,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 		None,
 		Vec2f::new_scalar(main_windows_gap_size),
 		Vec2f::new(x_width_from_main_window_gap_size, top_bar_window_size_y),
-		Some(vec![clock_window, weather_window, twilio_window])
+		Some(vec![clock_window, weather_window])
 	);
 
 	let main_window = Window::new(
@@ -344,25 +360,17 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
 			clock_hands,
-
 			spinitron_state: SpinitronState::new(get_api_key(&api_keys_json, "spinitron")?)?,
-
-			twilio_state: TwilioState::new(
-				get_api_key(&api_keys_json, "twilio_account_sid")?,
-				get_api_key(&api_keys_json, "twilio_auth_token")?,
-				5,
-				chrono::Duration::seconds(30)
-			),
-
+			twilio_state,
 			font_info: FONT_INFO,
 			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png")
 		}
 	);
 
-	fn shared_window_state_updater(state: &mut DynamicOptional) -> GenericResult<()> {
+	fn shared_window_state_updater(state: &mut DynamicOptional, texture_pool: &mut TexturePool) -> GenericResult<()> {
 		let state: &mut SharedWindowState = state.get_inner_value_mut();
 		state.spinitron_state.update()?;
-		state.twilio_state.update()
+		state.twilio_state.update(texture_pool)
 	}
 
 	//////////

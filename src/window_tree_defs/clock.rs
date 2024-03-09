@@ -98,7 +98,8 @@ impl ClockHands {
 				&clock_hands.milliseconds, &clock_hands.seconds, &clock_hands.minutes, &clock_hands.hours
 			];
 
-			let WindowContents::Lines(rotated_hands) = window.get_contents_mut() else {panic!()};
+			let WindowContents::Lines(rotated_hands) = window.get_contents_mut()
+			else {panic!("The clock window's contents have been tampered with!")};
 
 			let mut prev_time_fract = 0.0;
 
