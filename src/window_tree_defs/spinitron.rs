@@ -60,7 +60,7 @@ pub fn make_spinitron_windows(
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			TextureCreationInfo::Text((
-				&inner_shared_state.font_info,
+				inner_shared_state.font_info,
 
 				TextDisplayInfo {
 					text: Cow::Owned(format!("{} ", model.to_string())),

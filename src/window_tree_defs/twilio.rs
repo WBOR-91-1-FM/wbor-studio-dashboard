@@ -230,7 +230,7 @@ pub struct TwilioState<'a> {
 	texture_subpool_manager: TextureSubpoolManager,
 	id_to_texture_map: SyncedMessageMap<TextureHandle>, // TODO: integrate the subpool manager into this with the searching operations
 	historically_sorted_messages_by_id: Vec<MessageID>, // TODO: avoid resorting with smart insertions and deletions?
-	text_texture_creation_info_cache: Option<((u32, u32), FontInfo<'a>, ColorSDL)>
+	text_texture_creation_info_cache: Option<((u32, u32), &'a FontInfo<'a>, ColorSDL)>
 }
 
 //////////
@@ -533,7 +533,7 @@ pub fn make_twilio_window(
 		if twilio_state.text_texture_creation_info_cache.is_none() {
 			twilio_state.text_texture_creation_info_cache = Some((
 				(area_drawn_to_screen.width(), area_drawn_to_screen.height()),
-				inner_shared_state.font_info.clone(),
+				inner_shared_state.font_info,
 				individual_window_state.text_color
 			));
 		}

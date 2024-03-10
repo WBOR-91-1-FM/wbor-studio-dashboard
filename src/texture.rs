@@ -321,14 +321,12 @@ impl<'a> TexturePool<'a> {
 				self.texture_creator.load_texture_bytes(response.as_bytes())
 			}
 
-			TextureCreationInfo::Text(info) => {
+			TextureCreationInfo::Text((font_info, text_display_info)) => {
 				// TODO: put these in a better place
 				const INITIAL_POINT_SIZE: u16 = 100; // TODO: reduce size to avoid crashes?
 				const BLANK_TEXT_DEFAULT: &str = "<BLANK TEXT>";
 
 				////////// Calculating the correct font size
-
-				let (font_info, text_display_info) = info;
 
 				// Blank text can't be rendered by SDL, so handling that here
 				let text = if text_display_info.text == "" {BLANK_TEXT_DEFAULT} else {&text_display_info.text};

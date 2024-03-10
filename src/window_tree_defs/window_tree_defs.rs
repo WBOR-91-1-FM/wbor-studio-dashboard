@@ -65,7 +65,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	////////// Defining some shared global variables
 
 	// TODO: find a font that works with both emojis and normal text
-	const FONT_INFO: FontInfo = FontInfo {
+	const FONT_INFO: &FontInfo = &FontInfo {
 		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
 		style: FontStyle::NORMAL,
 		hinting: Hinting::Normal
@@ -237,7 +237,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value();
 
 		let texture_creation_info = TextureCreationInfo::Text((
-			&inner_shared_state.font_info,
+			inner_shared_state.font_info,
 
 			TextDisplayInfo {
 				text: Cow::Borrowed(weather_string),
