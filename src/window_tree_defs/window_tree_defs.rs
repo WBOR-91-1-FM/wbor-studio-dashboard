@@ -258,7 +258,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 			weather_changed,
 			texture_pool,
 			&texture_creation_info,
-			&inner_shared_state.fallback_texture_creation_info)?;
+			&inner_shared_state.fallback_texture_creation_info
+		)?;
 
 		Ok(())
 	}
