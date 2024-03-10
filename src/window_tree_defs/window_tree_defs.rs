@@ -189,7 +189,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 			DynamicOptional::NONE,
 
 			WindowContents::Texture(texture_pool.make_texture(
-				&TextureCreationInfo::Path(datum.0),
+				&TextureCreationInfo::Path(datum.0)
 			).unwrap()),
 
 			None,
