@@ -54,11 +54,6 @@ fn load_api_keys_json() -> GenericResult<serde_json::Value> {
 	Ok(serde_json::from_str(&api_keys_file)?)
 }
 
-// TODO: make this a closure
-fn get_api_key<'a>(json: &'a serde_json::Value, name: &'a str) -> GenericResult<&'a str> {
-	json[name].as_str().ok_or(format!("Could not find the API key with the name '{}' in the API key JSON", name).into())
-}
-
 //////////
 
 // This returns a top-level window, shared window state, and a shared window state updater
@@ -76,12 +71,16 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 		hinting: Hinting::Normal
 	};
 
-	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
-	let api_keys_json = load_api_keys_json()?;
-	let shared_update_rate = update_rate_creator.new_instance(15.0);
-
 	let top_bar_window_size_y = 0.1;
 	let main_windows_gap_size = 0.01;
+
+	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
+	let shared_update_rate = update_rate_creator.new_instance(15.0);
+	let api_keys_json = load_api_keys_json()?;
+
+	let get_api_key = |name| -> GenericResult<&str> {
+		api_keys_json[name].as_str().ok_or(format!("Could not find the API key with the name '{}' in the API key JSON", name).into())
+	};
 
 	////////// Defining the Spinitron window extents
 
@@ -279,8 +278,8 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	////////// Making a Twilio window
 
 	let twilio_state = TwilioState::new(
-		get_api_key(&api_keys_json, "twilio_account_sid")?,
-		get_api_key(&api_keys_json, "twilio_auth_token")?,
+		get_api_key("twilio_account_sid")?,
+		get_api_key("twilio_auth_token")?,
 		6,
 		chrono::Duration::hours(30)
 	);
@@ -360,7 +359,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
 			clock_hands,
-			spinitron_state: SpinitronState::new(get_api_key(&api_keys_json, "spinitron")?)?,
+			spinitron_state: SpinitronState::new(get_api_key("spinitron")?)?,
 			twilio_state,
 			font_info: FONT_INFO,
 			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png")
