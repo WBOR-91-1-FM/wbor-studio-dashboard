@@ -98,8 +98,11 @@ impl ClockHands {
 				&clock_hands.milliseconds, &clock_hands.seconds, &clock_hands.minutes, &clock_hands.hours
 			];
 
-			let WindowContents::Lines(rotated_hands) = window.get_contents_mut()
-			else {panic!("The clock window's contents have been tampered with!")};
+			let WindowContents::Many(all_contents) = window.get_contents_mut()
+			else {panic!("The clock's window contents was expected to be a list!")};
+
+			let WindowContents::Lines(rotated_hands) = &mut all_contents[1]
+			else {panic!("The second item in the clock's window contents was not a set of lines!")};
 
 			let mut prev_time_fract = 0.0;
 
@@ -126,6 +129,12 @@ impl ClockHands {
 			Ok(())
 		}
 
+		//////////
+
+		let texture_contents = WindowContents::Texture(
+			texture_pool.make_texture(&TextureCreationInfo::Path(dial_texture_path))?
+		);
+
 		let clock_hand_configs_as_list: [&ClockHandConfig; NUM_CLOCK_HANDS] = [
 			&hand_configs.milliseconds, &hand_configs.seconds,
 			&hand_configs.minutes, &hand_configs.hours
@@ -133,19 +142,18 @@ impl ClockHands {
 
 		let raw_clock_hands = clock_hand_configs_as_list.map(|config| config.make_geometry());
 
+		let line_contents = WindowContents::Lines(
+			raw_clock_hands.iter().rev().map(|(color, clock_hand)| {
+				(*color, vec![Vec2f::ZERO; clock_hand.len()])
+			}).collect());
+
 		let clock_window = Window::new(
 			Some((updater_fn, update_rate)),
 			DynamicOptional::NONE,
-
-			WindowContents::Lines(
-				raw_clock_hands.iter().rev().map(|(color, clock_hand)| {
-					(*color, vec![Vec2f::ZERO; clock_hand.len()])
-				}).collect()
-			),
-
+			WindowContents::Many(vec![texture_contents, line_contents]),
 			None,
-			Vec2f::ZERO,
-			Vec2f::ONE,
+			top_left,
+			size,
 			None
 		);
 
@@ -157,19 +165,7 @@ impl ClockHands {
 				hours: raw_clock_hands[3].clone()
 			},
 
-			Window::new(
-				None,
-				DynamicOptional::NONE,
-
-				WindowContents::Texture(texture_pool.make_texture(
-					&TextureCreationInfo::Path(dial_texture_path)
-				)?),
-
-				None,
-				top_left,
-				size,
-				Some(vec![clock_window])
-			)
+			clock_window
 		))
 	}
 }

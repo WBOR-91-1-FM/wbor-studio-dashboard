@@ -65,7 +65,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	////////// Defining some shared global variables
 
 	// TODO: find a font that works with both emojis and normal text
-	const FONT_INFO: &FontInfo = &FontInfo {
+	const FONT_INFO: FontInfo = FontInfo {
 		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
 		style: FontStyle::NORMAL,
 		hinting: Hinting::Normal
@@ -362,7 +362,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 			clock_hands,
 			spinitron_state: SpinitronState::new(get_api_key("spinitron")?)?,
 			twilio_state,
-			font_info: FONT_INFO,
+			font_info: &FONT_INFO,
 			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png")
 		}
 	);

@@ -76,7 +76,8 @@ pub enum WindowContents {
 	Nothing,
 	Color(ColorSDL),
 	Lines(Vec<Line>),
-	Texture(TextureHandle)
+	Texture(TextureHandle),
+	Many(Vec<WindowContents>)
 }
 
 //////////
@@ -275,7 +276,7 @@ impl Window {
 		rendering_params: &mut PerFrameConstantRenderingParams,
 		screen_dest: FRect, screen_dest_sdl: Rect) -> GenericResult<()> {
 
-		////////// A function for drawing colors with transparency
+		////////// A function for drawing colors with transparency, and one for drawing the window contents
 
 		fn possibly_draw_with_transparency(color: &ColorSDL,
 			sdl_canvas: &mut CanvasSDL, mut drawer: impl FnMut(&mut CanvasSDL) -> GenericResult<()>)
@@ -294,42 +295,58 @@ impl Window {
 			Ok(())
 		}
 
+		fn inner_draw_window_contents(
+			contents: &WindowContents, rendering_params: &mut PerFrameConstantRenderingParams,
+			screen_dest: FRect, screen_dest_sdl: Rect) -> GenericResult<()> {
+
+			let sdl_canvas = &mut rendering_params.sdl_canvas;
+
+			match contents {
+				WindowContents::Nothing => {},
+
+				WindowContents::Color(color) => {
+					possibly_draw_with_transparency(color, sdl_canvas, |canvas| Ok(canvas.fill_rect(screen_dest_sdl)?))?;
+				},
+
+				WindowContents::Lines(line_series) => {
+					use sdl2::rect::Point as PointSDL;
+
+					for series in line_series {
+						let converted_series: Vec<PointSDL> = series.1.iter().map(|&point| {
+							let xy = Window::transform_vec2_to_parent_scale(point, screen_dest);
+							PointSDL::new(xy.0 as i32, xy.1 as i32)
+						}).collect();
+
+						possibly_draw_with_transparency(&series.0, sdl_canvas, |canvas| {
+							canvas.draw_lines(&*converted_series)?;
+							Ok(())
+						})?;
+					}
+				},
+
+				/* TODO: eliminate the partially black border around
+				the opaque areas of textures with alpha values */
+				WindowContents::Texture(texture) => {
+					rendering_params.texture_pool.draw_texture_to_canvas(texture, sdl_canvas, screen_dest_sdl)?;
+				},
+
+				WindowContents::Many(many) => {
+					for nested_contents in many {
+						inner_draw_window_contents(nested_contents, rendering_params, screen_dest, screen_dest_sdl)?;
+					}
+				}
+			};
+
+			Ok(())
+		}
+
+		inner_draw_window_contents(&self.contents, rendering_params, screen_dest, screen_dest_sdl)?;
+
 		//////////
 
-		let sdl_canvas = &mut rendering_params.sdl_canvas;
-
-		match &self.contents {
-			WindowContents::Nothing => {},
-
-			WindowContents::Color(color) => {
-				possibly_draw_with_transparency(color, sdl_canvas, |canvas| Ok(canvas.fill_rect(screen_dest_sdl)?))?;
-			},
-
-			WindowContents::Lines(line_series) => {
-				use sdl2::rect::Point as PointSDL;
-
-				for series in line_series {
-					let converted_series: Vec<PointSDL> = series.1.iter().map(|&point| {
-						let xy = Self::transform_vec2_to_parent_scale(point, screen_dest);
-						PointSDL::new(xy.0 as i32, xy.1 as i32)
-					}).collect();
-
-					possibly_draw_with_transparency(&series.0, sdl_canvas, |canvas| {
-						canvas.draw_lines(&*converted_series)?;
-						Ok(())
-					})?;
-				}
-			},
-
-			/* TODO: eliminate the partially black border around
-			the opaque areas of textures with alpha values */
-			WindowContents::Texture(texture) => {
-				rendering_params.texture_pool.draw_texture_to_canvas(texture, sdl_canvas, screen_dest_sdl)?;
-			}
-		};
-
 		if let Some(border_color) = &self.maybe_border_color {
-			possibly_draw_with_transparency(border_color, sdl_canvas, |canvas| Ok(canvas.draw_rect(screen_dest_sdl)?))?;
+			possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
+				|canvas| Ok(canvas.draw_rect(screen_dest_sdl)?))?;
 		}
 
 		Ok(())

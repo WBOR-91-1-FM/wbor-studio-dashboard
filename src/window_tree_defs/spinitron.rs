@@ -97,44 +97,32 @@ pub fn make_spinitron_windows(
 
 	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
 
-	all_model_windows_info.iter().flat_map(|info| {
+	all_model_windows_info.iter().flat_map(|general_info| {
 		let mut output_windows = Vec::new();
 
-		if let Some(texture_window_info) = &info.texture_window {
-			let texture_window = Window::new(
-				spinitron_model_window_updater,
+		let mut maybe_make_model_window =
+			|maybe_info: &Option<SpinitronModelWindowInfo>, maybe_text_color: Option<ColorSDL>| {
 
-				DynamicOptional::new(SpinitronModelWindowState {
-					model_name: info.model_name, maybe_text_color: None
-				}),
+			if let Some(info) = maybe_info {
+				output_windows.push(Window::new(
+					spinitron_model_window_updater,
 
-				WindowContents::Nothing,
-				texture_window_info.border_color,
-				texture_window_info.tl,
-				texture_window_info.size,
-				None
-			);
+					DynamicOptional::new(SpinitronModelWindowState {
+						model_name: general_info.model_name,
+						maybe_text_color
+					}),
 
-			output_windows.push(texture_window);
-		}
+					WindowContents::Nothing,
+					info.border_color,
+					info.tl,
+					info.size,
+					None
+				));
+			}
+		};
 
-		if let Some(text_window_info) = &info.text_window {
-			let text_window = Window::new(
-				spinitron_model_window_updater,
-
-				DynamicOptional::new(SpinitronModelWindowState {
-					model_name: info.model_name, maybe_text_color: Some(info.text_color)
-				}),
-
-				WindowContents::Nothing,
-				text_window_info.border_color,
-				text_window_info.tl,
-				text_window_info.size,
-				None
-			);
-
-			output_windows.push(text_window)
-		}
+		maybe_make_model_window(&general_info.texture_window, None);
+		maybe_make_model_window(&general_info.text_window, Some(general_info.text_color));
 
 		output_windows
 	}).collect()
