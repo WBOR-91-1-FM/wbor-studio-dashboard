@@ -111,10 +111,12 @@ fn do_request<T: SpinitronModelWithProps>(api_key: &str, possible_model_id: Mayb
 	}
 }
 
+/*
 fn do_plural_request<T: SpinitronModelWithProps>(api_key: &str, possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
 	let response_json = get_json_from_spinitron_request::<T>(api_key, None, possible_item_count)?;
 	get_vec_from_spinitron_json(&response_json)
 }
+*/
 
 //////////
 

@@ -577,7 +577,8 @@ pub fn make_twilio_window(
 			None
 		);
 
-		let history_window_with_contents = Window::new(
+		// This is just the history window with the background contents
+		Window::new(
 			None,
 			DynamicOptional::NONE,
 			message_background_contents.clone(),
@@ -585,9 +586,7 @@ pub fn make_twilio_window(
 			Vec2f::new(0.0, history_window_height * i as f32),
 			Vec2f::new(1.0, history_window_height),
 			Some(vec![history_window])
-		);
-
-		history_window_with_contents
+		)
 	}).collect();
 
 	//////////

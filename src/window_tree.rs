@@ -152,14 +152,17 @@ impl Window {
 		self.state.get_inner_value()
 	}
 
+	/*
 	pub fn get_state_mut<T: 'static>(&mut self) -> &mut T {
 		self.state.get_inner_value_mut()
 	}
+	*/
 
 	pub fn get_contents_mut(&mut self) -> &mut WindowContents {
 		&mut self.contents
 	}
 
+	/*
 	pub fn drawing_is_skipped(&self) -> bool {
 		self.skip_drawing
 	}
@@ -167,6 +170,7 @@ impl Window {
 	pub fn set_draw_skipping(&mut self, skip_drawing: bool) {
 		self.skip_drawing = skip_drawing;
 	}
+	*/
 
 	////////// This is used for updating the texture of a window whose contents is a texture (but starts out as nothing)
 
