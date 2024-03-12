@@ -367,7 +367,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	);
 
 	fn shared_window_state_updater(state: &mut DynamicOptional, texture_pool: &mut TexturePool) -> GenericResult<()> {
-		let state: &mut SharedWindowState = state.get_inner_value_mut();
+		let state = state.get_inner_value_mut::<SharedWindowState>();
 		state.spinitron_state.update()?;
 		state.twilio_state.update(texture_pool)
 	}

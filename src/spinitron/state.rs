@@ -149,7 +149,7 @@ pub struct SpinitronState {
 impl SpinitronState {
 	pub fn new(api_key: &str) -> GenericResult<Self> {
 		let data = SpinitronStateData::new(api_key)?;
-		Ok(Self {continually_updated: ContinuallyUpdated::new(&data)})
+		Ok(Self {continually_updated: ContinuallyUpdated::new(&data, "Spinitron")})
 	}
 
 	pub fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {

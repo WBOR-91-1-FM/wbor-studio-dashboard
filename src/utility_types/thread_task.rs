@@ -12,7 +12,7 @@ impl<T: Send + 'static> ThreadTask<T> {
 
 		thread::spawn(move || {
 			// TODO: fix the panics that occasionally happen here when exiting the app
-			thread_sender.send(computer()).unwrap()
+			thread_sender.send(computer()).unwrap();
 		});
 
 		Self {thread_receiver}
@@ -35,14 +35,15 @@ pub trait Updatable {
 
 pub struct ContinuallyUpdated<T> {
 	data: T,
-	update_task: ThreadTask<SendableGenericResult<T>>
+	update_task: ThreadTask<SendableGenericResult<T>>,
+	name: &'static str
 }
 
 // TODO: inline `ThreadTask` into this?
 impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 	/* TODO: can I make this lazy, so that it only starts working once I call `update`,
 	and possibly only update again after a successful `update` call (with a pause?) */
-	pub fn new(data: &T) -> Self {
+	pub fn new(data: &T, name: &'static str) -> Self {
 		let mut cloned_data = data.clone();
 
 		let update_task = ThreadTask::new(
@@ -52,12 +53,25 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 			}
 		);
 
-		Self {data: data.clone(), update_task}
+		Self {data: data.clone(), update_task, name}
 	}
 
 	pub fn update(&mut self) -> GenericResult<()> {
-		if let Some(data) = self.update_task.get_value()? {
-			*self = Self::new(&data?);
+		let mut error: Option<Box<dyn std::error::Error>> = None;
+
+		match self.update_task.get_value() {
+			Ok(Some(result_or_err)) => {
+				match result_or_err {
+					Ok(result) => {*self = Self::new(&result, self.name);},
+					Err(err) => {error = Some(err.into());}
+				}
+			},
+			Ok(None) => {},
+			Err(err) => {error = Some(err);}
+		}
+
+		if let Some(error) = error {
+			println!("Updating the {} data on this iteration failed. Error: '{}'.", self.name, error);
 		}
 
 		Ok(())

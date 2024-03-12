@@ -27,6 +27,7 @@ pub fn build_url(base_url: &str, path_params: &[String],
 code altogether? Or just keep this wrapper layer as request submitting code? */
 pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> GenericResult<minreq::Response> {
 	const EXPECTED_STATUS_CODE: i32 = 200;
+	const DEFAULT_TIMEOUT_SECONDS: u64 = 5;
 
 	let mut request = minreq::get(url);
 
@@ -34,7 +35,8 @@ pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> G
 		request = request.with_header(header.0, header.1);
 	}
 
-	let response = request.send()?;
+	// TODO: make the app work when the network goes down temporarily
+	let response = request.with_timeout(DEFAULT_TIMEOUT_SECONDS).send()?;
 
 	if response.status_code == EXPECTED_STATUS_CODE {
 		Ok(response)
