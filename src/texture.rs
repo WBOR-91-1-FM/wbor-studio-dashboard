@@ -146,8 +146,8 @@ impl<'a> TexturePool<'a> {
 
 		if how_much_wider_the_texture_is_than_its_screen_dest < 0 {
 			panic!("The texture was not wider than its screen dest, which will yield incorrect results.\n\
-				Difference = {}. Texture src = {:?}, screen dest = {:?}. The text was '{}'.",
-				how_much_wider_the_texture_is_than_its_screen_dest, texture_src, screen_dest, text);
+				Difference = {how_much_wider_the_texture_is_than_its_screen_dest}. Texture src = {:?}, \
+				screen dest = {:?}. The text was '{text}'.", texture_src, screen_dest);
 		}
 
 		/* If the texture can be cropped so that it ends up fully

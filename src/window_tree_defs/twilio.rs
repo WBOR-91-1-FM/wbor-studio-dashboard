@@ -241,7 +241,7 @@ impl TwilioStateData {
 		message_history_duration: chrono::Duration) -> Self {
 
 		use base64::{engine::general_purpose::STANDARD, Engine};
-		let request_auth_base64 = STANDARD.encode(format!("{}:{}", account_sid, auth_token));
+		let request_auth_base64 = STANDARD.encode(format!("{account_sid}:{auth_token}"));
 
 		Self {
 			account_sid: account_sid.to_string(),
@@ -285,10 +285,10 @@ impl TwilioStateData {
 
 	fn make_message_display_text(age_data: MessageAgeData, body: &str) -> String {
 		if let Some((unit_name, plural_suffix, unit_amount)) = age_data {
-			format!("{} {}{} ago: '{}'. ", unit_amount, unit_name, plural_suffix, body)
+			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}'. ")
 		}
 		else {
-			format!("Right now: '{}'. ", body)
+			format!("Right now: '{body}'. ")
 		}
 	}
 }
@@ -425,7 +425,7 @@ impl TwilioState<'_> {
 
 		// TODO: when this fails, just log the error, and return (so try again next iteration) (and maybe display something on screen)
 		if let Err(err) = self.continually_updated.update() {
-			println!("There was an error with updating the Twilio data: '{}'. Skipping this Twilio iteration.", err);
+			println!("There was an error with updating the Twilio data: '{err}'. Skipping this Twilio iteration.");
 			return Ok(());
 		}
 

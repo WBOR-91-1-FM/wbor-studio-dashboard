@@ -19,10 +19,10 @@ impl UpdateRate {
 		let num_frames_between_updates = num_seconds_between_updates * fps as Seconds;
 
 		let report_update_rate_error =
-			|below_or_above_str: &str, min_or_max_str: &str, boundary: &str|
-				panic!("{} seconds between updates yields {} frames between updates (rounded), \
-					which is {} the allowed {} of {}", num_seconds_between_updates,
-					num_frames_between_updates, below_or_above_str, min_or_max_str, boundary);
+			|below_or_above_str, min_or_max_str, boundary| panic!(
+				"{num_seconds_between_updates} seconds between updates yields {num_frames_between_updates} \
+				frames between updates (rounded), which is {below_or_above_str} the allowed {min_or_max_str} of {boundary}"
+			);
 
 		if num_frames_between_updates < 1.0 {
 			report_update_rate_error("below", "minimum", "1")

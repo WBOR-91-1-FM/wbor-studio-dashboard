@@ -37,7 +37,7 @@ use crate::{
 - Run `clippy`
 */
 
-////////// These are some API key utils
+////////// This function loads the set of API keys
 
 fn load_api_keys_json() -> GenericResult<serde_json::Value> {
 	const API_KEY_JSON_PATH: &str = "assets/api_keys.json";
@@ -45,10 +45,9 @@ fn load_api_keys_json() -> GenericResult<serde_json::Value> {
 	let api_keys_file = match std::fs::read_to_string(API_KEY_JSON_PATH) {
 		Ok(contents) => Ok(contents),
 
-		Err(err) => Err(
-			format!("The API key file at path '{}' could not be found. Official error: '{}'.",
-			API_KEY_JSON_PATH, err)
-		)
+		Err(err) => Err(format!(
+			"The API key file at path '{API_KEY_JSON_PATH}' could not be found. Official error: '{err}'."
+		))
 	}?;
 
 	Ok(serde_json::from_str(&api_keys_file)?)
@@ -79,7 +78,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 	let api_keys_json = load_api_keys_json()?;
 
 	let get_api_key = |name| -> GenericResult<&str> {
-		api_keys_json[name].as_str().ok_or(format!("Could not find the API key with the name '{}' in the API key JSON", name).into())
+		api_keys_json[name].as_str().ok_or_else(|| format!("Could not find the API key with the name '{name}' in the API key JSON").into())
 	};
 
 	////////// Defining the Spinitron window extents

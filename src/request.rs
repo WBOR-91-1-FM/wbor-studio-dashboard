@@ -5,22 +5,19 @@ pub fn build_url(base_url: &str, path_params: &[String],
 	query_params: &[(&str, String)]) -> GenericResult<String> {
 
 	let mut url = Vec::new();
-
-	let mut add_str_to_url =
-		|s: &str| url.append(&mut s.to_string().into_bytes());
+	let mut add_str_to_url = |s: String| url.append(&mut s.into_bytes());
 
 	//////////
 
-	add_str_to_url(base_url);
+	add_str_to_url(base_url.to_string());
 
 	for path_param in path_params {
-		add_str_to_url(&format!("/{}", path_param));
+		add_str_to_url(format!("/{path_param}"));
 	}
 
-	for (index, query_param) in query_params.iter().enumerate() {
+	for (index, (name, value)) in query_params.iter().enumerate() {
 		let separator = if index == 0 {'?'} else {'&'};
-		let query = format!("{}{}={}", separator, query_param.0, query_param.1);
-		add_str_to_url(&query);
+		add_str_to_url(format!("{separator}{name}={value}"));
 	}
 
 	Ok(String::from_utf8(url)?)
@@ -43,10 +40,10 @@ pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> G
 		Ok(response)
 	}
 	else {
-		Err(
-			format!("Response status code for URL '{}' was not '{}', but '{}', with this reason: '{}'",
-			url, EXPECTED_STATUS_CODE, response.status_code, response.reason_phrase).into()
-		)
+		Err(format!(
+			"Response status code for URL '{url}' was not '{EXPECTED_STATUS_CODE}', \
+			but '{}', with this reason: '{}'", response.status_code, response.reason_phrase
+		).into())
 	}
 }
 

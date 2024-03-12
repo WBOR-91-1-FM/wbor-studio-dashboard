@@ -38,7 +38,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	const VALID_ENDPOINTS: [&str; NUM_SPINITRON_MODEL_TYPES] = ["spins", "playlists", "personas", "shows"];
 
 	if !VALID_ENDPOINTS.contains(&api_endpoint.as_str()) {
-		return Err(format!("Invalid Spinitron API endpoint '{}'", api_endpoint).into());
+		return Err(format!("Invalid Spinitron API endpoint '{api_endpoint}'").into());
 	}
 
 	////////// Limiting the requested fields by what exists within the given model type

@@ -101,7 +101,8 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 	match initial_num_textures_in_pool {
 		Some(initial_amount) => {
 			if *initial_amount != num_textures_in_pool {
-				panic!("Memory leak! Texture pool grew by {} past the first frame", num_textures_in_pool - *initial_amount);
+				let growth_amount = num_textures_in_pool - *initial_amount;
+				panic!("Memory leak! Texture pool grew by {growth_amount} past the first frame.");
 			}
 		},
 		None => {
@@ -172,7 +173,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	// TODO: why does not setting the opacity result in broken fullscreen screen clearing?
 	if let ScreenOption::Windowed(.., Some(opacity)) = app_config.screen_option {
 		if let Err(err) = sdl_window.set_opacity(opacity) {
-			println!("Window translucency not supported by your current platform! Official error: '{}'.", err);
+			println!("Window translucency not supported by your current platform! Official error: '{err}'.");
 		}
 	}
 
