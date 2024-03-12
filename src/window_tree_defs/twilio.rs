@@ -424,7 +424,10 @@ impl TwilioState<'_> {
 		};
 
 		// TODO: when this fails, just log the error, and return (so try again next iteration) (and maybe display something on screen)
-		self.continually_updated.update()?;
+		if let Err(err) = self.continually_updated.update() {
+			println!("There was an error with updating the Twilio data: '{}'. Skipping this Twilio iteration.", err);
+			return Ok(());
+		}
 
 		let curr_continual_data = self.continually_updated.get_data();
 
