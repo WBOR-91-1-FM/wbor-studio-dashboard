@@ -20,7 +20,7 @@ use crate::{
 
 ////////// This is used for managing a subset of textures used in the texture pool
 
-// TODO: could I keep 2 piles instead, one for unused, and one for used?
+// TODO: could I keep 2 piles instead (one for unused, and one for used)?
 struct TextureSubpoolManager {
 	subpool: HashMap<TextureHandle, bool>, // The boolean is true if it's used, otherwise unused
 	max_size: usize // TODO: can I avoid keeping this here?
@@ -122,7 +122,7 @@ impl<V> SyncedMessageMap<V> {
 	fn sync<OffshoreV>(&mut self,
 		max_size: usize,
 		offshore_map: &SyncedMessageMap<OffshoreV>,
-		// TODO: make the output an enum too (would that be a dependent type?)
+		// TODO: make the output an enum too (would that be a dependent type?); perhaps via a mutable output parameter
 		mut syncer: impl FnMut(SyncedMessageMapAction<'_, V, OffshoreV>) -> GenericResult<Option<V>>)
 
 		-> GenericResult<()> {
