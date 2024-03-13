@@ -192,6 +192,7 @@ struct TwilioStateData {
 	immutable: Arc<ImmutableTwilioStateData>,
 
 	// Mutable fields:
+	phone_number_to: Option<Arc<str>>,
 	curr_messages: SyncedMessageMap<MessageInfo>
 }
 
@@ -225,8 +226,10 @@ impl TwilioStateData {
 				account_sid: account_sid.to_string(),
 				request_auth: "Basic ".to_string() + &request_auth_base64,
 				max_num_messages_in_history,
-				message_history_duration,
+				message_history_duration
 			}),
+
+			phone_number_to: None,
 			curr_messages: SyncedMessageMap::new(max_num_messages_in_history)
 		}
 	}
@@ -319,6 +322,10 @@ impl Updatable for TwilioStateData {
 
 				// TODO: see that the manual date filtering logic works
 				if time_sent >= history_cutoff_time {
+					if self.phone_number_to.is_none() {
+						self.phone_number_to = Some(Arc::from(message_field("to")));
+					}
+
 					let id = message_field("uri");
 
 					// If a key on the heap already existed, reuse it
@@ -328,7 +335,9 @@ impl Updatable for TwilioStateData {
 
 					Some((id_on_heap, (message_field("from"), message_field("body"), time_sent)))
 				}
-				else {None}
+				else {
+					None
+				}
 			})
 		);
 
@@ -488,6 +497,8 @@ pub fn make_twilio_window(
 	twilio_state: &TwilioState,
 	update_rate: UpdateRate,
 	top_left: Vec2f, size: Vec2f,
+	top_box_height: f32,
+	top_box_contents: WindowContents,
 	message_background_contents_text_crop_factor: Vec2f,
 	overall_border_color: ColorSDL, text_color: ColorSDL,
 	message_background_contents: WindowContents) -> Window {
@@ -505,7 +516,7 @@ pub fn make_twilio_window(
 		let inner_shared_state = shared_state.get_inner_value_mut::<SharedWindowState>();
 		let twilio_state = &mut inner_shared_state.twilio_state;
 		let individual_window_state = window.get_state::<TwilioHistoryWindowState>();
-		let sorted_message_ids= &twilio_state.historically_sorted_messages_by_id;
+		let sorted_message_ids = &twilio_state.historically_sorted_messages_by_id;
 
 		// Filling the text texture creation info cache
 		if twilio_state.text_texture_creation_info_cache.is_none() {
@@ -535,8 +546,6 @@ pub fn make_twilio_window(
 		Ok(())
 	}
 
-	// TODO: have a top bar saying 'text this number: <number>, and have them received here!'
-
 	let (cropped_text_tl_in_history_window, cropped_text_size_in_history_window) = (
 		message_background_contents_text_crop_factor * Vec2f::new_scalar(0.5),
 		Vec2f::ONE - message_background_contents_text_crop_factor
@@ -544,7 +553,7 @@ pub fn make_twilio_window(
 
 	let history_window_height = 1.0 / max_num_messages_in_history as f32;
 
-	let history_windows = (0..max_num_messages_in_history).rev().map(|i| {
+	let all_subwindows = (0..max_num_messages_in_history).rev().map(|i| {
 		let history_window = Window::new(
 			Some((history_updater_fn, update_rate)),
 			DynamicOptional::new(TwilioHistoryWindowState {message_index: i, text_color}),
@@ -569,14 +578,66 @@ pub fn make_twilio_window(
 
 	//////////
 
+	fn top_box_updater_fn((window, texture_pool, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
+		let text_color: ColorSDL = *window.get_state();
+		let inner_shared_state = shared_state.get_inner_value_mut::<SharedWindowState>();
+		let twilio_state = inner_shared_state.twilio_state.continually_updated.get_data();
+
+		if let Some(phone_number) = &twilio_state.phone_number_to {
+			let WindowContents::Many(many) = window.get_contents_mut()
+			else {panic!("The top box for Twilio did not contain a vec of contents!");};
+
+			if let WindowContents::Nothing = many[1] {
+				let texture_creation_info = TextureCreationInfo::Text((
+					inner_shared_state.font_info,
+
+					TextDisplayInfo {
+						text: Cow::Owned(format!("Messages to {phone_number}:")),
+						color: text_color,
+						scroll_fn: |_| (0.0, true),
+						max_pixel_width: area_drawn_to_screen.width(),
+						pixel_height: area_drawn_to_screen.height()
+					}
+				));
+
+				let text_texture = texture_pool.make_texture(&texture_creation_info)?;
+				many[1] = WindowContents::Texture(text_texture);
+			}
+		}
+
+		Ok(())
+	}
+
+	let top_box = Window::new(
+		Some((top_box_updater_fn, update_rate)),
+		DynamicOptional::new(text_color),
+		WindowContents::Many(vec![top_box_contents, WindowContents::Nothing]),
+		None,
+		Vec2f::new(top_left.x(), top_left.y() - top_box_height),
+		Vec2f::new(size.x(), top_box_height),
+		None
+	);
+
+	//////////
+
 	// This just contains the history windows
-	Window::new(
+	let history_window_container = Window::new(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Nothing,
 		Some(overall_border_color),
 		top_left,
 		size,
-		Some(history_windows)
+		Some(all_subwindows)
+	);
+
+	Window::new(
+		None,
+		DynamicOptional::NONE,
+		WindowContents::Nothing,
+		Some(overall_border_color),
+		Vec2f::ZERO,
+		Vec2f::ONE,
+		Some(vec![history_window_container, top_box])
 	)
 }

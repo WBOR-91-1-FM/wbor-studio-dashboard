@@ -288,7 +288,11 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 		&twilio_state,
 		shared_update_rate,
 
-		Vec2f::new(0.58, 0.42), Vec2f::new(0.4, 0.3),
+		Vec2f::new(0.58, 0.45), Vec2f::new(0.4, 0.27),
+
+		0.03,
+		WindowContents::Color(ColorSDL::RGB(0, 200, 0)),
+
 		Vec2f::new(0.1, 0.45),
 		theme_color_1, ColorSDL::RED,
 
