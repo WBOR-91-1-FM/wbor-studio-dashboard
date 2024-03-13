@@ -326,7 +326,7 @@ impl<'a> TexturePool<'a> {
 
 			TextureCreationInfo::Text((font_info, text_display_info)) => {
 				// TODO: put these in a better place
-				const INITIAL_POINT_SIZE: u16 = 100; // TODO: reduce size to avoid crashes?
+				const INITIAL_POINT_SIZE: u16 = 100;
 				const BLANK_TEXT_DEFAULT: &str = "<BLANK TEXT>";
 
 				////////// Calculating the correct font size
@@ -357,6 +357,8 @@ impl<'a> TexturePool<'a> {
 				let max_texture_width = self.max_texture_size.0;
 
 				let cut_text = if initial_texture_width > max_texture_width {
+					// println!("Cutting texture text because it is too long.");
+
 					let ratio_over_max_width = max_texture_width as f32 / initial_texture_width as f32;
 					let amount_chars_to_keep = (text.len() as f32 * ratio_over_max_width) as usize;
 					let text_slice = &text[..amount_chars_to_keep];
