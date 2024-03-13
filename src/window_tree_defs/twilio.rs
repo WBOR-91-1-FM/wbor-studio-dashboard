@@ -20,99 +20,74 @@ use crate::{
 
 ////////// This is used for managing a subset of textures used in the texture pool
 
-#[derive(Clone)]
-enum TextureSubpoolHandle {
-	Unallocated,
-	AllocatedAndUnused(TextureHandle),
-	AllocatedAndUsed(TextureHandle)
-}
-
-// TODO: perhaps use a hash table as the internal data structure here?
 struct TextureSubpoolManager {
-	subpool: Vec<TextureSubpoolHandle>
+	subpool: HashMap<TextureHandle, bool>, // The boolean is true if it's used, otherwise unused
+	max_size: usize // TODO: can I avoid keeping this here?
 }
 
-// TODO: add a fallback for all these textures, in case anything fails
 impl TextureSubpoolManager {
 	fn new(subpool_size: usize) -> Self {
-		Self {subpool: vec![TextureSubpoolHandle::Unallocated; subpool_size]}
+		Self {subpool: HashMap::with_capacity(subpool_size), max_size: subpool_size}
 	}
 
-	// This should be considered private
-	fn check_for_no_match(texture: &TextureHandle, incoming_texture: &TextureHandle) {
-		if texture == incoming_texture {
-			panic!("Encountered impossible situation with texture subpool manager!");
-		}
-	}
-
-	// TODO: can I bind the lifetime of each returned handle to the lifetime of the subpool manager?
 	fn request_slot(&mut self, texture_creation_info: &TextureCreationInfo,
 		texture_pool: &mut TexturePool) -> GenericResult<TextureHandle> {
 
-		for wrapped_texture in &mut self.subpool {
-			match wrapped_texture {
-				// Allocating it, marking it as such + used, and returning it
-				TextureSubpoolHandle::Unallocated => {
-					// println!("- Creating a texture from scratch.");
+		assert!(self.subpool.len() <= self.max_size);
 
-					let texture = texture_pool.make_texture(texture_creation_info)?;
-					*wrapped_texture = TextureSubpoolHandle::AllocatedAndUsed(texture.clone());
-					return Ok(texture);
-				},
-
-				// Marking it as allocated and used, and returning it
-				TextureSubpoolHandle::AllocatedAndUnused(texture) => {
-					// println!("- Texture remake time!");
-
+		// If this is the case, go and check for unused variants
+		if self.subpool.len() == self.max_size {
+			for (texture, is_used) in &mut self.subpool {
+				if !*is_used {
+					// println!("(request) doing re-request, and setting {:?} to used", texture);
+					*is_used = true;
 					texture_pool.remake_texture(texture_creation_info, texture)?;
-					let cloned_texture = texture.clone();
-					*wrapped_texture = TextureSubpoolHandle::AllocatedAndUsed(texture.clone());
-					return Ok(cloned_texture);
-				},
-
-				TextureSubpoolHandle::AllocatedAndUsed(_) => continue
+					return Ok(texture.clone());
+				}
 			}
-		}
 
-		panic!("No textures available for requesting in subpool!");
+			panic!("No textures available for requesting in subpool!");
+		}
+		else {
+			let texture = texture_pool.make_texture(texture_creation_info)?;
+
+			if self.subpool.insert(texture.clone(), true).is_some() {
+				panic!("This texture was already allocated in the subpool!");
+			}
+
+			// println!("(request) setting {:?} to used", texture);
+
+			return Ok(texture);
+		}
 	}
 
-	fn re_request_slot(&mut self, incoming_texture: &TextureHandle,
-		texture_creation_info: &TextureCreationInfo, texture_pool: &mut TexturePool) -> GenericResult<()> {
+	fn re_request_slot(&mut self,
+		incoming_texture: &TextureHandle,
+		texture_creation_info: &TextureCreationInfo,
+		texture_pool: &mut TexturePool) -> GenericResult<()> {
 
-		for wrapped_texture in &mut self.subpool {
-			match wrapped_texture {
-				TextureSubpoolHandle::Unallocated => continue,
-				TextureSubpoolHandle::AllocatedAndUnused(texture) => Self::check_for_no_match(texture, incoming_texture),
-
-				TextureSubpoolHandle::AllocatedAndUsed(texture) => {
-					if texture == incoming_texture {
-						return texture_pool.remake_texture(texture_creation_info, texture);
-					}
-				},
-			}
+		if let Some(is_used) = self.subpool.get(incoming_texture) {
+			// println!("(re-request) checking {:?} for being used before", incoming_texture);
+			assert!(is_used);
+			// println!("(re-request) doing re-request for {:?}", incoming_texture);
+			return texture_pool.remake_texture(texture_creation_info, incoming_texture);
 		}
-
-		panic!("Texture requested for remaking does not exist in subpool!");
+		else {
+			panic!("Slot was not previously allocated in subpool!");
+		}
 	}
 
 	// TODO: will making the incoming texture `mut` stop further usage of it?
 	fn give_back_slot(&mut self, incoming_texture: &TextureHandle) {
-		for wrapped_texture in &mut self.subpool {
-			match wrapped_texture {
-				TextureSubpoolHandle::Unallocated => continue,
-				TextureSubpoolHandle::AllocatedAndUnused(texture) => Self::check_for_no_match(texture, incoming_texture),
-
-				TextureSubpoolHandle::AllocatedAndUsed(texture) => {
-					if texture == incoming_texture {
-						*wrapped_texture = TextureSubpoolHandle::AllocatedAndUnused(texture.clone());
-						return;
-					}
-				}
-			}
+		if let Some(is_used) = self.subpool.get_mut(incoming_texture) {
+			// println!("(give back) checking {:?} for being used before", incoming_texture);
+			assert!(*is_used);
+			// println!("(give back) setting {:?} to unused", incoming_texture);
+			*is_used = false;
 		}
-
-		panic!("Cannot give back texture! All textures have already been given back for subpool.");
+		else {
+			panic!("Incoming texture did not already exist in subpool!");
+		}
 	}
 }
 
@@ -135,9 +110,7 @@ struct SyncedMessageMap<V> {
 
 impl<V> SyncedMessageMap<V> {
 	fn new(max_size: usize) -> Self {
-		let mut map = HashMap::new();
-		map.reserve(max_size);
-		Self {map}
+		Self {map: HashMap::with_capacity(max_size)}
 	}
 
 	fn from(map: HashMap<MessageID, V>, max_size: usize) -> Self {
