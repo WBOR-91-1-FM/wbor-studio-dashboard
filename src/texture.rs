@@ -63,9 +63,6 @@ Textures can still be lost if they're reassigned (TODO: find some way to avoid t
 TODO: perhaps when doing the remaking thing, pass the handle in as `mut`, even when the handle is not modified (would this help?).
 */
 
-/* TODO: shorten strings above a certain length (or, if they fail upon texture creation, try
-cutting off 2/3rds (or some fraction that cuts at least one character) of them until it works) */
-
 type InnerTextureHandle = u16;
 
 #[derive(Hash, Eq, PartialEq, Clone)] // TODO: remove `Clone`
@@ -141,8 +138,8 @@ impl<'a> TexturePool<'a> {
 
 		/* Input data notes:
 		- `texture_src.width == screen_dest.width`
-		- `texture_src.height` is almost equal to `screen_dest.height` (let's consider them to be equal)
-		- `texture_src.width != texture_width` (`texture_src.width` will be smaller)
+		- `texture_src.height` == `screen_dest.height`
+		- `texture_src.width != texture_width` (`texture_src.width` will be smaller or equal)
 		*/
 
 		//////////
@@ -345,8 +342,8 @@ impl<'a> TexturePool<'a> {
 				let height_ratio_from_expected_size = text_display_info.pixel_height as f32 / initial_output_size.1 as f32;
 				let adjusted_point_size = INITIAL_POINT_SIZE as f32 * height_ratio_from_expected_size;
 
-				// Doing `ceil` here seems to make the output surface's height a tiny bit closer to the desired height
-				let nearest_point_size = adjusted_point_size.ceil() as u16;
+				// Flooring this makes the assertions at the end of this function always succeed
+				let nearest_point_size = adjusted_point_size as u16;
 
 				////////// Making a font
 
@@ -395,8 +392,8 @@ impl<'a> TexturePool<'a> {
 					surface = with_padding_on_right;
 				}
 
-				/* The surface height here will be very close to the expected height,
-				but not exactly the same. It may be off by a pixel or two. */
+				assert!(surface.width() >= text_display_info.max_pixel_width);
+				assert!(surface.height() == text_display_info.pixel_height);
 
 				////////// Making and returning a finished texture
 
