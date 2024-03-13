@@ -204,14 +204,15 @@ impl<'a> TexturePool<'a> {
 
 		// TODO: compute the time since the unix epoch outside this fn, somehow (or, use the SDL timer)
 		let time_since_unix_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
-		let secs_since_unix_epoch = time_since_unix_epoch.as_millis() as f64 / 1000.0;
+		let mut secs_since_unix_epoch = time_since_unix_epoch.as_millis() as f64 / 1000.0;
+
+		let dest_width = screen_dest.width();
+		secs_since_unix_epoch *= dest_width as f64 / texture_size.0 as f64; // This slows the scroll down as the text gets longer
 
 		let (scroll_fract, should_wrap) = (text_metadata.scroll_fn)(secs_since_unix_epoch);
 		assert_in_unit_interval(scroll_fract as f32);
 
 		//////////
-
-		let dest_width = screen_dest.width();
 
 		let mut x = texture_size.0;
 		if !should_wrap {x -= dest_width;}

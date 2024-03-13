@@ -438,8 +438,8 @@ impl TwilioState<'_> {
 				color: *text_color,
 
 				scroll_fn: |secs_since_unix_epoch| {
-					let total_cycle_time = 8.0;
-					let scroll_time_percent = 0.25;
+					let total_cycle_time = 4.0;
+					let scroll_time_percent = 0.75;
 
 					let wait_boundary = total_cycle_time * scroll_time_percent;
 					let scroll_value = secs_since_unix_epoch % total_cycle_time;
