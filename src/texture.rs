@@ -207,7 +207,9 @@ impl<'a> TexturePool<'a> {
 		let mut secs_since_unix_epoch = time_since_unix_epoch.as_millis() as f64 / 1000.0;
 
 		let dest_width = screen_dest.width();
-		secs_since_unix_epoch *= dest_width as f64 / texture_size.0 as f64; // This slows the scroll down as the text gets longer
+
+		// This slows down the text scrolling as the text gets longer
+		secs_since_unix_epoch *= dest_width as f64 / texture_size.0 as f64;
 
 		let (scroll_fract, should_wrap) = (text_metadata.scroll_fn)(secs_since_unix_epoch);
 		assert_in_unit_interval(scroll_fract as f32);
