@@ -58,7 +58,7 @@ impl TextureSubpoolManager {
 
 			// println!("(request) setting {:?} to used", texture);
 
-			return Ok(texture);
+			Ok(texture)
 		}
 	}
 
@@ -71,7 +71,7 @@ impl TextureSubpoolManager {
 			// println!("(re-request) checking {:?} for being used before", incoming_texture);
 			assert!(is_used);
 			// println!("(re-request) doing re-request for {:?}", incoming_texture);
-			return texture_pool.remake_texture(texture_creation_info, incoming_texture);
+			texture_pool.remake_texture(texture_creation_info, incoming_texture)
 		}
 		else {
 			panic!("Slot was not previously allocated in subpool!");
@@ -429,8 +429,8 @@ impl TwilioState<'_> {
 					(scroll_fract, true)
 				},
 
-				max_pixel_width: max_pixel_width,
-				pixel_height: pixel_height
+				max_pixel_width,
+				pixel_height
 			}
 		));
 
