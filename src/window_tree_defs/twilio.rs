@@ -176,7 +176,7 @@ struct MessageInfo {
 	from: String,
 	body: String,
 	time_sent: Timestamp,
-	just_updated: bool // TODO: possibly remove later
+	just_updated: bool
 }
 
 // TODO: should I put all the never-mutated fields around an `Arc`?
