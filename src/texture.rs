@@ -73,7 +73,7 @@ pub struct TextureHandle {
 pub struct SideScrollingTextMetadata {
 	size: (u32, u32),
 	scroll_fn: TextTextureScrollFn,
-	text: String // TODO: keep the `Cow` string from earlier
+	text: String
 }
 
 /* TODO:
@@ -134,7 +134,7 @@ impl<'a> TexturePool<'a> {
 	fn split_overflowing_scrolled_rect(
 		texture_src: Rect, screen_dest: Rect,
 		texture_size: (u32, u32),
-		text: &String) -> (Rect, Option<(Rect, Rect)>) {
+		text: &str) -> (Rect, Option<(Rect, Rect)>) {
 
 		/* Input data notes:
 		- `texture_src.width == screen_dest.width`
