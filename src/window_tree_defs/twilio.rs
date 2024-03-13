@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use std::{borrow::Cow, collections::HashMap};
+use std::{sync::Arc, borrow::Cow, collections::HashMap};
 
 use crate::{
 	request,
@@ -94,7 +94,7 @@ impl TextureSubpoolManager {
 
 //////////
 
-type MessageID = std::sync::Arc<str>;
+type MessageID = Arc<str>;
 
 enum SyncedMessageMapAction<'a, V, OffshoreV> {
 	ExpireLocal(&'a V),
@@ -179,14 +179,17 @@ struct MessageInfo {
 	just_updated: bool
 }
 
-// TODO: should I put all the never-mutated fields around an `Arc`?
-#[derive(Clone)]
-struct TwilioStateData {
-	// Immutable fields:
+struct ImmutableTwilioStateData {
 	account_sid: String,
 	request_auth: String,
 	max_num_messages_in_history: usize,
-	message_history_duration: chrono::Duration,
+	message_history_duration: chrono::Duration
+}
+
+#[derive(Clone)]
+struct TwilioStateData {
+	// Immutable fields (in an `Arc` so they are not needlessly copied during the continual updating):
+	immutable: Arc<ImmutableTwilioStateData>,
 
 	// Mutable fields:
 	curr_messages: SyncedMessageMap<MessageInfo>
@@ -218,10 +221,12 @@ impl TwilioStateData {
 		let request_auth_base64 = STANDARD.encode(format!("{account_sid}:{auth_token}"));
 
 		Self {
-			account_sid: account_sid.to_string(),
-			request_auth: "Basic ".to_string() + &request_auth_base64,
-			max_num_messages_in_history,
-			message_history_duration,
+			immutable: Arc::new(ImmutableTwilioStateData {
+				account_sid: account_sid.to_string(),
+				request_auth: "Basic ".to_string() + &request_auth_base64,
+				max_num_messages_in_history,
+				message_history_duration,
+			}),
 			curr_messages: SyncedMessageMap::new(max_num_messages_in_history)
 		}
 	}
@@ -272,11 +277,13 @@ impl Updatable for TwilioStateData {
 		////////// Making a request, and getting a response
 
 		let curr_time = Timezone::now();
-		let history_cutoff_time = curr_time - self.message_history_duration;
+		let history_cutoff_time = curr_time - self.immutable.message_history_duration;
 		let history_cutoff_day = history_cutoff_time.format("%Y-%m-%d");
 
 		// TODO: should I really limit the page size here? Twilio not returning messages in order might make this a problem...
-		let base_url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", self.account_sid);
+		let base_url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", self.immutable.account_sid);
+
+		let max_messages = self.immutable.max_num_messages_in_history;
 
 		/* TODO: when messages are sent with very small time gaps between each other,
 		they can end up out of order - how to resolve? And is this a synchronization issue? */
@@ -285,14 +292,14 @@ impl Updatable for TwilioStateData {
 			&[],
 
 			&[
-				("PageSize", self.max_num_messages_in_history.to_string()),
+				("PageSize", max_messages.to_string()),
 				("DateSent%3E", history_cutoff_day.to_string()) // Note: the '%3E' is a URL-encoded '>'
 			]
 		)?;
 
 		let response = request::get_with_maybe_header(
 			&request_url, // TODO: cache the request, and why is there a 11200 error in the response?
-			Some(("Authorization", &self.request_auth))
+			Some(("Authorization", &self.immutable.request_auth))
 		)?;
 
 		////////// Creating a map of incoming messages
@@ -328,8 +335,8 @@ impl Updatable for TwilioStateData {
 		//////////
 
 		self.curr_messages.sync(
-			self.max_num_messages_in_history,
-			&SyncedMessageMap::from(incoming_message_map, self.max_num_messages_in_history),
+			max_messages,
+			&SyncedMessageMap::from(incoming_message_map, max_messages),
 
 			|action_type| {
 				match action_type {
@@ -428,7 +435,7 @@ impl TwilioState<'_> {
 		));
 
 		local.sync(
-			curr_continual_data.max_num_messages_in_history,
+			curr_continual_data.immutable.max_num_messages_in_history,
 			offshore,
 
 			|action_type| {
@@ -492,7 +499,7 @@ pub fn make_twilio_window(
 
 	////////// Making a series of history windows
 
-	let max_num_messages_in_history = twilio_state.continually_updated.get_data().max_num_messages_in_history;
+	let max_num_messages_in_history = twilio_state.continually_updated.get_data().immutable.max_num_messages_in_history;
 
 	fn history_updater_fn((window, _, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
 		let inner_shared_state = shared_state.get_inner_value_mut::<SharedWindowState>();
