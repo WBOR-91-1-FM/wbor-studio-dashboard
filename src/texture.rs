@@ -340,8 +340,8 @@ impl<'a> TexturePool<'a> {
 				let initial_output_size = initial_font.size_of(text)?;
 
 				// TODO: cache the height ratio in a dict that maps a font name and size to a height ratio
-				let height_ratio_from_expected_size = text_display_info.pixel_height as f32 / initial_output_size.1 as f32;
-				let adjusted_point_size = INITIAL_POINT_SIZE as f32 * height_ratio_from_expected_size;
+				let height_ratio_from_expected_size = text_display_info.pixel_height as f64 / initial_output_size.1 as f64;
+				let adjusted_point_size = INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
 
 				// Flooring this makes the assertions at the end of this function always succeed
 				let nearest_point_size = adjusted_point_size as u16;
@@ -360,8 +360,8 @@ impl<'a> TexturePool<'a> {
 				let cut_text = if initial_texture_width > max_texture_width {
 					// println!("Cutting texture text because it is too long.");
 
-					let ratio_over_max_width = max_texture_width as f32 / initial_texture_width as f32;
-					let amount_chars_to_keep = (text.len() as f32 * ratio_over_max_width) as usize;
+					let ratio_over_max_width = max_texture_width as f64 / initial_texture_width as f64;
+					let amount_chars_to_keep = (text.len() as f64 * ratio_over_max_width) as usize;
 					let text_slice = &text[..amount_chars_to_keep];
 
 					let cut_texture_width = font.size_of(text_slice)?.0;
