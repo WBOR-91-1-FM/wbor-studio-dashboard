@@ -20,6 +20,7 @@ use crate::{
 
 ////////// This is used for managing a subset of textures used in the texture pool
 
+// TODO: could I keep 2 piles instead, one for unused, and one for used?
 struct TextureSubpoolManager {
 	subpool: HashMap<TextureHandle, bool>, // The boolean is true if it's used, otherwise unused
 	max_size: usize // TODO: can I avoid keeping this here?
@@ -463,8 +464,6 @@ impl TwilioState<'_> {
 				Ok(None)
 			}
 		)?;
-
-		// TODO: for textures, could I keep only an allocated-but-unused pile, and a counter for allocated-but-used (instead)?
 
 		////////// After the syncing, sorting the messages by their IDs, and doing an assertion
 
