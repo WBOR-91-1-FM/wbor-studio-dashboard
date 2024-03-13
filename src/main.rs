@@ -25,6 +25,7 @@ TODO:
 	- Put the box definitions in a JSON file
 	- Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
 	- When an error happens, make it print a message on screen that says that they should email me (make a log of the error on disk too)
+	- Or, make the error more minimal, just saying "internal dashboard error (your spins or texts may not show up!)". After that, print a message saying "error resolved", and then disappear the window.
 	- Maybe draw rounded rectangles with `sdl_gfx` later on
 	- Render a text drop shadow
 	- Set more rendering hints later on, if needed (beyond just the scale quality)
