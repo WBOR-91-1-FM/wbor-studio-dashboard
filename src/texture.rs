@@ -96,7 +96,9 @@ pub struct TexturePool<'a> {
 	text_metadata: HashMap<TextureHandle, SideScrollingTextMetadata>,
 
 	texture_creator: &'a TextureCreator,
-	ttf_context: &'a ttf::Sdl2TtfContext
+	ttf_context: &'a ttf::Sdl2TtfContext,
+
+	max_texture_size: (u32, u32)
 }
 
 //////////
@@ -111,12 +113,16 @@ type TextureHandleResult = GenericResult<TextureHandle>;
 - Perhaps make the fallback texture a property of the texture pool itself
 */
 impl<'a> TexturePool<'a> {
-	pub fn new(texture_creator: &'a TextureCreator, ttf_context: &'a ttf::Sdl2TtfContext) -> Self {
+	pub fn new(texture_creator: &'a TextureCreator,
+		ttf_context: &'a ttf::Sdl2TtfContext,
+		max_texture_size: (u32, u32)) -> Self {
+
 		Self {
 			textures: Vec::new(),
 			text_metadata: HashMap::new(),
 			texture_creator,
-			ttf_context
+			ttf_context,
+			max_texture_size
 		}
 	}
 
@@ -342,13 +348,34 @@ impl<'a> TexturePool<'a> {
 				// Doing `ceil` here seems to make the output surface's height a tiny bit closer to the desired height
 				let nearest_point_size = adjusted_point_size.ceil() as u16;
 
-				////////// Making a font and surface
+				////////// Making a font
 
 				let mut font = self.ttf_context.load_font(font_info.path, nearest_point_size)?;
 				font.set_style(font_info.style);
 				font.set_hinting(font_info.hinting.clone());
 
-				let partial_surface = font.render(text);
+				////////// Cutting the text if it becomes too long
+
+				let initial_texture_width = font.size_of(text)?.0;
+				let max_texture_width = self.max_texture_size.0;
+
+				let cut_text = if initial_texture_width > max_texture_width {
+					let ratio_over_max_width = max_texture_width as f32 / initial_texture_width as f32;
+					let amount_chars_to_keep = (text.len() as f32 * ratio_over_max_width) as usize;
+					let text_slice = &text[..amount_chars_to_keep];
+
+					let cut_texture_width = font.size_of(text_slice)?.0;
+					assert!(cut_texture_width <= max_texture_width);
+
+					text_slice
+				}
+				else {
+					text
+				};
+
+				////////// Making a surface
+
+				let partial_surface = font.render(cut_text);
 				let mut surface = partial_surface.blended(text_display_info.color)?;
 
 				////////// Accounting for the case where there is a very small amount of text

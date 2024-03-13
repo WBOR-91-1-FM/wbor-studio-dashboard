@@ -215,10 +215,13 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let fps = sdl_video_subsystem.current_display_mode(0)?.refresh_rate as u16;
 	let output_size = sdl_canvas.output_size()?;
 
+	let sdl_renderer_info = sdl_canvas.info();
+	let max_texture_size = (sdl_renderer_info.max_texture_width, sdl_renderer_info.max_texture_height);
+
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
 			sdl_canvas,
-			texture_pool: texture::TexturePool::new(&texture_creator, &sdl_ttf_context),
+			texture_pool: texture::TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size),
 			frame_counter: utility_types::update_rate::FrameCounter::new(),
 			shared_window_state: utility_types::dynamic_optional::DynamicOptional::NONE,
 			shared_window_state_updater: None
