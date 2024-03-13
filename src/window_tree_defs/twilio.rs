@@ -399,7 +399,7 @@ impl TwilioState<'_> {
 
 	pub fn update(&mut self, texture_pool: &mut TexturePool) -> GenericResult<()> {
 		// TODO: change other instances of `if-let` to this form
-		let Some(((max_pixel_width, pixel_height), font_info, text_color)) = &self.text_texture_creation_info_cache else {
+		let Some(((max_pixel_width, pixel_height), font_info, text_color)) = self.text_texture_creation_info_cache else {
 			// println!("It has not been cached yet, so wait for the next iteration");
 			return Ok(());
 		};
@@ -416,7 +416,7 @@ impl TwilioState<'_> {
 
 			TextDisplayInfo {
 				text: Cow::Borrowed(""),
-				color: *text_color,
+				color: text_color,
 
 				scroll_fn: |secs_since_unix_epoch| {
 					let total_cycle_time = 4.0;
@@ -429,8 +429,8 @@ impl TwilioState<'_> {
 					(scroll_fract, true)
 				},
 
-				max_pixel_width: *max_pixel_width,
-				pixel_height: *pixel_height
+				max_pixel_width: max_pixel_width,
+				pixel_height: pixel_height
 			}
 		));
 
