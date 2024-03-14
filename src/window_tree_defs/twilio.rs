@@ -588,11 +588,15 @@ pub fn make_twilio_window(
 			else {panic!("The top box for Twilio did not contain a vec of contents!");};
 
 			if let WindowContents::Nothing = many[1] {
+				let (area_code, part_1, part_2, part_3) = (
+					&phone_number[0..2], &phone_number[2..5], &phone_number[5..8], &phone_number[8..12]
+				);
+
 				let texture_creation_info = TextureCreationInfo::Text((
 					inner_shared_state.font_info,
 
 					TextDisplayInfo {
-						text: Cow::Owned(format!("Messages to {phone_number}:")),
+						text: Cow::Owned(format!("  Messages to {area_code} ({part_1}) {part_2}-{part_3}:")),
 						color: text_color,
 						scroll_fn: |_| (0.0, true),
 						max_pixel_width: area_drawn_to_screen.width(),
