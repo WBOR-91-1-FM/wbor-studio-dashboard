@@ -423,6 +423,7 @@ impl TwilioState<'_> {
 		let mut texture_creation_info = TextureCreationInfo::Text((
 			font_info,
 
+			// TODO: don't scroll texts that fit in the text bubble (so pass in a boolean to the scroll fn saying if the text fits)
 			TextDisplayInfo {
 				text: Cow::Borrowed(""),
 				color: text_color,
