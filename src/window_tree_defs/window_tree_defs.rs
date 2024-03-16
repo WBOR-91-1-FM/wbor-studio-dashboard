@@ -1,11 +1,9 @@
-use std::borrow::Cow;
-
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
 
-	texture::{FontInfo, TextureCreationInfo, TextDisplayInfo, TexturePool},
+	texture::{FontInfo, TextureCreationInfo, TexturePool},
 
 	utility_types::{
 		vec2f::Vec2f,
@@ -18,11 +16,11 @@ use crate::{
 		ColorSDL,
 		Window,
 		WindowContents,
-		WindowUpdaterParams,
 		PossibleSharedWindowStateUpdater
 	},
 
 	window_tree_defs::{
+		weather::make_weather_window,
 		shared_window_state::SharedWindowState,
 		twilio::{make_twilio_window, TwilioState},
 		clock::{ClockHandConfig, ClockHandConfigs, ClockHands},
@@ -223,57 +221,7 @@ pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
 
 	////////// Making a weather window
 
-	/* TODO:
-	- Actually implement this
-	- Make the general structure of the text updater fns less repetitive
-	*/
-
-	fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
-		let weather_changed = true;
-		let weather_string = "Rain (32f). So cold. ";
-		let weather_text_color = ColorSDL::BLACK;
-
-		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value();
-
-		let texture_creation_info = TextureCreationInfo::Text((
-			inner_shared_state.font_info,
-
-			TextDisplayInfo {
-				text: Cow::Borrowed(weather_string),
-				color: weather_text_color,
-
-				scroll_fn: |secs_since_unix_epoch| {
-					let repeat_rate_secs = 3.0;
-					let base_scroll = (secs_since_unix_epoch % repeat_rate_secs) / repeat_rate_secs;
-					(1.0 - base_scroll, true)
-				},
-
-				max_pixel_width: area_drawn_to_screen.width(),
-				pixel_height: area_drawn_to_screen.height()
-			}
-		));
-
-		window.update_texture_contents(
-			weather_changed,
-			texture_pool,
-			&texture_creation_info,
-			&inner_shared_state.fallback_texture_creation_info
-		)?;
-
-		Ok(())
-	}
-
-	let weather_update_rate = update_rate_creator.new_instance(60.0);
-
-	let weather_window = Window::new(
-		Some((weather_updater_fn, weather_update_rate)),
-		DynamicOptional::NONE,
-		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
-		Some(ColorSDL::RED),
-		Vec2f::ZERO,
-		Vec2f::new(0.2, 0.2),
-		None
-	);
+	let weather_window = make_weather_window(&update_rate_creator);
 
 	////////// Making a Twilio window
 

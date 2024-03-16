@@ -428,12 +428,14 @@ impl TwilioState<'_> {
 				text: Cow::Borrowed(""),
 				color: text_color,
 
-				scroll_fn: |secs_since_unix_epoch| {
+				scroll_fn: |seed, text_fits_in_box| {
+					if text_fits_in_box {return (0.0, true);}
+
 					let total_cycle_time = 4.0;
 					let scroll_time_percent = 0.75;
 
 					let wait_boundary = total_cycle_time * scroll_time_percent;
-					let scroll_value = secs_since_unix_epoch % total_cycle_time;
+					let scroll_value = seed % total_cycle_time;
 
 					let scroll_fract = if scroll_value < wait_boundary {scroll_value / wait_boundary} else {0.0};
 					(scroll_fract, true)
@@ -599,7 +601,7 @@ pub fn make_twilio_window(
 					TextDisplayInfo {
 						text: Cow::Owned(format!("  Messages to {country_code} ({area_code}) {telephone_prefix}-{line_number}:")),
 						color: text_color,
-						scroll_fn: |_| (0.0, true),
+						scroll_fn: |_, _| (0.0, true),
 						max_pixel_width: area_drawn_to_screen.width(),
 						pixel_height: area_drawn_to_screen.height()
 					}

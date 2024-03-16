@@ -20,7 +20,9 @@ use crate::{
 The needed structs + data can go there, and the text
 + font scaling metadata can then go in its own struct. */
 
-pub type TextTextureScrollFn = fn(f64) -> (f64, bool);
+/* Input: seed, and if the text fits fully in the box.
+Output: scroll amount (in [0, 1]), and if the text should wrap or not. */
+pub type TextTextureScrollFn = fn(f64, bool) -> (f64, bool);
 
 // TODO: make a constructor for this, instead of making everything `pub`.
 #[derive(Clone)]
@@ -203,15 +205,15 @@ impl<'a> TexturePool<'a> {
 		let texture_size = text_metadata.size;
 
 		// TODO: compute the time since the unix epoch outside this fn, somehow (or, use the SDL timer)
-		let time_since_unix_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
-		let mut secs_since_unix_epoch = time_since_unix_epoch.as_millis() as f64 / 1000.0;
 
 		let dest_width = screen_dest.width();
+		let time_since_unix_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+		let time_seed = (time_since_unix_epoch.as_millis() as f64 / 1000.0) * (dest_width as f64 / texture_size.0 as f64);
 
-		// This slows down the text scrolling as the text gets longer
-		secs_since_unix_epoch *= dest_width as f64 / texture_size.0 as f64;
+		let (scroll_fract, should_wrap) = (text_metadata.scroll_fn)(
+			time_seed, texture_size.0 <= dest_width
+		);
 
-		let (scroll_fract, should_wrap) = (text_metadata.scroll_fn)(secs_since_unix_epoch);
 		assert_in_unit_interval(scroll_fract as f32);
 
 		//////////

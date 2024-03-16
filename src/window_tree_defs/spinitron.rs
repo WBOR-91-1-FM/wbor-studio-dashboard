@@ -65,12 +65,7 @@ pub fn make_spinitron_windows(
 				TextDisplayInfo {
 					text: Cow::Owned(format!("{} ", model.to_string())),
 					color: text_color,
-
-					// TODO: pass this in
-					scroll_fn: |secs_since_unix_epoch| {
-						(secs_since_unix_epoch.sin() * 0.5 + 0.5, false)
-					},
-
+					scroll_fn: |seed, _| (seed.sin() * 0.5 + 0.5, false), // TODO: pass this in
 					// TODO: why does cutting the max pixel width in half still work?
 					max_pixel_width: area_drawn_to_screen.width(),
 					pixel_height: area_drawn_to_screen.height()
