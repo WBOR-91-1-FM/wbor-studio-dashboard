@@ -4,23 +4,24 @@ use crate::utility_types::generic_result::GenericResult;
 pub fn build_url(base_url: &str, path_params: &[String],
 	query_params: &[(&str, String)]) -> GenericResult<String> {
 
-	let mut url = Vec::new();
-	let mut add_str_to_url = |s: String| url.append(&mut s.into_bytes());
+	let mut url = String::new();
 
-	//////////
-
-	add_str_to_url(base_url.to_string());
+	url.push_str(base_url);
 
 	for path_param in path_params {
-		add_str_to_url(format!("/{path_param}"));
+		url.push('/');
+		url.push_str(path_param);
 	}
 
 	for (index, (name, value)) in query_params.iter().enumerate() {
 		let separator = if index == 0 {'?'} else {'&'};
-		add_str_to_url(format!("{separator}{name}={value}"));
+		url.push(separator);
+		url.push_str(name);
+		url.push('=');
+		url.push_str(value);
 	}
 
-	Ok(String::from_utf8(url)?)
+	Ok(url)
 }
 
 /* TODO: in order to effectively do request stuff, maybe eliminate this wrapper
