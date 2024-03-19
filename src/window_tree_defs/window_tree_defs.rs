@@ -54,7 +54,8 @@ fn load_api_keys_json() -> GenericResult<serde_json::Value> {
 //////////
 
 // This returns a top-level window, shared window state, and a shared window state updater
-pub fn make_wbor_dashboard(texture_pool: &mut TexturePool,
+pub fn make_wbor_dashboard(
+	texture_pool: &mut TexturePool,
 	sdl_window_size_in_pixels: (u32, u32),
 	update_rate_creator: UpdateRateCreator)
 	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
