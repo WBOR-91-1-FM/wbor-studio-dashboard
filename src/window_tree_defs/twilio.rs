@@ -192,7 +192,6 @@ struct TwilioStateData {
 	immutable: Arc<ImmutableTwilioStateData>,
 
 	// Mutable fields:
-	phone_number_to: Option<Arc<str>>,
 	curr_messages: SyncedMessageMap<MessageInfo>
 }
 
@@ -229,9 +228,18 @@ impl TwilioStateData {
 				message_history_duration
 			}),
 
-			phone_number_to: None,
 			curr_messages: SyncedMessageMap::new(max_num_messages_in_history)
 		}
+	}
+
+	fn do_twilio_request(&self, endpoint: &str, path_params: &[Cow<str>], query_params: &[(&str, Cow<str>)]) -> GenericResult<serde_json::Value> {
+		let base_url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/{endpoint}.json", self.immutable.account_sid);
+		let request_url = request::build_url(&base_url, path_params, query_params);
+
+		request::as_json(request::get_with_maybe_header(
+			&request_url, // TODO: cache the requests, and why is there a 11200 error in the response for messages?
+			Some(("Authorization", &self.immutable.request_auth))
+		))
 	}
 
 	//////////
@@ -283,31 +291,21 @@ impl Updatable for TwilioStateData {
 		let history_cutoff_time = curr_time - self.immutable.message_history_duration;
 		let history_cutoff_day = history_cutoff_time.format("%Y-%m-%d");
 
-		// TODO: should I really limit the page size here? Twilio not returning messages in order might make this a problem...
-		let base_url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", self.immutable.account_sid);
+		/* TODO:
+		- Should I really limit the page size here? Twilio not returning messages in order might make this a problem...
+		- When messages are sent with very small time gaps between each other, they can end up out of order - how to resolve? And is this a synchronization issue?
+		*/
 
 		let max_messages = self.immutable.max_num_messages_in_history;
 
-		/* TODO: when messages are sent with very small time gaps between each other,
-		they can end up out of order - how to resolve? And is this a synchronization issue? */
-		let request_url = request::build_url(
-			&base_url,
-			&[],
-
+		let json = self.do_twilio_request("Messages", &[],
 			&[
-				("PageSize", max_messages.to_string()),
-				("DateSent%3E", history_cutoff_day.to_string()) // Note: the '%3E' is a URL-encoded '>'
+				("PageSize", Cow::Borrowed(&max_messages.to_string())),
+				("DateSent%3E", Cow::Borrowed(&history_cutoff_day.to_string())) // Note: the '%3E' is a URL-encoded '>'
 			]
 		)?;
 
-		let response = request::get_with_maybe_header(
-			&request_url, // TODO: cache the request, and why is there a 11200 error in the response?
-			Some(("Authorization", &self.immutable.request_auth))
-		)?;
-
 		////////// Creating a map of incoming messages
-
-		let json: serde_json::Value = serde_json::from_str(response.as_str()?)?;
 
 		// This will always be in the range of 0 <= num_messages <= self.num_messages_in_history
 		let json_messages = json["messages"].as_array().unwrap();
@@ -322,10 +320,6 @@ impl Updatable for TwilioStateData {
 
 				// TODO: see that the manual date filtering logic works
 				if time_sent >= history_cutoff_time {
-					if self.phone_number_to.is_none() {
-						self.phone_number_to = Some(Arc::from(message_field("to")));
-					}
-
 					let id = message_field("uri");
 
 					// If a key on the heap already existed, reuse it
@@ -414,7 +408,6 @@ impl TwilioState<'_> {
 		};
 
 		self.continually_updated.update()?;
-
 		let curr_continual_data = self.continually_updated.get_data();
 
 		let local = &mut self.id_to_texture_map;
@@ -582,34 +575,45 @@ pub fn make_twilio_window(
 	//////////
 
 	fn top_box_updater_fn((window, texture_pool, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
-		let text_color: ColorSDL = *window.get_state();
 		let inner_shared_state = shared_state.get_inner_value_mut::<SharedWindowState>();
 		let twilio_state = inner_shared_state.twilio_state.continually_updated.get_data();
+		let text_color = *window.get_state::<ColorSDL>();
 
-		if let Some(phone_number) = &twilio_state.phone_number_to {
-			let WindowContents::Many(many) = window.get_contents_mut()
-			else {panic!("The top box for Twilio did not contain a vec of contents!");};
+		let WindowContents::Many(many) = window.get_contents_mut()
+		else {panic!("The top box for Twilio did not contain a vec of contents!");};
 
-			if let WindowContents::Nothing = many[1] {
-				let (country_code, area_code, telephone_prefix, line_number) = (
-					&phone_number[0..2], &phone_number[2..5], &phone_number[5..8], &phone_number[8..12]
-				);
+		if let WindowContents::Nothing = many[1] {
+			////////// Finding the phone number
 
-				let texture_creation_info = TextureCreationInfo::Text((
-					inner_shared_state.font_info,
+			let json = twilio_state.do_twilio_request("IncomingPhoneNumbers", &[], &[])?;
 
-					TextDisplayInfo {
-						text: Cow::Owned(format!("  Messages to {country_code} ({area_code}) {telephone_prefix}-{line_number}:")),
-						color: text_color,
-						scroll_fn: |_, _| (0.0, true),
-						max_pixel_width: area_drawn_to_screen.width(),
-						pixel_height: area_drawn_to_screen.height()
-					}
-				));
+			let Some(phone_numbers) = json["incoming_phone_numbers"].as_array()
+			else {panic!("Expected the Twilio phone numbers to be an array!");};
 
-				let text_texture = texture_pool.make_texture(&texture_creation_info)?;
-				many[1] = WindowContents::Texture(text_texture);
-			}
+			assert!(phone_numbers.len() == 1);
+
+			let number = phone_numbers[0]["phone_number"].as_str().ok_or("Expected the phone number to be a string!")?;
+
+			//////////
+
+			let (country_code, area_code, telephone_prefix, line_number) = (
+				&number[0..2], &number[2..5], &number[5..8], &number[8..12]
+			);
+
+			let texture_creation_info = TextureCreationInfo::Text((
+				inner_shared_state.font_info,
+
+				TextDisplayInfo {
+					text: Cow::Owned(format!("  Messages to {country_code} ({area_code}) {telephone_prefix}-{line_number}:")),
+					color: text_color,
+					scroll_fn: |_, _| (0.0, true),
+					max_pixel_width: area_drawn_to_screen.width(),
+					pixel_height: area_drawn_to_screen.height()
+				}
+			));
+
+			let text_texture = texture_pool.make_texture(&texture_creation_info)?;
+			many[1] = WindowContents::Texture(text_texture);
 		}
 
 		Ok(())

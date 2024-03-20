@@ -1,8 +1,9 @@
+use std::borrow::Cow;
 use crate::utility_types::generic_result::GenericResult;
 
 // TODO: use a string list concat fn in here somehow instead
-pub fn build_url(base_url: &str, path_params: &[String],
-	query_params: &[(&str, String)]) -> GenericResult<String> {
+pub fn build_url(base_url: &str, path_params: &[Cow<str>],
+	query_params: &[(&str, Cow<str>)]) -> String {
 
 	let mut url = String::new();
 
@@ -14,14 +15,13 @@ pub fn build_url(base_url: &str, path_params: &[String],
 	}
 
 	for (index, (name, value)) in query_params.iter().enumerate() {
-		let separator = if index == 0 {'?'} else {'&'};
-		url.push(separator);
+		url.push(if index == 0 {'?'} else {'&'});
 		url.push_str(name);
 		url.push('=');
 		url.push_str(value);
 	}
 
-	Ok(url)
+	url
 }
 
 /* TODO: in order to effectively do request stuff, maybe eliminate this wrapper
@@ -52,4 +52,10 @@ pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> G
 
 pub fn get(url: &str) -> GenericResult<minreq::Response> {
 	get_with_maybe_header(url, None)
+}
+
+// This function is monadic!
+pub fn as_json(response: GenericResult<minreq::Response>) -> GenericResult<serde_json::Value> {
+	let unpacked_response = response?;
+	Ok(serde_json::from_str(unpacked_response.as_str()?)?)
 }

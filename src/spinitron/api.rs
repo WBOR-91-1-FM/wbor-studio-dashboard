@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
 	request,
 	utility_types::generic_result::GenericResult,
@@ -54,31 +56,28 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 
 	////////// Making some initial path and query params, and possibly adding a model id and item count to them
 
-	let mut path_params = vec![api_endpoint.to_string()];
+	let mut path_params: Vec<Cow<str>> = vec![Cow::Owned(api_endpoint)];
 
-	let mut query_params = vec![
-		("access-token", api_key.to_string()),
-		("fields", joined_fields)
+	let mut query_params: Vec<(&str, Cow<str>)> = vec![
+		("access-token", Cow::Owned(api_key.to_string())),
+		("fields", Cow::Borrowed(&joined_fields))
 	];
 
 	if let Some(model_id) = possible_model_id {
-		path_params.push(model_id.to_string());
+		path_params.push(Cow::Owned(model_id.to_string()));
 	}
 
 	if let Some(item_count) = possible_item_count {
-		query_params.push(("count", item_count.to_string()));
+		query_params.push(("count", Cow::Owned(item_count.to_string())));
 	}
 
 	////////// Building a URL, submitting the request, and getting the response JSON
 
 	/* TODO: later on, cache this URL for the specific request (otherwise, a lot of time is spent rebuilding it).
 	Actually, don't do that, build the URL, and then cache the request itself (it will then be resent other times). */
-	let url = request::build_url("https://spinitron.com/api", &path_params, &query_params)?;
+	let url = request::build_url("https://spinitron.com/api", &path_params, &query_params);
 
-	let response = request::get(&url)?;
-	let body = response.as_str()?;
-
-	Ok(serde_json::from_str(body)?)
+	request::as_json(request::get(&url))
 }
 
 fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Value) -> GenericResult<Vec<T>> {

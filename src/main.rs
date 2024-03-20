@@ -272,6 +272,10 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		// TODO: should I put this before event polling?
 		let sdl_performance_counter_before = sdl_timer.performance_counter();
 
+		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color);
+		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
+		top_level_window.render(&mut rendering_params)?;
+
 		if let Some((shared_window_state_updater, shared_update_rate)) = shared_window_state_updater {
 			if shared_update_rate.is_time_to_update(rendering_params.frame_counter) {
 				shared_window_state_updater(&mut rendering_params.shared_window_state, &mut rendering_params.texture_pool)?;
@@ -279,11 +283,6 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		}
 
 		//////////
-
-		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color);
-		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
-
-		top_level_window.render(&mut rendering_params)?;
 
 		rendering_params.frame_counter.tick();
 

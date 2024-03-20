@@ -222,7 +222,13 @@ pub fn make_wbor_dashboard(
 
 	////////// Making a weather window
 
-	let weather_window = make_weather_window(&update_rate_creator);
+	let weather_window = make_weather_window(
+		&update_rate_creator,
+		get_api_key("openweathermap")?,
+		"Brunswick",
+		"ME",
+		"US"
+	);
 
 	////////// Making a Twilio window
 
@@ -235,7 +241,9 @@ pub fn make_wbor_dashboard(
 
 	let twilio_window = make_twilio_window(
 		&twilio_state,
-		shared_update_rate,
+
+		// This is how often the history windows check for new messages (this is low so that it'll be fast in the beginning)
+		update_rate_creator.new_instance(0.25),
 
 		Vec2f::new(0.58, 0.45), Vec2f::new(0.4, 0.27),
 
