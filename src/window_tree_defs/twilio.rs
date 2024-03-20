@@ -612,8 +612,7 @@ pub fn make_twilio_window(
 				}
 			));
 
-			let text_texture = texture_pool.make_texture(&texture_creation_info)?;
-			many[1] = WindowContents::Texture(text_texture);
+			many[1] = WindowContents::Texture(texture_pool.make_texture(&texture_creation_info)?);
 		}
 
 		Ok(())
