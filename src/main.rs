@@ -207,7 +207,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	//////////
 
-	let sdl_timer = sdl_context.timer()?;
+	let mut sdl_timer = sdl_context.timer()?;
 	let sdl_performance_frequency = sdl_timer.performance_frequency();
 	let sdl_ttf_context = sdl2::ttf::init()?;
 
