@@ -384,7 +384,7 @@ impl<'a> TexturePool<'a> {
 
 				////////// Accounting for the case where there is a very small amount of text
 
-				// TODO: don't do this padding thing later
+				// TODO: don't do this padding thing later, and try to do only 1 series of blits, if possible
 
 				/* In this case, the text is too small (which will result in it being
 				stretched out otherwise). For that, I am adding some blank padding. */
@@ -397,6 +397,23 @@ impl<'a> TexturePool<'a> {
 					surface.set_blend_mode(render::BlendMode::None)?;
 					surface.blit(None, &mut with_padding_on_right, None)?;
 					surface = with_padding_on_right;
+				}
+
+				// At this point, if something is still messed up with the height dimensions, force it into the proper size
+				if surface.height() != text_display_info.pixel_height {
+					println!(
+						"Doing forced rescale of text surface (change width from {} to {})",
+						surface.height(), text_display_info.pixel_height
+					);
+
+					let mut with_correct_size = sdl2::surface::Surface::new(
+						surface.width(), text_display_info.pixel_height,
+						surface.pixel_format_enum()
+					)?;
+
+					surface.set_blend_mode(render::BlendMode::None)?;
+					surface.blit_scaled(None, &mut with_correct_size, None)?;
+					surface = with_correct_size;
 				}
 
 				assert!(surface.width() >= text_display_info.max_pixel_width);
