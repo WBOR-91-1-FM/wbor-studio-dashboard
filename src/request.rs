@@ -5,20 +5,19 @@ use crate::utility_types::generic_result::GenericResult;
 pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	query_params: &[(&str, Cow<str>)]) -> String {
 
-	let mut url = String::new();
+	let mut url = base_url.to_string();
 
-	url.push_str(base_url);
-
+	// TODO: how to add all in one bunch?
 	for path_param in path_params {
-		url.push('/');
-		url.push_str(path_param);
+		url += "/";
+		url += path_param;
 	}
 
 	for (index, (name, value)) in query_params.iter().enumerate() {
-		url.push(if index == 0 {'?'} else {'&'});
-		url.push_str(name);
-		url.push('=');
-		url.push_str(value);
+		url += if index == 0 {"?"} else {"&"};
+		url += name;
+		url += "=";
+		url += value;
 	}
 
 	url
