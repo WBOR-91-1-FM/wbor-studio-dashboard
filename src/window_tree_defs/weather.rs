@@ -49,8 +49,8 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 	// let individual_window_state = window.get_state::<WeatherWindowState>();
 	let inner_shared_state = shared_state.get_inner_value::<SharedWindowState>();
 
-	// TODO: perhaps don't build request urls, just request objects directly
 	/*
+	// TODO: perhaps don't build request urls, just request objects directly
 	let url = request::build_url("https://api.openweathermap.org/data/2.5/weather",
 		&[],
 
@@ -59,31 +59,29 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 			("appid", Cow::Borrowed(&individual_window_state.api_key)),
 			("units", Cow::Borrowed("metric"))
 		]
-	)?;
-	*/
+	);
 
 	//////////
 
 	// TODO: why are all the damn fields optional?
 
-	/*
 	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
 	struct WeatherDesc1 {
-		feels_like: f32,
-		temp: f32,
-		pressure: i32,
-		humidity: i32,
-		temp_min: f32,
-		temp_max: f32
+		feels_like: Option<f32>,
+		temp: Option<f32>,
+		pressure: Option<i32>,
+		humidity: Option<i32>,
+		temp_min: Option<f32>,
+		temp_max: Option<f32>
 	}
 
 	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
 	struct WeatherDesc2 {
-		description: String,
-		icon: String,
-		id: i32,
-		main: String,
-		// visibility: i32
+		description: Option<String>,
+		icon: Option<String>,
+		id: Option<i32>,
+		main: Option<String>
+		// visibility: Option<i32>
 	}
 	// TODO: vary the wind things returned (may sometimes be rain)
 	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
@@ -95,7 +93,7 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 
 	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
 	struct CloudsDesc {
-		all: i32
+		all: Option<i32>
 	}
 
 	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
@@ -103,12 +101,12 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 		// all: i32
 
 		#[serde(rename = "1h")]
-		one_hour: f32
+		one_hour: Option<f32>
 	}
 
 	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
 	struct SnowDesc {
-		all: i32
+		all: Option<i32>
 	}
 
 	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
@@ -121,13 +119,22 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 		rain: Option<RainDesc>,
 		snow: Option<SnowDesc>
 	}
-	*/
 
 	//////////
 
-	/*
-	let json = request::as_json(request::get(&url))?;
+	let json = request::as_type(request::get(&url))?;
 	let w: WeatherInfo = serde_json::from_value(json)?;
+
+	fn maybe_add<T: std::fmt::Display>(string: &mut String, field: Option<T>, formatter: fn(T) -> String) {
+		if let Some(inner) = field {
+			*string += &(formatter(inner) + ". ");
+		}
+	}
+
+	let mut weather_string = String::new();
+	maybe_add(&mut weather_string, w.main.feels_like, |t| format!("It feels like {t}"));
+
+	println!("ws = {:?}", weather_string);
 	*/
 
 	/*
@@ -142,7 +149,7 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 		inner_shared_state.font_info,
 
 		TextDisplayInfo {
-			text: Cow::Borrowed(weather_string),
+			text: Cow::Borrowed(&weather_string),
 			color: weather_text_color,
 
 			scroll_fn: |seed, _| {
