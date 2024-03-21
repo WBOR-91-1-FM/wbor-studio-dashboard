@@ -77,20 +77,12 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	Actually, don't do that, build the URL, and then cache the request itself (it will then be resent other times). */
 	let url = request::build_url("https://spinitron.com/api", &path_params, &query_params);
 
-	request::as_json(request::get(&url))
+	request::as_type(request::get(&url))
 }
 
 fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Value) -> GenericResult<Vec<T>> {
 	let parsed_json_as_object = json.as_object().ok_or("Expected JSON to be an object")?;
-
-	let requested_data_json = parsed_json_as_object.get("items")
-		.ok_or("Could not find key 'items' in Spinitron response JSON")?
-		.as_array().ok_or("Expected Spinitron response JSON for key 'items' to be an array")?;
-
-	Ok(requested_data_json.iter().map(|requested_datum_json|
-		// TODO: don't unwrap here
-		serde_json::from_value(requested_datum_json.clone()).unwrap()
-	).collect())
+	Ok(serde_json::from_value(parsed_json_as_object["items"].clone())?)
 }
 
 // This is a singular request
@@ -105,7 +97,7 @@ fn do_request<T: SpinitronModelWithProps>(api_key: &str, possible_model_id: Mayb
 	else {
 		// Otherwise, the first out of the one-entry `Vec` will be returned
 		let wrapped_in_vec: Vec<T> = get_vec_from_spinitron_json(&response_json)?;
-		// assert!(wrapped_in_vec.len() == 1);
+		assert!(wrapped_in_vec.len() == 1);
 		Ok(wrapped_in_vec[0].clone())
 	}
 }

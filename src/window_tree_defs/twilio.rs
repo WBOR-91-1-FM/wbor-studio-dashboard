@@ -236,7 +236,7 @@ impl TwilioStateData {
 		let base_url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/{endpoint}.json", self.immutable.account_sid);
 		let request_url = request::build_url(&base_url, path_params, query_params);
 
-		request::as_json(request::get_with_maybe_header(
+		request::as_type(request::get_with_maybe_header(
 			&request_url, // TODO: cache the requests, and why is there a 11200 error in the response for messages?
 			Some(("Authorization", &self.immutable.request_auth))
 		))

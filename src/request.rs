@@ -55,7 +55,7 @@ pub fn get(url: &str) -> GenericResult<minreq::Response> {
 }
 
 // This function is monadic!
-pub fn as_json(response: GenericResult<minreq::Response>) -> GenericResult<serde_json::Value> {
+pub fn as_type<T: for<'a> serde::Deserialize<'a>>(response: GenericResult<minreq::Response>) -> GenericResult<T> {
 	let unpacked_response = response?;
 	Ok(serde_json::from_str(unpacked_response.as_str()?)?)
 }
