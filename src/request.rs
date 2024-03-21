@@ -1,23 +1,19 @@
 use std::borrow::Cow;
 use crate::utility_types::generic_result::GenericResult;
 
-// TODO: use a string list concat fn in here somehow instead
 pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	query_params: &[(&str, Cow<str>)]) -> String {
 
 	let mut url = base_url.to_string();
 
-	// TODO: how to add all in one bunch?
 	for path_param in path_params {
 		url += "/";
 		url += path_param;
 	}
 
 	for (index, (name, value)) in query_params.iter().enumerate() {
-		url += if index == 0 {"?"} else {"&"};
-		url += name;
-		url += "=";
-		url += value;
+		let sep = if index == 0 {"?"} else {"&"};
+		for item in [sep, name, "=", value] {url += item;}
 	}
 
 	url
