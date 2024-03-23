@@ -12,7 +12,9 @@ pub struct SharedWindowState<'a> {
 	pub font_info: &'a FontInfo<'a>,
 
 	// This is used whenever a texture can't be loaded
-	pub fallback_texture_creation_info: TextureCreationInfo<'a>
+	pub fallback_texture_creation_info: TextureCreationInfo<'a>,
+
+	pub dashboard_error: Option<String>
 
 	/* TODO: can I keep the texture pool here, instead of passing it in to
 	each window on its own (and the shared window state updater)? */

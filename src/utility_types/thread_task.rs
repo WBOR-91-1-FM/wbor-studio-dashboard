@@ -56,7 +56,8 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 		Self {data: data.clone(), update_task, name}
 	}
 
-	pub fn update(&mut self) -> GenericResult<()> {
+	// This returns false if a thread failed to complete its operation.
+	pub fn update(&mut self) -> GenericResult<bool> {
 		let mut error: Option<Box<dyn std::error::Error>> = None;
 
 		match self.update_task.get_value() {
@@ -74,9 +75,10 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 		if let Some(err) = error {
 			println!("Updating the {} data on this iteration failed. Error: '{err}'.", self.name);
 			*self = Self::new(&self.data, self.name); // Restarting when an error happens
+			return Ok(false);
 		}
 
-		Ok(())
+		Ok(true)
 	}
 
 	pub fn get_data(&self) -> &T {

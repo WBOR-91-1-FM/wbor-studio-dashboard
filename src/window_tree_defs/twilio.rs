@@ -400,14 +400,15 @@ impl TwilioState<'_> {
 		}
 	}
 
-	pub fn update(&mut self, texture_pool: &mut TexturePool) -> GenericResult<()> {
+	// This returns false if something failed with the continual updater.
+	pub fn update(&mut self, texture_pool: &mut TexturePool) -> GenericResult<bool> {
 		// TODO: change other instances of `if-let` to this form
 		let Some(((max_pixel_width, pixel_height), font_info, text_color)) = self.text_texture_creation_info_cache else {
 			// println!("It has not been cached yet, so wait for the next iteration");
-			return Ok(());
+			return Ok(true);
 		};
 
-		self.continually_updated.update()?;
+		let continual_updater_succeeded = self.continually_updated.update()?;
 		let curr_continual_data = self.continually_updated.get_data();
 
 		let local = &mut self.id_to_texture_map;
@@ -483,7 +484,7 @@ impl TwilioState<'_> {
 		self.historically_sorted_messages_by_id.sort_by_key(|id| offshore.map[id].time_sent);
 		assert!(self.historically_sorted_messages_by_id.len() == local.map.len());
 
-		Ok(())
+		Ok(continual_updater_succeeded)
 	}
 }
 

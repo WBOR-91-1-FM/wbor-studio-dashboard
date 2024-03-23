@@ -20,6 +20,7 @@ use crate::{
 	},
 
 	window_tree_defs::{
+		error::make_error_window,
 		weather::make_weather_window,
 		shared_window_state::SharedWindowState,
 		twilio::{make_twilio_window, TwilioState},
@@ -223,6 +224,8 @@ pub fn make_wbor_dashboard(
 	////////// Making a weather window
 
 	let weather_window = make_weather_window(
+		Vec2f::ZERO,
+		Vec2f::new_scalar(0.2),
 		&update_rate_creator,
 		get_api_key("openweathermap")?,
 		"Brunswick",
@@ -259,6 +262,18 @@ pub fn make_wbor_dashboard(
 	);
 
 	all_main_windows.push(twilio_window);
+
+	////////// Making an error window
+
+	let error_window = make_error_window(
+		Vec2f::new(0.015, 0.938),
+		Vec2f::new(0.465, 0.05),
+		update_rate_creator.new_instance(2.0),
+		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 160)),
+		ColorSDL::BLUE
+	);
+
+	all_main_windows.push(error_window);
 
 	////////// Making all of the main windows
 
@@ -323,14 +338,41 @@ pub fn make_wbor_dashboard(
 			spinitron_state: SpinitronState::new(get_api_key("spinitron")?)?,
 			twilio_state,
 			font_info: &FONT_INFO,
-			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png")
+			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png"),
+			dashboard_error: None
 		}
 	);
 
 	fn shared_window_state_updater(state: &mut DynamicOptional, texture_pool: &mut TexturePool) -> GenericResult<()> {
 		let state = state.get_inner_value_mut::<SharedWindowState>();
-		state.spinitron_state.update()?;
-		state.twilio_state.update(texture_pool)
+
+		let mut error = None;
+
+		// More continual updaters can be added here
+		let success_states_and_names = [
+			(state.spinitron_state.update()?, "Spinitron"),
+			(state.twilio_state.update(texture_pool)?, "Twilio (messaging)")
+		];
+
+		for (succeeded, name) in success_states_and_names {
+			if !succeeded {
+				if let Some(already_error) = &mut error {
+					*already_error += ", and ";
+					*already_error += name;
+				}
+				else {
+					error = Some(format!("Internal dashboard error from {name}"))
+				}
+			}
+		}
+
+		if let Some(inner_error) = &mut error {
+			*inner_error += "! ";
+		}
+
+		state.dashboard_error = error;
+
+		Ok(())
 	}
 
 	//////////

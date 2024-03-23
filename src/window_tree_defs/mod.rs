@@ -1,4 +1,5 @@
 mod clock;
+mod error;
 mod twilio;
 mod weather;
 mod spinitron;

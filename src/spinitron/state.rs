@@ -167,7 +167,7 @@ impl SpinitronState {
 		self.continually_updated.get_data().update_status[model_name as usize]
 	}
 
-	pub fn update(&mut self) -> GenericResult<()> {
+	pub fn update(&mut self) -> GenericResult<bool> {
 		self.continually_updated.update()
 	}
 }

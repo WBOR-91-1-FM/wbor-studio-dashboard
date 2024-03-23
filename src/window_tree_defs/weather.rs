@@ -149,7 +149,7 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 		inner_shared_state.font_info,
 
 		TextDisplayInfo {
-			text: Cow::Borrowed(&weather_string),
+			text: Cow::Borrowed(weather_string),
 			color: weather_text_color,
 
 			scroll_fn: |seed, _| {
@@ -163,7 +163,8 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 		}
 	));
 
-	window.update_texture_contents(
+	Window::update_texture_contents(
+		window.get_contents_mut(),
 		weather_changed,
 		texture_pool,
 		&texture_creation_info,
@@ -172,7 +173,9 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 }
 
 // Note: the state code can be empty here!
-pub fn make_weather_window(update_rate_creator: &UpdateRateCreator, api_key: &str,
+pub fn make_weather_window(
+	top_left: Vec2f, size: Vec2f,
+	update_rate_creator: &UpdateRateCreator, api_key: &str,
 	city_name: &str, state_code: &str, country_code: &str) -> Window {
 
 	const UPDATE_RATE_SECS: f32 = 60.0 * 10.0; // Once every 10 minutes (this is how frequent the weather data is)
@@ -185,8 +188,8 @@ pub fn make_weather_window(update_rate_creator: &UpdateRateCreator, api_key: &st
 		DynamicOptional::new(WeatherWindowState {api_key: api_key.to_string(), location}),
 		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
 		Some(ColorSDL::RED),
-		Vec2f::ZERO,
-		Vec2f::new(0.2, 0.2),
+		top_left,
+		size,
 		None
 	)
 }

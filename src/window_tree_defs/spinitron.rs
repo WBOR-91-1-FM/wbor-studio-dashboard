@@ -80,7 +80,8 @@ pub fn make_spinitron_windows(
 		};
 
 		// TODO: see if threading will be needed for updating textures as well
-		window.update_texture_contents(
+		Window::update_texture_contents(
+			window.get_contents_mut(),
 			spinitron_state.model_was_updated(model_name),
 			texture_pool,
 			&texture_creation_info,
