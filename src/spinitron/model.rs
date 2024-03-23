@@ -39,7 +39,7 @@ pub trait SpinitronModel {
 	}
 }
 
-/* These properties are used for building spinitron models in `api.rs`.
+/* These properties are used for building Spinitron models in `api.rs`.
 They are not included by default because they do not allow the model to be object-safe. */
 pub trait SpinitronModelWithProps:
 	SpinitronModel + Clone + Default
