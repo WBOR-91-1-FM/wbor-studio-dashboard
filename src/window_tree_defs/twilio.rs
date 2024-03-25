@@ -551,6 +551,8 @@ pub fn make_twilio_window(
 	let history_window_height = 1.0 / max_num_messages_in_history as f32;
 
 	let all_subwindows = (0..max_num_messages_in_history).rev().map(|i| {
+		// Note: I can't directly put the background contents into the history windows since it's sized differently
+
 		let history_window = Window::new(
 			Some((history_updater_fn, update_rate)),
 			DynamicOptional::new(TwilioHistoryWindowState {message_index: i, text_color}),
