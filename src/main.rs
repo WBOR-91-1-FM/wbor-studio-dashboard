@@ -279,7 +279,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
 
 		if let Err(err) = top_level_window.render(&mut rendering_params) {
-			println!("An error arose during rendering: {err}"); // TODO: put this error in the red dialog on the screen
+			println!("An error arose during rendering: {err}"); // TODO: put this error in the red dialog on the screen (pass into the renderer)
 		}
 
 		if let Some((shared_window_state_updater, shared_update_rate)) = shared_window_state_updater {
