@@ -228,12 +228,15 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 			shared_window_state_updater: None
 		};
 
+	let core_init_info = (app_config.top_level_window_creator)(
+		&mut rendering_params.texture_pool, output_size, utility_types::update_rate::UpdateRateCreator::new(fps)
+	);
+
 	let (mut top_level_window, shared_window_state, shared_window_state_updater) =
-		(app_config.top_level_window_creator)(
-			&mut rendering_params.texture_pool,
-			output_size,
-			utility_types::update_rate::UpdateRateCreator::new(fps)
-		)?;
+		match core_init_info {
+			Ok(info) => info,
+			Err(err) => {panic!("An error arose when initializing the application: '{err}'.");}
+		};
 
 	rendering_params.shared_window_state = shared_window_state;
 	rendering_params.shared_window_state_updater = shared_window_state_updater;
@@ -274,11 +277,16 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color);
 		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
-		top_level_window.render(&mut rendering_params)?;
+
+		if let Err(err) = top_level_window.render(&mut rendering_params) {
+			println!("An error arose during rendering: {err}"); // TODO: put this error in the red dialog on the screen
+		}
 
 		if let Some((shared_window_state_updater, shared_update_rate)) = shared_window_state_updater {
 			if shared_update_rate.is_time_to_update(rendering_params.frame_counter) {
-				shared_window_state_updater(&mut rendering_params.shared_window_state, &mut rendering_params.texture_pool)?;
+				if let Err(err) = shared_window_state_updater(&mut rendering_params.shared_window_state, &mut rendering_params.texture_pool) {
+					println!("An error arose from the shared window state updater: {err}"); // TODO: put this error in the red dialog on the screen
+				}
 			}
 		}
 
