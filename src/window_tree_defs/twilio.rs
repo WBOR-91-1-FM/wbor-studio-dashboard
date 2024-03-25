@@ -488,23 +488,18 @@ impl TwilioState<'_> {
 		self.historically_sorted_messages_by_id = offshore.map.keys().cloned().collect();
 
 		self.historically_sorted_messages_by_id.sort_by(|m1_id, m2_id| {
-			use std::cmp::Ordering::{Less, Greater, Equal};
-
 			let (m1, m2) = (&offshore.map[m1_id], &offshore.map[m2_id]);
 
 			// Note: the smallest unit of time in `time_sent` is seconds.
-			if m1.time_sent < m2.time_sent {Less}
-			else if m1.time_sent > m2.time_sent {Greater}
-			else {
+			match m1.time_sent.cmp(&m2.time_sent) {
 				/* If the messages were sent within the same second, ordering issues can occur.
 				When that happens, resort to basing the ordering on the time that it was loaded by the app
 				(which corresponds to the order provided by Twilio). This is not fully reliable either
 				(since Twilio has no ordering guarantee), but it serves as a more reliable fallback in general,
 				and using this ordering seems to work for me in practice. */
 
-				if m1.time_loaded_by_app < m2.time_loaded_by_app {Greater}
-				else if m1.time_loaded_by_app > m2.time_loaded_by_app {Less}
-				else {Equal}
+				std::cmp::Ordering::Equal => m2.time_loaded_by_app.cmp(&m1.time_loaded_by_app),
+				other => other
 			}
 		});
 
