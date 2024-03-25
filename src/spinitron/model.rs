@@ -1,3 +1,6 @@
+use std::borrow::Cow;
+
+use regex::Regex;
 use derive_alias::derive_alias;
 use serde::{Serialize, Deserialize};
 
@@ -8,34 +11,75 @@ use crate::{
 
 pub const NUM_SPINITRON_MODEL_TYPES: usize = 4;
 
+// TODO: make these lazy-static regexps (find a matching lazy-static version from another package); or compile them at compile-time somehow
+const SPIN_IMAGE_SIZE_REGEXP_PATTERN: &str = r#"\d+x\d+"#;
+const SPIN_IMAGE_REGEXP_PATTERN: &str = r#"^https:\/\/.+\d+x\d+bb.jpg$"#;
+const DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP_PATTERN: &str = r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#;
+
 ////////// This is a set of model-related traits
 
 pub type MaybeTextureCreationInfo<'a> = Option<TextureCreationInfo<'a>>;
 
 pub trait SpinitronModel {
 	fn get_id(&self) -> SpinitronModelId;
-	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo;
 	fn to_string(&self) -> String;
+	fn get_texture_creation_info(&self, texture_size: (u32, u32)) -> MaybeTextureCreationInfo;
 
-	fn evaluate_image_url(url: &Option<String>) -> MaybeTextureCreationInfo where Self: Sized {
-		if let Some(inner_url) = url {
-			if !inner_url.is_empty() {
-				return Some(TextureCreationInfo::Url(inner_url));
+	fn evaluate_model_image_url<'a>(
+		maybe_url: &'a Option<String>,
+		inner_behavior: impl FnOnce(&'a str) -> MaybeTextureCreationInfo<'a>,
+		make_fallback_for_no_url: impl FnOnce() -> MaybeTextureCreationInfo<'a>)
+
+		-> MaybeTextureCreationInfo<'a> where Self: Sized {
+
+		if let Some(url) = maybe_url {
+			if !url.is_empty() {
+				return inner_behavior(url);
 			}
 		}
-		None
+
+		make_fallback_for_no_url()
 	}
 
-	fn evaluate_image_url_replacing_default<'a>(url: &'a Option<String>, fallback_path: &'a str) -> MaybeTextureCreationInfo<'a> where Self: Sized {
-		let maybe_url = Self::evaluate_image_url(url);
-		let wrapped_fallback = Some(TextureCreationInfo::Path(fallback_path));
+	fn evaluate_model_image_url_with_regexp<'a>(
+		maybe_url: &'a Option<String>,
+		make_fallback_for_no_url: impl FnOnce() -> MaybeTextureCreationInfo<'a>,
 
-		// TODO: should I remove this, since the default images are gone?
-		if let Some(TextureCreationInfo::Url(url)) = maybe_url {
-			let default_image_pattern = regex::Regex::new(r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#).unwrap(); // TODO: cache this
-			return if default_image_pattern.is_match(url) {wrapped_fallback} else {maybe_url};
-		}
-		wrapped_fallback
+		regexp: &str,
+		if_matches: impl FnOnce(&'a str) -> TextureCreationInfo<'a>,
+		if_not: impl FnOnce(&'a str) -> TextureCreationInfo<'a>)
+
+		-> MaybeTextureCreationInfo<'a> where Self: Sized {
+
+		Self::evaluate_model_image_url(
+			maybe_url,
+
+			|url| {
+				let compiled_regexp = Regex::new(regexp).unwrap();
+
+				Some(if compiled_regexp.is_match(url) {if_matches(url)}
+				else {if_not(url)})
+			},
+
+			make_fallback_for_no_url
+		)
+	}
+
+	fn evaluate_model_image_url_for_persona_or_show<'a>(
+		url: &'a Option<String>, image_for_no_persona_or_show: &'a str)
+
+		-> MaybeTextureCreationInfo<'a> where Self: Sized {
+
+		Self::evaluate_model_image_url_with_regexp(url,
+			|| None,
+			DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP_PATTERN,
+
+			// If it matches the default pattern, use the no-persona or no-show image
+			|_| TextureCreationInfo::Path(Cow::Borrowed(image_for_no_persona_or_show)),
+
+			// If it doesn't match the default pattern, use the provided image
+			|url| TextureCreationInfo::Url(Cow::Borrowed(url))
+		)
 	}
 }
 
@@ -56,34 +100,52 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 
 impl SpinitronModel for Spin {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
 	fn to_string(&self) -> String {format!("{} (from {}), by {}.", self.song, self.release, self.artist)}
+
+	fn get_texture_creation_info(&self, (texture_width, texture_height): (u32, u32)) -> MaybeTextureCreationInfo {
+		Self::evaluate_model_image_url_with_regexp(&self.image,
+			|| None,
+			SPIN_IMAGE_REGEXP_PATTERN,
+
+			|url| {
+				let size_pattern = Regex::new(SPIN_IMAGE_SIZE_REGEXP_PATTERN).unwrap();
+				let with_size = size_pattern.replace(url, format!("{texture_width}x{texture_height}"));
+				TextureCreationInfo::Url(with_size)
+			},
+
+			|url| {
+				println!("The core structure of the spin image URL has changed. Failing URL: '{url}'. Unclear how to modify spin image size now.");
+				TextureCreationInfo::Url(Cow::Borrowed(url))
+			}
+		)
+	}
 }
 
 impl SpinitronModel for Playlist {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {Self::evaluate_image_url(&self.image)}
 	fn to_string(&self) -> String {format!("Playlist: {}", self.title)}
+
+	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
+		Self::evaluate_model_image_url(&self.image, |url| Some(TextureCreationInfo::Url(Cow::Borrowed(url))), || None)
+	}
 }
 
 impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-
-	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {
-		Self::evaluate_image_url_replacing_default(&self.image, "assets/wbor_no_persona_image.png")
-	}
-
 	fn to_string(&self) -> String {format!("Welcome, {}!", self.name)}
+
+	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
+		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/wbor_no_persona_image.png")
+	}
 }
 
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-
-	fn get_texture_creation_info(&self) -> MaybeTextureCreationInfo {
-		Self::evaluate_image_url_replacing_default(&self.image, "assets/wbor_no_show_image.png")
-	}
-
 	fn to_string(&self) -> String {format!("This is '{}'.", self.title)}
+
+	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
+		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/wbor_no_show_image.png")
+	}
 }
 
 impl Spin {

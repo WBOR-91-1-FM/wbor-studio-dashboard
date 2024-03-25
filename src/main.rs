@@ -213,7 +213,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	let texture_creator = sdl_canvas.texture_creator();
 
-	let fps = sdl_video_subsystem.current_display_mode(0)?.refresh_rate as u16;
+	let fps = sdl_video_subsystem.current_display_mode(0)?.refresh_rate as u32;
 	let output_size = sdl_canvas.output_size()?;
 
 	let sdl_renderer_info = sdl_canvas.info();

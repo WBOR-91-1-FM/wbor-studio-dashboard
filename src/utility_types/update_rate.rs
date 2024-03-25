@@ -1,7 +1,8 @@
 use std::num::Wrapping;
 
-type Seconds = f32;
-type FrameIndex = u16; // Intended to wrap, so no bigger type is needed
+pub type Seconds = f64;
+type FrameIndex = u32; // Intended to wrap, so no bigger type is needed
+type FPS = u32;
 
 //////////
 
@@ -13,7 +14,7 @@ pub struct UpdateRate {
 impl UpdateRate {
 	pub const ONCE_PER_FRAME: Self = Self {every_n_frames: 1};
 
-	fn new(num_seconds_between_updates: Seconds, fps: u16) -> Self {
+	fn new(num_seconds_between_updates: Seconds, fps: FPS) -> Self {
 		let max_frame_index = FrameIndex::MAX;
 
 		let num_frames_between_updates = num_seconds_between_updates * fps as Seconds;
@@ -27,7 +28,7 @@ impl UpdateRate {
 		if num_frames_between_updates < 1.0 {
 			report_update_rate_error("below", "minimum", "1")
 		}
-		else if num_frames_between_updates > max_frame_index.into() {
+		else if num_frames_between_updates > max_frame_index as Seconds {
 			report_update_rate_error("above", "maximum", &max_frame_index.to_string());
 		}
 
@@ -63,11 +64,11 @@ impl FrameCounter {
 
 #[derive(Copy, Clone)]
 pub struct UpdateRateCreator {
-	fps: u16
+	fps: FPS
 }
 
 impl UpdateRateCreator {
-	pub fn new(fps: u16) -> Self {
+	pub fn new(fps: FPS) -> Self {
 		Self {fps}
 	}
 

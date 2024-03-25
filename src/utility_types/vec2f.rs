@@ -3,7 +3,7 @@ use std::ops;
 type Component = f32;
 
 // A 0-1 normalized floating-point vec2
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Vec2f {
 	x: Component,
 	y: Component

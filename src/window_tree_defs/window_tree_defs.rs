@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
@@ -188,7 +189,7 @@ pub fn make_wbor_dashboard(
 			DynamicOptional::NONE,
 
 			WindowContents::Texture(texture_pool.make_texture(
-				&TextureCreationInfo::Path(datum.0)
+				&TextureCreationInfo::Path(Cow::Borrowed(datum.0))
 			).unwrap()),
 
 			None,
@@ -257,7 +258,7 @@ pub fn make_wbor_dashboard(
 		theme_color_1, ColorSDL::RED,
 
 		WindowContents::Texture(
-			texture_pool.make_texture(&TextureCreationInfo::Path("assets/wbor_text_bubble.png"))?
+			texture_pool.make_texture(&TextureCreationInfo::Path(Cow::Borrowed("assets/wbor_text_bubble.png")))?
 		),
 	);
 
@@ -296,7 +297,7 @@ pub fn make_wbor_dashboard(
 		DynamicOptional::NONE,
 
 		WindowContents::Texture(texture_pool.make_texture(
-			&TextureCreationInfo::Path("assets/wbor_dashboard_background.png")
+			&TextureCreationInfo::Path(Cow::Borrowed("assets/wbor_dashboard_background.png"))
 		)?),
 
 		Some(theme_color_1),
@@ -338,7 +339,7 @@ pub fn make_wbor_dashboard(
 			spinitron_state: SpinitronState::new(get_api_key("spinitron")?)?,
 			twilio_state,
 			font_info: &FONT_INFO,
-			fallback_texture_creation_info: TextureCreationInfo::Path("assets/wbor_no_texture_available.png"),
+			fallback_texture_creation_info: TextureCreationInfo::Path(Cow::Borrowed("assets/wbor_no_texture_available.png")),
 			dashboard_error: None
 		}
 	);

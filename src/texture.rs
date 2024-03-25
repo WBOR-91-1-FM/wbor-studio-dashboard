@@ -50,8 +50,8 @@ pub struct TextDisplayInfo<'a> {
 and a blend mode (those would go in a struct around this enum) */
 #[derive(Clone)]
 pub enum TextureCreationInfo<'a> {
-	Path(&'a str),
-	Url(&'a str),
+	Path(Cow<'a, str>),
+	Url(Cow<'a, str>),
 	Text((&'a FontInfo<'a>, TextDisplayInfo<'a>))
 }
 
@@ -316,7 +316,7 @@ impl<'a> TexturePool<'a> {
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
 		let texture = match creation_info {
 			TextureCreationInfo::Path(path) => {
-				self.texture_creator.load_texture(path)
+				self.texture_creator.load_texture(path as &str)
 			},
 
 			TextureCreationInfo::Url(url) => {

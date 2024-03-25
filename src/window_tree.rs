@@ -71,7 +71,7 @@ pub struct PerFrameConstantRenderingParams<'a> {
 pub type GeneralLine<T> = (ColorSDL, Vec<T>);
 pub type Line = (ColorSDL, Vec<Vec2f>);
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum WindowContents {
 	Nothing,
 	Color(ColorSDL),
@@ -155,6 +155,10 @@ impl Window {
 
 	pub fn get_state_mut<T: 'static>(&mut self) -> &mut T {
 		self.state.get_inner_value_mut()
+	}
+
+	pub fn get_contents(&self) -> &WindowContents {
+		&self.contents
 	}
 
 	pub fn get_contents_mut(&mut self) -> &mut WindowContents {

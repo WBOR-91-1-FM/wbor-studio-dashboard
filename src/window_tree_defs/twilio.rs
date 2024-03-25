@@ -176,6 +176,7 @@ struct MessageInfo {
 	from: String,
 	body: String,
 	time_sent: Timestamp,
+	time_loaded_by_app: Timestamp, // This includes sub-second precision, while the time sent above does not
 	just_updated: bool
 }
 
@@ -323,11 +324,15 @@ impl Updatable for TwilioStateData {
 					let id = message_field("uri");
 
 					// If a key on the heap already existed, reuse it
-					let id_on_heap =
-						if let Some((already_id, _)) = self.curr_messages.map.get_key_value(id) {already_id.clone()}
-						else {id.into()};
+					let (id_on_heap, time_loaded_by_app) =
+						if let Some((already_id, already_message)) = self.curr_messages.map.get_key_value(id) {
+							(already_id.clone(), already_message.time_loaded_by_app)
+						}
+						else {
+							(id.into(), Timezone::now())
+						};
 
-					Some((id_on_heap, (message_field("from"), message_field("body"), time_sent)))
+					Some((id_on_heap, (message_field("from"), message_field("body"), time_sent, time_loaded_by_app)))
 				}
 				else {
 					None
@@ -357,7 +362,7 @@ impl Updatable for TwilioStateData {
 						}
 					},
 
-					SyncedMessageMapAction::MakeLocalFromOffshore((from, body, wrongly_typed_time_sent)) => {
+					SyncedMessageMapAction::MakeLocalFromOffshore((from, body, wrongly_typed_time_sent, time_loaded_by_app)) => {
 						let time_sent = (*wrongly_typed_time_sent).into();
 						let age_data = Self::get_message_age_data(curr_time, time_sent);
 
@@ -367,6 +372,7 @@ impl Updatable for TwilioStateData {
 							from: from.to_string(),
 							body: body.to_string(),
 							time_sent,
+							time_loaded_by_app: *time_loaded_by_app,
 							just_updated: true
 						}));
 					}
@@ -417,7 +423,6 @@ impl TwilioState<'_> {
 		let mut texture_creation_info = TextureCreationInfo::Text((
 			font_info,
 
-			// TODO: don't scroll texts that fit in the text bubble (so pass in a boolean to the scroll fn saying if the text fits)
 			TextDisplayInfo {
 				text: Cow::Borrowed(""),
 				color: text_color,
@@ -481,7 +486,28 @@ impl TwilioState<'_> {
 		////////// After the syncing, sorting the messages by their IDs, and doing an assertion
 
 		self.historically_sorted_messages_by_id = offshore.map.keys().cloned().collect();
-		self.historically_sorted_messages_by_id.sort_by_key(|id| offshore.map[id].time_sent);
+
+		self.historically_sorted_messages_by_id.sort_by(|m1_id, m2_id| {
+			use std::cmp::Ordering::{Less, Greater, Equal};
+
+			let (m1, m2) = (&offshore.map[m1_id], &offshore.map[m2_id]);
+
+			// Note: the smallest unit of time in `time_sent` is seconds.
+			if m1.time_sent < m2.time_sent {Less}
+			else if m1.time_sent > m2.time_sent {Greater}
+			else {
+				/* If the messages were sent within the same second, ordering issues can occur.
+				When that happens, resort to basing the ordering on the time that it was loaded by the app
+				(which corresponds to the order provided by Twilio). This is not fully reliable either
+				(since Twilio has no ordering guarantee), but it serves as a more reliable fallback in general,
+				and using this ordering seems to work for me in practice. */
+
+				if m1.time_loaded_by_app < m2.time_loaded_by_app {Greater}
+				else if m1.time_loaded_by_app > m2.time_loaded_by_app {Less}
+				else {Equal}
+			}
+		});
+
 		assert!(self.historically_sorted_messages_by_id.len() == local.map.len());
 
 		Ok(continual_updater_succeeded)

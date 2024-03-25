@@ -132,7 +132,7 @@ impl ClockHands {
 		//////////
 
 		let texture_contents = WindowContents::Texture(
-			texture_pool.make_texture(&TextureCreationInfo::Path(dial_texture_path))?
+			texture_pool.make_texture(&TextureCreationInfo::Path(std::borrow::Cow::Borrowed(dial_texture_path)))?
 		);
 
 		let clock_hand_configs_as_list: [&ClockHandConfig; NUM_CLOCK_HANDS] = [

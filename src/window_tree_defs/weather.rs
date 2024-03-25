@@ -11,10 +11,10 @@ use crate::{
 	texture::{TextDisplayInfo, TextureCreationInfo},
 
 	utility_types::{
-        vec2f::Vec2f,
-        update_rate::UpdateRateCreator,
-        generic_result::GenericResult,
-		dynamic_optional::DynamicOptional
+		vec2f::Vec2f,
+		generic_result::GenericResult,
+        dynamic_optional::DynamicOptional,
+		update_rate::{UpdateRateCreator, Seconds}
 	},
 
 	window_tree::{
@@ -178,7 +178,7 @@ pub fn make_weather_window(
 	update_rate_creator: &UpdateRateCreator, api_key: &str,
 	city_name: &str, state_code: &str, country_code: &str) -> Window {
 
-	const UPDATE_RATE_SECS: f32 = 60.0 * 10.0; // Once every 10 minutes (this is how frequent the weather data is)
+	const UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes (this is how frequent the weather data is)
 
 	let weather_update_rate = update_rate_creator.new_instance(UPDATE_RATE_SECS);
 	let location = [city_name, state_code, country_code].join(",");

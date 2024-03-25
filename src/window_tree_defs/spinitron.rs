@@ -56,7 +56,14 @@ pub fn make_spinitron_windows(
 		let individual_window_state: &SpinitronModelWindowState = window.get_state();
 		let model_name = individual_window_state.model_name;
 
+		let should_update_texture =
+			spinitron_state.model_was_updated(model_name) ||
+			&WindowContents::Nothing == window.get_contents();
+
+		if !should_update_texture {return Ok(());}
+
 		let model = spinitron_state.get_model_by_name(model_name);
+		let window_size_pixels = (area_drawn_to_screen.width(), area_drawn_to_screen.height());
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			TextureCreationInfo::Text((
@@ -66,14 +73,15 @@ pub fn make_spinitron_windows(
 					text: Cow::Owned(format!("{} ", model.to_string())),
 					color: text_color,
 					scroll_fn: |seed, _| (seed.sin() * 0.5 + 0.5, false), // TODO: pass this in (and why doesn't this scroll when the text is short enough? Good, but not programmed in...)
+
 					// TODO: why does cutting the max pixel width in half still work?
-					max_pixel_width: area_drawn_to_screen.width(),
-					pixel_height: area_drawn_to_screen.height()
+					max_pixel_width: window_size_pixels.0,
+					pixel_height: window_size_pixels.1
 				}
 			))
 		}
 		else {
-			match model.get_texture_creation_info() {
+			match model.get_texture_creation_info(window_size_pixels) {
 				Some(texture_creation_info) => texture_creation_info,
 				None => inner_shared_state.fallback_texture_creation_info.clone()
 			}
@@ -82,7 +90,7 @@ pub fn make_spinitron_windows(
 		// TODO: see if threading will be needed for updating textures as well
 		Window::update_texture_contents(
 			window.get_contents_mut(),
-			spinitron_state.model_was_updated(model_name),
+			true,
 			texture_pool,
 			&texture_creation_info,
 			&inner_shared_state.fallback_texture_creation_info
