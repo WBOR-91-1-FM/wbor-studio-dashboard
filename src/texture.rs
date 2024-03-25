@@ -402,7 +402,7 @@ impl<'a> TexturePool<'a> {
 				// At this point, if something is still messed up with the height dimensions, force it into the proper size
 				if surface.height() != text_display_info.pixel_height {
 					println!(
-						"Doing forced rescale of text surface (change width from {} to {})",
+						"Doing forced rescale of text surface (change height from {} to {})",
 						surface.height(), text_display_info.pixel_height
 					);
 
