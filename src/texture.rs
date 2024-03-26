@@ -382,38 +382,41 @@ impl<'a> TexturePool<'a> {
 				let partial_surface = font.render(cut_text);
 				let mut surface = partial_surface.blended(text_display_info.color)?;
 
-				////////// Accounting for the case where there is a very small amount of text
+				////////// Accounting for the case where there is a very small amount of text, or the surface height doesn't match
 
-				// TODO: don't do this padding thing later, and try to do only 1 series of blits, if possible
+				// TODO: can I avoid doing right padding or bottom cutting if I just do a plain blit somehow from the rendering code?
+				let surface_is_too_short = surface.width() < text_display_info.max_pixel_width;
+				let text_height_doesnt_match = surface.height() != text_display_info.pixel_height;
 
-				/* In this case, the text is too small (which will result in it being
-				stretched out otherwise). For that, I am adding some blank padding. */
-				if text_display_info.max_pixel_width > surface.width() {
-					let mut with_padding_on_right = sdl2::surface::Surface::new(
-						text_display_info.max_pixel_width, surface.height(),
-						surface.pixel_format_enum()
+				if surface_is_too_short || text_height_doesnt_match {
+					let dimensions;
+
+					// With padding on right, and slightly changed height
+					if surface_is_too_short && text_height_doesnt_match {
+						// println!("Add padding to right, and height is off");
+						dimensions = (text_display_info.max_pixel_width, text_display_info.pixel_height);
+					}
+					// With padding on right
+					else if surface_is_too_short {
+						// println!("Add padding to right");
+						dimensions = (text_display_info.max_pixel_width, surface.height());
+					}
+					// With slightly changed height
+					else if text_height_doesnt_match {
+						// println!("Height is off");
+						dimensions = (surface.width(), text_display_info.pixel_height);
+					}
+					else {
+						panic!("Impossible text texture rescaling situation!");
+					}
+
+					let mut resized_dest = sdl2::surface::Surface::new(
+						dimensions.0, dimensions.1, surface.pixel_format_enum()
 					)?;
 
 					surface.set_blend_mode(render::BlendMode::None)?;
-					surface.blit(None, &mut with_padding_on_right, None)?;
-					surface = with_padding_on_right;
-				}
-
-				// At this point, if something is still messed up with the height dimensions, force it into the proper size
-				if surface.height() != text_display_info.pixel_height {
-					println!(
-						"Doing forced rescale of text surface (change height from {} to {})",
-						surface.height(), text_display_info.pixel_height
-					);
-
-					let mut with_correct_size = sdl2::surface::Surface::new(
-						surface.width(), text_display_info.pixel_height,
-						surface.pixel_format_enum()
-					)?;
-
-					surface.set_blend_mode(render::BlendMode::None)?;
-					surface.blit_scaled(None, &mut with_correct_size, None)?;
-					surface = with_correct_size;
+					surface.blit(None, &mut resized_dest, None)?;
+					surface = resized_dest;
 				}
 
 				assert!(surface.width() >= text_display_info.max_pixel_width);
