@@ -30,7 +30,7 @@ pub trait SpinitronModel {
 		inner_behavior: impl FnOnce(&'a str) -> MaybeTextureCreationInfo<'a>,
 		make_fallback_for_no_url: impl FnOnce() -> MaybeTextureCreationInfo<'a>)
 
-		-> MaybeTextureCreationInfo<'a> where Self: Sized {
+		-> MaybeTextureCreationInfo where Self: Sized {
 
 		if let Some(url) = maybe_url {
 			if !url.is_empty() {
