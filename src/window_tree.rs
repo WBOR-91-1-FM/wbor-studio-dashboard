@@ -78,6 +78,48 @@ pub enum WindowContents {
 	Many(Vec<WindowContents>)
 }
 
+impl WindowContents {
+	/* This is used for updating the texture of a window whose
+	contents is a texture (but maybe starts out as something else) */
+	pub fn update_as_texture(
+		&mut self,
+		should_remake: bool,
+		texture_pool: &mut TexturePool,
+		texture_creation_info: &TextureCreationInfo,
+		fallback_texture_creation_info: &TextureCreationInfo) -> GenericResult<()> {
+
+		/* This is a macro for making or remaking a texture. If making or
+		remaking fails, a fallback texture is put into that texture's slot. */
+		macro_rules! try_to_make_or_remake_texture {
+			($make_or_remake: expr, $make_or_remake_description: expr, $($extra_args:expr),*) => {{
+				$make_or_remake(texture_creation_info, $($extra_args),*).or_else(
+					|failure_reason| {
+						println!("Unexpectedly failed while trying to {} texture, and reverting to a fallback \
+							texture. Reason: '{failure_reason}'.", $make_or_remake_description);
+
+						$make_or_remake(fallback_texture_creation_info, $($extra_args),*)
+					}
+				)
+			}};
+		}
+
+		let updated_texture = if let WindowContents::Texture(prev_texture) = self {
+			if should_remake {try_to_make_or_remake_texture!(|a, b| texture_pool.remake_texture(a, b), "remake an existing", prev_texture)?}
+			prev_texture.clone()
+		}
+		else {
+			/* There was not a texture before, and there's an initial one available now,
+			so a first texture is being made. This should only happen once, at the program's
+			start; otherwise, an unbound amount of new textures will be made. */
+			try_to_make_or_remake_texture!(|a| texture_pool.make_texture(a), "make a new",)?
+		};
+
+		*self = WindowContents::Texture(updated_texture);
+		Ok(())
+	}
+
+}
+
 //////////
 
 pub struct Window {
@@ -169,46 +211,6 @@ impl Window {
 
 	pub fn set_draw_skipping(&mut self, skip_drawing: bool) {
 		self.skip_drawing = skip_drawing;
-	}
-
-	////////// This is used for updating the texture of a window whose contents is a texture (but starts out as nothing)
-
-	// TODO: move this into `WindowContents` as an `impl`-ed function
-	pub fn update_texture_contents(
-		contents: &mut WindowContents,
-		should_remake: bool,
-		texture_pool: &mut TexturePool,
-		texture_creation_info: &TextureCreationInfo,
-		fallback_texture_creation_info: &TextureCreationInfo) -> GenericResult<()> {
-
-		/* This is a macro for making or remaking a texture. If making or
-		remaking fails, a fallback texture is put into that texture's slot. */
-		macro_rules! try_to_make_or_remake_texture {
-			($make_or_remake: expr, $make_or_remake_description: expr, $($extra_args:expr),*) => {{
-				$make_or_remake(texture_creation_info, $($extra_args),*).or_else(
-					|failure_reason| {
-						println!("Unexpectedly failed while trying to {} texture, and reverting to a fallback \
-							texture. Reason: '{failure_reason}'.", $make_or_remake_description);
-
-						$make_or_remake(fallback_texture_creation_info, $($extra_args),*)
-					}
-				)
-			}};
-		}
-
-		let updated_texture = if let WindowContents::Texture(prev_texture) = contents {
-			if should_remake {try_to_make_or_remake_texture!(|a, b| texture_pool.remake_texture(a, b), "remake an existing", prev_texture)?}
-			prev_texture.clone()
-		}
-		else {
-			/* There was not a texture before, and there's an initial one available now,
-			so a first texture is being made. This should only happen once, at the program's
-			start; otherwise, an unbound amount of new textures will be made. */
-			try_to_make_or_remake_texture!(|a| texture_pool.make_texture(a), "make a new",)?
-		};
-
-		*contents = WindowContents::Texture(updated_texture);
-		Ok(())
 	}
 
 	////////// These are the window rendering functions (both public and private)

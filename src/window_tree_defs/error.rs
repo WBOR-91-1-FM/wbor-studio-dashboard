@@ -60,8 +60,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 				else {panic!("The error window contents was expected to be a list!")};
 				let text_texture = &mut all_contents[1];
 
-				Window::update_texture_contents(
-					text_texture,
+				text_texture.update_as_texture(
 					true,
 					texture_pool,
 					&texture_creation_info,

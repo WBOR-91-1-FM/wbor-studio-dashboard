@@ -164,8 +164,7 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 		}
 	));
 
-	Window::update_texture_contents(
-		window.get_contents_mut(),
+	window.get_contents_mut().update_as_texture(
 		weather_changed,
 		texture_pool,
 		&texture_creation_info,

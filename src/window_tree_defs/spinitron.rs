@@ -87,8 +87,7 @@ pub fn make_spinitron_windows(
 			}
 		};
 
-		Window::update_texture_contents(
-			window.get_contents_mut(),
+		window.get_contents_mut().update_as_texture(
 			true,
 			texture_pool,
 			&texture_creation_info,
