@@ -1,6 +1,7 @@
 /* TODO:
 - Actually implement this
 - Make the general structure of the text updater fns less repetitive
+- Consider using an alternative API
 */
 
 use std::borrow::Cow;
