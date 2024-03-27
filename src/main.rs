@@ -18,7 +18,6 @@ TODO:
 - Technical:
 	- When an error happens, make it print a message on screen that says that they should reach out to the tech director, wbor@bowdoin.edu (make a log of the error on disk too)
  	- Crop profile photos, instead of stretching them
-  	- Increase the resolution of the `No Texture Available` texture
 	- Maybe put the bounding box definition one layer out (with the parent)
 	- Abstract the main loop out, so that just some data and fns are passed into it
 	- Check for no box intersections
