@@ -47,7 +47,8 @@ pub struct TextDisplayInfo<'a> {
 }
 
 /* TODO: add options for possible color and alpha mods,
-and a blend mode (those would go in a struct around this enum) */
+and a blend mode (those would go in a struct around this enum).
+Or, make some functions to set these, given a handle. */
 #[derive(Clone)]
 pub enum TextureCreationInfo<'a> {
 	Path(Cow<'a, str>),
@@ -58,12 +59,10 @@ pub enum TextureCreationInfo<'a> {
 //////////
 
 /*
-Note that the handle is wrapped in a struct, so that it can't be modified.
-This can never be copied or cloned, so multiple ownership is not a problem.
-
-Textures can still be lost if they're reassigned (TODO: find some way to avoid that data loss).
-TODO: perhaps when doing the remaking thing, pass the handle in as `mut`, even when the handle is not modified (would this help?).
-*/
+- Note that the handle is wrapped in a struct, so that it can't be modified.
+- Multiple ownership is possible, since we can clone the handles.
+- Textures can still be lost if they're reassigned (TODO: find some way to avoid that data loss).
+- TODO: perhaps when doing the remaking thing, pass the handle in as `mut`, even when the handle is not modified (would this help?). */
 
 type InnerTextureHandle = u16;
 
@@ -79,15 +78,15 @@ pub struct SideScrollingTextMetadata {
 }
 
 /* TODO:
-
 - Later on, if I am using multiple texture pools,
 add an id to each texture handle that is meant to match the pool
 (to verify that the pool and the handle are only used together).
 Otherwise, try to find some way to verify that it's a singleton.
 
-- Consider using the `unsafe_textures` feature at some point, so that textures can be destroyed
-(otherwise, they will eat up all my memory)
+- Will textures be destroyed when dropped currently, and if so, would using
+the `unsafe_textures` feature help this?
 */
+
 pub struct TexturePool<'a> {
 	textures: Vec<Texture<'a>>,
 
@@ -190,7 +189,7 @@ impl<'a> TexturePool<'a> {
 	pub fn draw_texture_to_canvas(&self, handle: &TextureHandle,
 		canvas: &mut CanvasSDL, screen_dest: Rect) -> GenericResult<()> {
 
-		let texture = self.get_texture_from_handle_immut(handle);
+		let texture = self.get_texture_from_handle(handle);
 		let possible_text_metadata = self.text_metadata.get(handle);
 
 		if possible_text_metadata.is_none() {
@@ -200,7 +199,6 @@ impl<'a> TexturePool<'a> {
 
 		//////////
 
-		// TODO: how can I scroll at the same speed, irrespective of the text size?
 		let text_metadata = possible_text_metadata.ok_or("Expected text metadata")?;
 		let texture_size = text_metadata.size;
 
@@ -287,7 +285,7 @@ impl<'a> TexturePool<'a> {
 		Ok(handle)
 	}
 
-	// TODO: if possible, update the texture in-place instead (if they occupy the amount of space, or less (?))
+	// TODO: if possible, update the texture in-place instead (if they occupy the amount of space, or less)
 	pub fn remake_texture(&mut self, creation_info: &TextureCreationInfo, handle: &TextureHandle) -> GenericResult<()> {
 		let new_texture = self.make_raw_texture(creation_info)?;
 
@@ -297,8 +295,6 @@ impl<'a> TexturePool<'a> {
 		Ok(())
 	}
 
-	//////////
-
 	// TODO: allow for texture deletion too
 
 	////////// TODO: eliminate the repetition here (inline? or make to a macro?)
@@ -307,7 +303,7 @@ impl<'a> TexturePool<'a> {
 		&mut self.textures[handle.handle as usize]
 	}
 
-	fn get_texture_from_handle_immut(&self, handle: &TextureHandle) -> &Texture<'a> {
+	fn get_texture_from_handle(&self, handle: &TextureHandle) -> &Texture {
 		&self.textures[handle.handle as usize]
 	}
 
@@ -319,12 +315,8 @@ impl<'a> TexturePool<'a> {
 				self.texture_creator.load_texture(path as &str)
 			},
 
+			// TODO: could I pass an optional texture-rescaling param here for the Spinitron spin textures here (instead of in the model logic?)
 			TextureCreationInfo::Url(url) => {
-				/* Normally, the textures are 170x170 (this is described in the URL). If the scale factor isn't a box,
-				just the smallest dimension will be picked. But, the size can be modified to anything desired.
-				TODO: on the right URL format, resize the image to the given window box size by tweaking the URL
-				(but do it from the Spinitron side of things). */
-
 				let response = request::get(url)?;
 				self.texture_creator.load_texture_bytes(response.as_bytes())
 			}
@@ -356,7 +348,7 @@ impl<'a> TexturePool<'a> {
 				font.set_style(font_info.style);
 				font.set_hinting(font_info.hinting.clone());
 
-				////////// Cutting the text if it becomes too long
+				////////// Cutting the text if it becomes too long (TODO: add an ellipsis instead, maybe?)
 
 				let initial_texture_width = font.size_of(text)?.0;
 				let max_texture_width = self.max_texture_size.0;

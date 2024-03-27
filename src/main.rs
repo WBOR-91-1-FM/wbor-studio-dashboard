@@ -27,15 +27,14 @@ TODO:
 	- Maybe draw rounded rectangles with `sdl_gfx` later on
 	- Render a text drop shadow
 	- Set more rendering hints later on, if needed (beyond just the scale quality)
-	- If useful at some point, perhaps cut off rendered text characters with '...' if the text is too long
 	- Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
 	- If possible, figure out how to use the extra wasted space lost when doing aspect ratio correction
-	- Substitute in placeholder media links with custom ones, eventually
 	- Run the dashboard on a PVM, or an original iMac, eventually?
 	- For logging, write the current spin to a file once it updates
 	- Make a little script on the Pi to clear the message history every 2 weeks - or maybe do it from within the dashboard - checking the date via modulus?
 	- Use the max durations of Spinitron spins to reduce the number of API calls
 	- Add a 'no recent spins' message if no spins in the last 60 minutes
+	- Put this repo in the `WBOR` GitHub organization
 - Fun ideas:
 	- Maybe give a retro theme to everything
 	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)

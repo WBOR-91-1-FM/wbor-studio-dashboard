@@ -31,7 +31,6 @@ pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> G
 		request = request.with_header(header.0, header.1);
 	}
 
-	// TODO: make the app work when the network goes down temporarily
 	let response = request.with_timeout(DEFAULT_TIMEOUT_SECONDS).send()?;
 
 	if response.status_code == EXPECTED_STATUS_CODE {
