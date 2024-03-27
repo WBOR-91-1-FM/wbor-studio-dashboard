@@ -11,20 +11,19 @@ Worked from this in the beginning: https://blog.logrocket.com/using-sdl2-binding
 TODO:
 
 - Features:
-	- Avoid screen burn-in somehow
+	- Avoid screen burn-in somehow on non-dynamic parts of the screen
 	- DJ tips popping up now and then (like a video game loading screen)
-	- A 'text the DJ' feature
 	- Display streaming server online status (determined by whether it pings?) address is: 161.35.248.7
-	- User interaction with the dashboard via the Stream Deck (toggle display elements, ignore DJ text, etc.)
-	- Tell DJs in realtime whether they need to increase or decrease the volume of their input
-	- Display the last 5 text messages, instead of just the last one
+	- User interaction with the dashboard via the Stream Deck (toggle display elements, ignore DJ text, etc.) https://timothycrosley.github.io/streamdeck-ui/
 - Technical:
+	- When an error happens, make it print a message on screen that says that they should reach out to the tech director, wbor@bowdoin.edu (make a log of the error on disk too)
+ 	- Crop profile photos, instead of stretching them
+  	- Increase the resolution of the `No Texture Available` texture
 	- Maybe put the bounding box definition one layer out (with the parent)
 	- Abstract the main loop out, so that just some data and fns are passed into it
 	- Check for no box intersections
 	- Put the box definitions in a JSON file
 	- Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
-	- When an error happens, make it print a message on screen that says that they should email me (make a log of the error on disk too)
 	- Or, make the error more minimal, just saying "internal dashboard error (your spins or texts may not show up!)". After that, print a message saying "error resolved", and then disappear the window.
 	- Maybe draw rounded rectangles with `sdl_gfx` later on
 	- Render a text drop shadow
@@ -34,21 +33,15 @@ TODO:
 	- If possible, figure out how to use the extra wasted space lost when doing aspect ratio correction
 	- Substitute in placeholder media links with custom ones, eventually
 	- Run the dashboard on a PVM, or an original iMac, eventually?
-	- Crop profile photos, instead of stretching them
 	- For logging, write the current spin to a file once it updates
 	- Make a little script on the Pi to clear the message history every 2 weeks - or maybe do it from within the dashboard - checking the date via modulus?
-	- Increase the resolution of the `No Texture Available` texture
 	- Use the max durations of Spinitron spins to reduce the number of API calls
 	- Add a 'no recent spins' message if no spins in the last 60 minutes
 - Fun ideas:
 	- Maybe give a retro theme to everything
 	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
-	- When the studio door opens and a show is over, display the expected person's name, saying 'welcome, _', until they scrobble any songs
 	- Different themes per each dashboard setup: wooden, garden, neon retro, frutiger aero, etc.
 	- Fall: leaves + drifting clouds over the screen, summer: shining run rays, spring: occasional rain with sun, winter: snow
-	- Subway Surfers gameplay somewhere on screen?
-- Misc:
-	- There is an initial screen flicker on MacOS upon startup (and randomly when running), for some reason
 */
 
 // https://gamedev.stackexchange.com/questions/137882/
