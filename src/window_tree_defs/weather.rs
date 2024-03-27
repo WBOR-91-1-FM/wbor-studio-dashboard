@@ -50,7 +50,7 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 	let inner_shared_state = shared_state.get_inner_value::<SharedWindowState>();
 
 	/*
-	// TODO: perhaps don't build request urls, just request objects directly
+	// TODO: perhaps don't build request urls, just build request objects directly
 	let url = request::build_url("https://api.openweathermap.org/data/2.5/weather",
 		&[],
 
@@ -83,7 +83,7 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 		main: Option<String>
 		// visibility: Option<i32>
 	}
-	// TODO: vary the wind things returned (may sometimes be rain)
+
 	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
 	struct WindDesc {
 		deg: Option<i32>,

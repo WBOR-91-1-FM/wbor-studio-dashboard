@@ -78,7 +78,7 @@ impl TextureSubpoolManager {
 		}
 	}
 
-	// TODO: will making the incoming texture `mut` stop further usage of it?
+	// TODO: would making the incoming texture `mut` stop further usage of it?
 	fn give_back_slot(&mut self, incoming_texture: &TextureHandle) {
 		if let Some(is_used) = self.subpool.get_mut(incoming_texture) {
 			// println!("(give back) checking {:?} for being used before", incoming_texture);
@@ -168,7 +168,7 @@ type Timezone = chrono::Utc; // This should not be changed (Twilio uses UTC by d
 type Timestamp = chrono::DateTime<Timezone>; // It seems like local time works too!
 type MessageAgeData = Option<(&'static str, &'static str, i64)>;
 
-// TODO: include caller ID, and an image, if sent?
+// TODO: should/could I include caller ID, and an image, if sent?
 #[derive(Clone)]
 struct MessageInfo {
 	age_data: MessageAgeData,

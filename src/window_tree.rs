@@ -175,6 +175,7 @@ impl Window {
 
 	////////// This is used for updating the texture of a window whose contents is a texture (but starts out as nothing)
 
+	// TODO: move this into `WindowContents` as an `impl`-ed function
 	pub fn update_texture_contents(
 		contents: &mut WindowContents,
 		should_remake: bool,

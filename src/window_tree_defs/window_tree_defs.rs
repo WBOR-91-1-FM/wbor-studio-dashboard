@@ -171,8 +171,6 @@ pub fn make_wbor_dashboard(
 		&all_model_windows_info, shared_update_rate
 	);
 
-	// TODO: make a temporary error window that pops up when needed (or log it somehow; but just handle it)
-
 	////////// Making some static texture windows
 
 	// TODO: make animated textures possible

@@ -87,7 +87,6 @@ pub fn make_spinitron_windows(
 			}
 		};
 
-		// TODO: see if threading will be needed for updating textures as well
 		Window::update_texture_contents(
 			window.get_contents_mut(),
 			true,
