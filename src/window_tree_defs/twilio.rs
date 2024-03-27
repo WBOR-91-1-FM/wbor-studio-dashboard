@@ -164,6 +164,8 @@ impl<V> SyncedMessageMap<V> {
 
 //////////
 
+// TODO: support texter blocking somehow (this code may turn out ugly to write; make it still work without the connected peripheral)
+
 type Timezone = chrono::Utc; // This should not be changed (Twilio uses UTC by default)
 type Timestamp = chrono::DateTime<Timezone>; // It seems like local time works too!
 type MessageAgeData = Option<(&'static str, &'static str, i64)>;

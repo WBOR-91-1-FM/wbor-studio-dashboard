@@ -34,7 +34,7 @@ use crate::{
 
 /* TODO:
 - Rename all `Possible` types to `Maybe`s (incl. the associated variable names) (and all `inner-prefixed` vars too)
-- Run `clippy`
+- Make plain texture creation less verbose through a wrapper function
 */
 
 ////////// This function loads the set of API keys

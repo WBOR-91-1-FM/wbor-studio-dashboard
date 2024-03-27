@@ -29,6 +29,7 @@ impl<T: Send + 'static> ThreadTask<T> {
 
 //////////
 
+// TODO: can I avoid using threads here, and just have an async function that runs in short bursts when you call `update`?
 pub trait Updatable {
 	fn update(&mut self) -> GenericResult<()>;
 }
