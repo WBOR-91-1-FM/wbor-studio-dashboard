@@ -57,8 +57,10 @@ pub trait SpinitronModel {
 			|url| {
 				let compiled_regexp = Regex::new(regexp).unwrap();
 
-				Some(if compiled_regexp.is_match(url) {if_matches(url)}
-				else {if_not(url)})
+				Some(
+					if compiled_regexp.is_match(url) {if_matches(url)}
+					else {if_not(url)}
+				)
 			},
 
 			make_fallback_for_no_url
