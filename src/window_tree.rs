@@ -66,10 +66,8 @@ pub struct PerFrameConstantRenderingParams<'a> {
 
 //////////
 
-// A color paired with a vec of interconnected line points
-
 pub type GeneralLine<T> = (ColorSDL, Vec<T>);
-pub type Line = (ColorSDL, Vec<Vec2f>);
+pub type Line = GeneralLine<Vec2f>;
 
 #[derive(Clone, PartialEq)]
 pub enum WindowContents {
