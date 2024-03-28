@@ -25,8 +25,8 @@ pub type TextTextureScrollFn = fn(f64, bool) -> (f64, bool);
 
 // TODO: make a constructor for this, instead of making everything `pub`.
 #[derive(Clone)]
-pub struct FontInfo<'a> {
-	pub path: &'a str,
+pub struct FontInfo {
+	pub path: &'static str, // TODO: support non-static paths for this
 	pub style: ttf::FontStyle,
 	pub hinting: ttf::Hinting
 }
@@ -49,7 +49,7 @@ pub struct TextDisplayInfo<'a> {
 pub enum TextureCreationInfo<'a> {
 	Path(Cow<'a, str>),
 	Url(Cow<'a, str>),
-	Text((&'a FontInfo<'a>, TextDisplayInfo<'a>))
+	Text((&'a FontInfo, TextDisplayInfo<'a>))
 }
 
 //////////
@@ -61,6 +61,7 @@ pub enum TextureCreationInfo<'a> {
 - TODO: perhaps when doing the remaking thing, pass the handle in as `mut`, even when the handle is not modified (would this help?). */
 
 type InnerTextureHandle = u16;
+type TextureCreator = render::TextureCreator<sdl2::video::WindowContext>;
 
 #[derive(Hash, Eq, PartialEq, Clone)] // TODO: remove `Clone`
 pub struct TextureHandle {
@@ -84,21 +85,20 @@ the `unsafe_textures` feature help this?
 */
 
 pub struct TexturePool<'a> {
+	max_texture_size: (u32, u32),
 	textures: Vec<Texture<'a>>,
-
-	// This maps texture handles of side-scrolling text textures to metadata about that scrolling text
-	text_metadata: HashMap<TextureHandle, SideScrollingTextMetadata>,
-
 	texture_creator: &'a TextureCreator,
+
+	//////////
+
 	ttf_context: &'a ttf::Sdl2TtfContext,
 
-	max_texture_size: (u32, u32)
+	// This maps font paths and point sizes to fonts (TODO: should I limit the cache size?)
+	font_cache: HashMap<(&'static str, u16), ttf::Font<'a, 'a>>,
+
+	// This maps texture handles of side-scrolling text textures to metadata about that scrolling text
+	text_metadata: HashMap<TextureHandle, SideScrollingTextMetadata>
 }
-
-//////////
-
-type TextureCreator = render::TextureCreator<sdl2::video::WindowContext>;
-type TextureHandleResult = GenericResult<TextureHandle>;
 
 //////////
 
@@ -108,16 +108,21 @@ type TextureHandleResult = GenericResult<TextureHandle>;
 - Would it make sense to make a trait called `TextureRenderingMethod` for normal textures and fonts? That might make this code cleaner
 */
 impl<'a> TexturePool<'a> {
+	const INITIAL_POINT_SIZE: u16 = 100;
+	const BLANK_TEXT_DEFAULT: &'static str = "<BLANK TEXT>";
+
 	pub fn new(texture_creator: &'a TextureCreator,
 		ttf_context: &'a ttf::Sdl2TtfContext,
 		max_texture_size: (u32, u32)) -> Self {
 
 		Self {
+			max_texture_size,
 			textures: Vec::new(),
-			text_metadata: HashMap::new(),
 			texture_creator,
+
 			ttf_context,
-			max_texture_size
+			text_metadata: HashMap::new(),
+			font_cache: HashMap::new()
 		}
 	}
 
@@ -205,15 +210,16 @@ impl<'a> TexturePool<'a> {
 		let time_since_unix_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 		let time_seed = (time_since_unix_epoch.as_millis() as f64 / 1000.0) * (dest_width as f64 / texture_size.0 as f64);
 
+		let mut x = texture_size.0;
+
 		let (scroll_fract, should_wrap) = (text_metadata.scroll_fn)(
-			time_seed, texture_size.0 <= dest_width
+			time_seed, x <= dest_width
 		);
 
 		assert_in_unit_interval(scroll_fract as f32);
 
 		//////////
 
-		let mut x = texture_size.0;
 		if !should_wrap {x -= dest_width;}
 
 		//////////
@@ -272,7 +278,7 @@ impl<'a> TexturePool<'a> {
 
 	//////////
 
-	pub fn make_texture(&mut self, creation_info: &TextureCreationInfo) -> TextureHandleResult {
+	pub fn make_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<TextureHandle> {
 		let handle = TextureHandle {handle: self.textures.len() as InnerTextureHandle};
 		let texture = self.make_raw_texture(creation_info)?;
 
@@ -311,7 +317,7 @@ impl<'a> TexturePool<'a> {
 		texture.set_blend_mode(blend_mode);
 	}
 
-	////////// TODO: eliminate the repetition here (inline? or make to a macro?)
+	////////// TODO: eliminate the repetition here (perhaps inline, or make to a macro - or is there some other way?)
 
 	fn get_texture_from_handle_mut(&mut self, handle: &TextureHandle) -> &mut Texture<'a> {
 		&mut self.textures[handle.handle as usize]
@@ -323,39 +329,56 @@ impl<'a> TexturePool<'a> {
 
 	//////////
 
-	fn get_font_with_processed_text(&self, font_info: &FontInfo,
-		text_display_info: &'a TextDisplayInfo) -> GenericResult<(ttf::Font, &'a str)> {
+	fn get_cached_font(&mut self, path: &'static str, point_size: u16,
+		maybe_options: Option<(ttf::FontStyle, &ttf::Hinting)>) -> &ttf::Font {
+
+		// TODO: don't unwrap
+		let font = self.font_cache.entry((path, point_size)).or_insert_with(|| {
+			self.ttf_context.load_font(path, point_size).unwrap()
+		});
+
+		if let Some(options) = maybe_options {
+			font.set_style(options.0);
+			font.set_hinting(options.1.clone());
+			// font.set_outline_width(options.2); // TODO: make an optional field for this
+		}
+
+		font
+	}
+
+	fn get_font_with_processed_text<'b>(
+		&mut self, font_info: &FontInfo,
+		text_display_info: &'b TextDisplayInfo)
+
+		-> GenericResult<(&'b ttf::Font, &'b str)> {
 
 		////////// First, getting a point size
 
-		// TODO: put these in a better place
-		const INITIAL_POINT_SIZE: u16 = 100;
-		const BLANK_TEXT_DEFAULT: &str = "<BLANK TEXT>";
-
 		// Blank text can't be rendered by SDL, so handling that here
-		let text = if text_display_info.text == "" {BLANK_TEXT_DEFAULT} else {&text_display_info.text};
+		let text = if text_display_info.text == "" {Self::BLANK_TEXT_DEFAULT} else {&text_display_info.text};
 
-		// TODO: cache the initial font and other font sizes (and perhaps limit the cache size somehow)
-		let initial_font = self.ttf_context.load_font(font_info.path, INITIAL_POINT_SIZE)?;
-		let initial_output_size = initial_font.size_of(text)?; // TODO: can/should I use a unicode variant for emoji rendering then?
+		let initial_font = self.get_cached_font(font_info.path, Self::INITIAL_POINT_SIZE, None);
+		let initial_output_size = initial_font.size_of(text)?; // TODO: can/should I use a unicode variant for emoji rendering then? And maybe only render the first character?
 
-		// TODO: cache the height ratio in a dict that maps a font name and size to a height ratio
+		// TODO: can I cache this height ratio for any text, or would it vary based on the text?
 		let height_ratio_from_expected_size = text_display_info.pixel_height as f64 / initial_output_size.1 as f64;
-		let adjusted_point_size = INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
+		let adjusted_point_size = Self::INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
 
-		// Flooring this makes the assertions at the end of this function always succeed on MacOS
+		// Flooring this makes the assertions at the end of `make_raw_texture` always succeed on MacOS
 		let nearest_point_size = adjusted_point_size as u16;
 
 		////////// Second, making a font
 
-		let mut font = self.ttf_context.load_font(font_info.path, nearest_point_size)?;
-		font.set_style(font_info.style);
-		font.set_hinting(font_info.hinting.clone());
+		let max_texture_width = self.max_texture_size.0;
+
+		let font = self.get_cached_font(
+			font_info.path, nearest_point_size,
+			Some((font_info.style, &font_info.hinting))
+		);
 
 		////////// Third, cutting the text if it becomes too long
 
 		let initial_texture_width = font.size_of(text)?.0;
-		let max_texture_width = self.max_texture_size.0;
 
 		let cut_text = if initial_texture_width > max_texture_width {
 			// println!("Cutting texture text because it is too long.");
@@ -391,12 +414,12 @@ impl<'a> TexturePool<'a> {
 			}
 
 			TextureCreationInfo::Text((font_info, text_display_info)) => {
-				let (font, processed_text) = self.get_font_with_processed_text(font_info, text_display_info)?;
-
 				////////// Making a surface
 
-				let partial_surface = font.render(processed_text);
-				let mut surface = partial_surface.blended(text_display_info.color)?;
+				let mut surface = {
+					let (font, processed_text) = self.get_font_with_processed_text(font_info, text_display_info)?;
+					font.render(processed_text).blended(text_display_info.color)?
+				};
 
 				////////// Accounting for the case where there is a very small amount of text, or the surface height doesn't match
 

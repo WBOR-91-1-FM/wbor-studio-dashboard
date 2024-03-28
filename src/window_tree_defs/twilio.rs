@@ -210,7 +210,7 @@ pub struct TwilioState<'a> {
 	texture_subpool_manager: TextureSubpoolManager,
 	id_to_texture_map: SyncedMessageMap<TextureHandle>, // TODO: integrate the subpool manager into this with the searching operations
 	historically_sorted_messages_by_id: Vec<MessageID>, // TODO: avoid resorting with smart insertions and deletions?
-	text_texture_creation_info_cache: Option<((u32, u32), &'a FontInfo<'a>, ColorSDL)>
+	text_texture_creation_info_cache: Option<((u32, u32), &'a FontInfo, ColorSDL)>
 }
 
 //////////

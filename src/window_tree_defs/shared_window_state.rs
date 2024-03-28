@@ -9,7 +9,7 @@ pub struct SharedWindowState<'a> {
 	pub spinitron_state: SpinitronState,
 	pub twilio_state: TwilioState<'a>,
 
-	pub font_info: &'a FontInfo<'a>,
+	pub font_info: &'a FontInfo,
 
 	// This is used whenever a texture can't be loaded
 	pub fallback_texture_creation_info: TextureCreationInfo<'a>,
