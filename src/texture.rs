@@ -348,7 +348,7 @@ impl<'a> TexturePool<'a> {
 
 				// TODO: cache the initial font and other font sizes
 				let initial_font = self.ttf_context.load_font(font_info.path, INITIAL_POINT_SIZE)?;
-				let initial_output_size = initial_font.size_of(text)?;
+				let initial_output_size = initial_font.size_of(text)?; // TODO: can/should I use a unicode variant for emoji rendering then?
 
 				// TODO: cache the height ratio in a dict that maps a font name and size to a height ratio
 				let height_ratio_from_expected_size = text_display_info.pixel_height as f64 / initial_output_size.1 as f64;
