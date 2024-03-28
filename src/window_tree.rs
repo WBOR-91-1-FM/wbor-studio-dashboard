@@ -205,10 +205,6 @@ impl Window {
 		&mut self.contents
 	}
 
-	pub fn drawing_is_skipped(&self) -> bool {
-		self.skip_drawing
-	}
-
 	pub fn set_draw_skipping(&mut self, skip_drawing: bool) {
 		self.skip_drawing = skip_drawing;
 	}
