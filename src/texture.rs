@@ -46,9 +46,6 @@ pub struct TextDisplayInfo<'a> {
 	pub pixel_height: u32
 }
 
-/* TODO: add options for possible color and alpha mods,
-and a blend mode (those would go in a struct around this enum).
-Or, make some functions to set these, given a handle. */
 #[derive(Clone)]
 pub enum TextureCreationInfo<'a> {
 	Path(Cow<'a, str>),
@@ -296,6 +293,23 @@ impl<'a> TexturePool<'a> {
 	}
 
 	// TODO: allow for texture deletion too
+
+	////////// TODO: use these
+
+	pub fn set_color_mod_for(&mut self, handle: &TextureHandle, r: u8, g: u8, b: u8) {
+		let texture = self.get_texture_from_handle_mut(handle);
+		texture.set_color_mod(r, g, b);
+	}
+
+	pub fn set_alpha_mod_for(&mut self, handle: &TextureHandle, a: u8) {
+		let texture = self.get_texture_from_handle_mut(handle);
+		texture.set_alpha_mod(a);
+	}
+
+	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, blend_mode: sdl2::render::BlendMode) {
+		let texture = self.get_texture_from_handle_mut(handle);
+		texture.set_blend_mode(blend_mode);
+	}
 
 	////////// TODO: eliminate the repetition here (inline? or make to a macro?)
 
