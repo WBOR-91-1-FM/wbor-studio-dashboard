@@ -1,10 +1,9 @@
-use std::borrow::Cow;
-use std::collections::HashMap;
-
-use sdl2::{self, ttf, render::{self, Texture}, rect::Rect, image::LoadTexture};
+use std::{borrow::Cow, collections::HashMap};
+use sdl2::{self, ttf, image::LoadTexture, rect::Rect, render::{self, Texture}};
 
 use crate::{
 	request,
+
 	window_tree::{CanvasSDL, ColorSDL},
 
 	utility_types::{
@@ -324,69 +323,79 @@ impl<'a> TexturePool<'a> {
 
 	//////////
 
+	fn get_font_with_processed_text(&self, font_info: &FontInfo,
+		text_display_info: &'a TextDisplayInfo) -> GenericResult<(ttf::Font, &'a str)> {
+
+		////////// First, getting a point size
+
+		// TODO: put these in a better place
+		const INITIAL_POINT_SIZE: u16 = 100;
+		const BLANK_TEXT_DEFAULT: &str = "<BLANK TEXT>";
+
+		// Blank text can't be rendered by SDL, so handling that here
+		let text = if text_display_info.text == "" {BLANK_TEXT_DEFAULT} else {&text_display_info.text};
+
+		// TODO: cache the initial font and other font sizes (and perhaps limit the cache size somehow)
+		let initial_font = self.ttf_context.load_font(font_info.path, INITIAL_POINT_SIZE)?;
+		let initial_output_size = initial_font.size_of(text)?; // TODO: can/should I use a unicode variant for emoji rendering then?
+
+		// TODO: cache the height ratio in a dict that maps a font name and size to a height ratio
+		let height_ratio_from_expected_size = text_display_info.pixel_height as f64 / initial_output_size.1 as f64;
+		let adjusted_point_size = INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
+
+		// Flooring this makes the assertions at the end of this function always succeed on MacOS
+		let nearest_point_size = adjusted_point_size as u16;
+
+		////////// Second, making a font
+
+		let mut font = self.ttf_context.load_font(font_info.path, nearest_point_size)?;
+		font.set_style(font_info.style);
+		font.set_hinting(font_info.hinting.clone());
+
+		////////// Third, cutting the text if it becomes too long
+
+		let initial_texture_width = font.size_of(text)?.0;
+		let max_texture_width = self.max_texture_size.0;
+
+		let cut_text = if initial_texture_width > max_texture_width {
+			// println!("Cutting texture text because it is too long.");
+
+			let ratio_over_max_width = max_texture_width as f64 / initial_texture_width as f64;
+			let amount_chars_to_keep = (text.len() as f64 * ratio_over_max_width) as usize;
+			let text_slice = &text[..amount_chars_to_keep];
+
+			let cut_texture_width = font.size_of(text_slice)?.0;
+			assert!(cut_texture_width <= max_texture_width);
+
+			text_slice
+		}
+		else {
+			text
+		};
+
+		////////// Fourth, returning the font and the processed text
+
+		Ok((font, cut_text))
+	}
+
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
 		let texture = match creation_info {
 			TextureCreationInfo::Path(path) => {
 				self.texture_creator.load_texture(path as &str)
 			},
 
-			// TODO: could I pass an optional texture-rescaling param here for the Spinitron spin textures here (instead of in the model logic?)
+			// TODO: could I pass an optional texture-rescaling param here for the Spinitron spin textures (instead of in the model logic?)
 			TextureCreationInfo::Url(url) => {
 				let response = request::get(url)?;
 				self.texture_creator.load_texture_bytes(response.as_bytes())
 			}
 
 			TextureCreationInfo::Text((font_info, text_display_info)) => {
-				// TODO: put these in a better place
-				const INITIAL_POINT_SIZE: u16 = 100;
-				const BLANK_TEXT_DEFAULT: &str = "<BLANK TEXT>";
-
-				////////// Calculating the correct font size
-
-				// Blank text can't be rendered by SDL, so handling that here
-				let text = if text_display_info.text == "" {BLANK_TEXT_DEFAULT} else {&text_display_info.text};
-
-				// TODO: cache the initial font and other font sizes
-				let initial_font = self.ttf_context.load_font(font_info.path, INITIAL_POINT_SIZE)?;
-				let initial_output_size = initial_font.size_of(text)?; // TODO: can/should I use a unicode variant for emoji rendering then?
-
-				// TODO: cache the height ratio in a dict that maps a font name and size to a height ratio
-				let height_ratio_from_expected_size = text_display_info.pixel_height as f64 / initial_output_size.1 as f64;
-				let adjusted_point_size = INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
-
-				// Flooring this makes the assertions at the end of this function always succeed
-				let nearest_point_size = adjusted_point_size as u16;
-
-				////////// Making a font
-
-				let mut font = self.ttf_context.load_font(font_info.path, nearest_point_size)?;
-				font.set_style(font_info.style);
-				font.set_hinting(font_info.hinting.clone());
-
-				////////// Cutting the text if it becomes too long (TODO: add an ellipsis instead, maybe?)
-
-				let initial_texture_width = font.size_of(text)?.0;
-				let max_texture_width = self.max_texture_size.0;
-
-				let cut_text = if initial_texture_width > max_texture_width {
-					// println!("Cutting texture text because it is too long.");
-
-					let ratio_over_max_width = max_texture_width as f64 / initial_texture_width as f64;
-					let amount_chars_to_keep = (text.len() as f64 * ratio_over_max_width) as usize;
-					let text_slice = &text[..amount_chars_to_keep];
-
-					let cut_texture_width = font.size_of(text_slice)?.0;
-					assert!(cut_texture_width <= max_texture_width);
-
-					text_slice
-				}
-				else {
-					text
-				};
+				let (font, processed_text) = self.get_font_with_processed_text(font_info, text_display_info)?;
 
 				////////// Making a surface
 
-				let partial_surface = font.render(cut_text);
+				let partial_surface = font.render(processed_text);
 				let mut surface = partial_surface.blended(text_display_info.color)?;
 
 				////////// Accounting for the case where there is a very small amount of text, or the surface height doesn't match
