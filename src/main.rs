@@ -75,7 +75,7 @@ enum ScreenOption {
 struct AppConfig<'a> {
 	name: &'a str,
 	icon_path: &'a str,
-	pause_subduration_ms_when_window_unfocused: u32,
+	maybe_pause_subduration_ms_when_window_unfocused: Option<u32>,
 
 	screen_option: ScreenOption,
 	hide_cursor: bool,
@@ -129,7 +129,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let app_config = AppConfig {
 		name: "WBOR Studio Dashboard",
 		icon_path: "assets/wbor_plane.bmp",
-		pause_subduration_ms_when_window_unfocused: 250,
+		maybe_pause_subduration_ms_when_window_unfocused: Some(250),
 
 		screen_option: ScreenOption::Windowed(800, 800, false, None),
 		// screen_option: ScreenOption::FullscreenDesktop,
@@ -271,8 +271,10 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		}
 
 		if pausing_window {
-			sdl_timer.delay(app_config.pause_subduration_ms_when_window_unfocused);
-			continue;
+			if let Some(pause_subduration_ms) = app_config.maybe_pause_subduration_ms_when_window_unfocused {
+				sdl_timer.delay(pause_subduration_ms);
+				continue;
+			}
 		}
 
 		//////////
