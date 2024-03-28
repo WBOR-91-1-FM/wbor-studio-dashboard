@@ -260,7 +260,7 @@ impl<'a> TexturePool<'a> {
 				let metadata = SideScrollingTextMetadata {
 					size: (query.width, query.height),
 					scroll_fn: text_display_info.scroll_fn,
-					text: text_display_info.text.to_string() // TODO: copy it with a reference count instead
+					text: text_display_info.text.to_string() // TODO: maybe copy it with a reference count instead?
 				};
 
 				self.text_metadata.insert(handle.clone(), metadata);
