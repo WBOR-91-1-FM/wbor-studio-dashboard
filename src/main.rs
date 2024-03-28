@@ -125,7 +125,8 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 
 	/* TODO: make this more configurable, somehow.
 	(maybe make a SDL window init fn, where I pass in state?)
-	Or, put it in a JSON file in `assets`, and then deserialize it here. */
+	Or, put it in a JSON file in `assets`, and then deserialize it here.
+	Also document the field layout in the README, once I've done that. */
 	let app_config = AppConfig {
 		name: "WBOR Studio Dashboard",
 		icon_path: "assets/wbor_plane.bmp",
