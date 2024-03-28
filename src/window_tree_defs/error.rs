@@ -43,7 +43,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 					inner_shared_state.font_info,
 
 					TextDisplayInfo {
-						text: Cow::Borrowed(&inner_curr_error),
+						text: Cow::Borrowed(inner_curr_error),
 						color: individual_state.text_color,
 
 						scroll_fn: |seed, _| {
