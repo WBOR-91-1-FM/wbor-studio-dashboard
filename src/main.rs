@@ -57,6 +57,7 @@ TODO:
 */
 
 // https://gamedev.stackexchange.com/questions/137882/
+#[derive(serde::Deserialize)]
 enum ScreenOption {
 	/* This runs it as a small app window, which can optionally
 	be borderless, and optionally be translucent too. */
@@ -72,24 +73,16 @@ enum ScreenOption {
 	Fullscreen
 }
 
-struct AppConfig<'a> {
-	name: &'a str,
-	icon_path: &'a str,
+#[derive(serde::Deserialize)]
+struct AppConfig {
+	title: String,
+	icon_path: String,
 	maybe_pause_subduration_ms_when_window_unfocused: Option<u32>,
 
 	screen_option: ScreenOption,
 	hide_cursor: bool,
 	use_linear_filtering: bool,
-	bg_color: window_tree::ColorSDL,
-
-	top_level_window_creator: fn(
-		&mut texture::TexturePool,
-		(u32, u32),
-		utility_types::update_rate::UpdateRateCreator
-	)
-		-> utility_types::generic_result::GenericResult<(
-			window_tree::Window, utility_types::dynamic_optional::DynamicOptional,
-			window_tree::PossibleSharedWindowStateUpdater)>
+	background_color: (u8, u8, u8)
 }
 
 fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
@@ -119,28 +112,8 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 */
 
 fn main() -> utility_types::generic_result::GenericResult<()> {
-	/* TODO: maybe artificially lower the FPS to reduce
-	stress on the Pi, if a high framerate isn't needed later on.
-	Maybe make the FPS equate with the highest poll rate, eventually? */
-
-	/* TODO: make this more configurable, somehow.
-	(maybe make a SDL window init fn, where I pass in state?)
-	Or, put it in a JSON file in `assets`, and then deserialize it here.
-	Also document the field layout in the README, once I've done that. */
-	let app_config = AppConfig {
-		name: "WBOR Studio Dashboard",
-		icon_path: "assets/wbor_plane.bmp",
-		maybe_pause_subduration_ms_when_window_unfocused: Some(250),
-
-		screen_option: ScreenOption::Windowed(800, 800, false, None),
-		// screen_option: ScreenOption::FullscreenDesktop,
-		// screen_option: ScreenOption::Fullscreen,
-
-		hide_cursor: true,
-		use_linear_filtering: true,
-		bg_color: window_tree::ColorSDL::RGB(50, 50, 50),
-		top_level_window_creator: window_tree_defs::window_tree_defs::make_wbor_dashboard
-	};
+	let app_config: AppConfig = utility_types::json_utils::load_from_file("assets/app_config.json")?;
+	let top_level_window_creator = window_tree_defs::dashboard::make_dashboard;
 
 	//////////
 
@@ -151,7 +124,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	use sdl2::video::WindowBuilder;
 
 	let build_window = |width: u32, height: u32, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
-		applier(&mut sdl_video_subsystem.window(app_config.name, width, height)).allow_highdpi().opengl().build();
+		applier(&mut sdl_video_subsystem.window(&app_config.title, width, height)).allow_highdpi().opengl().build();
 
 	let mut sdl_window = match app_config.screen_option {
 		ScreenOption::Windowed(width, height, borderless, _) => build_window(
@@ -234,7 +207,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 			shared_window_state_updater: None
 		};
 
-	let core_init_info = (app_config.top_level_window_creator)(
+	let core_init_info = (top_level_window_creator)(
 		&mut rendering_params.texture_pool, output_size, utility_types::update_rate::UpdateRateCreator::new(fps)
 	);
 
@@ -283,7 +256,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		// TODO: should I put this before event polling?
 		let sdl_performance_counter_before = sdl_timer.performance_counter();
 
-		rendering_params.sdl_canvas.set_draw_color(app_config.bg_color);
+		rendering_params.sdl_canvas.set_draw_color(app_config.background_color);
 		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
 
 		if let Err(err) = top_level_window.render(&mut rendering_params) {

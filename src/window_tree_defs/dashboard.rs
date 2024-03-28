@@ -2,11 +2,12 @@ use std::borrow::Cow;
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
-	spinitron::{model::SpinitronModelName, state::SpinitronState},
-
 	texture::{FontInfo, TextureCreationInfo, TexturePool},
 
+	spinitron::{model::SpinitronModelName, state::SpinitronState},
+
 	utility_types::{
+		json_utils,
 		vec2f::Vec2f,
 		generic_result::GenericResult,
 		dynamic_optional::DynamicOptional,
@@ -30,33 +31,25 @@ use crate::{
 	}
 };
 
-////////// TODO: maybe split `make_wbor_dashboard` into some smaller sub-functions
+////////// TODO: maybe split `make_dashboard` into some smaller sub-functions
 
 /* TODO:
 - Rename all `Possible` types to `Maybe`s (incl. the associated variable names) (and all `inner-prefixed` vars too)
 - Make plain texture creation less verbose through a wrapper function
 */
 
-////////// This function loads the set of API keys
-
-fn load_api_keys_json() -> GenericResult<serde_json::Value> {
-	const API_KEY_JSON_PATH: &str = "assets/api_keys.json";
-
-	let api_keys_file = match std::fs::read_to_string(API_KEY_JSON_PATH) {
-		Ok(contents) => Ok(contents),
-
-		Err(err) => Err(format!(
-			"The API key file at path '{API_KEY_JSON_PATH}' could not be found. Official error: '{err}'."
-		))
-	}?;
-
-	Ok(serde_json::from_str(&api_keys_file)?)
+#[derive(serde::Deserialize)]
+struct ApiKeys {
+	spinitron: String,
+	openweathermap: String,
+	twilio_account_sid: String,
+	twilio_auth_token: String
 }
 
 //////////
 
 // This returns a top-level window, shared window state, and a shared window state updater
-pub fn make_wbor_dashboard(
+pub fn make_dashboard(
 	texture_pool: &mut TexturePool,
 	sdl_window_size_in_pixels: (u32, u32),
 	update_rate_creator: UpdateRateCreator)
@@ -76,11 +69,7 @@ pub fn make_wbor_dashboard(
 
 	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
 	let shared_update_rate = update_rate_creator.new_instance(15.0);
-	let api_keys_json = load_api_keys_json()?;
-
-	let get_api_key = |name| -> GenericResult<&str> {
-		api_keys_json[name].as_str().ok_or_else(|| format!("Could not find the API key with the name '{name}' in the API key JSON").into())
-	};
+	let api_keys: ApiKeys = json_utils::load_from_file("assets/api_keys.json")?;
 
 	////////// Defining the Spinitron window extents
 
@@ -226,7 +215,7 @@ pub fn make_wbor_dashboard(
 		Vec2f::ZERO,
 		Vec2f::new_scalar(0.2),
 		&update_rate_creator,
-		get_api_key("openweathermap")?,
+		&api_keys.openweathermap,
 		"Brunswick",
 		"ME",
 		"US"
@@ -235,8 +224,8 @@ pub fn make_wbor_dashboard(
 	////////// Making a Twilio window
 
 	let twilio_state = TwilioState::new(
-		get_api_key("twilio_account_sid")?,
-		get_api_key("twilio_auth_token")?,
+		&api_keys.twilio_account_sid,
+		&api_keys.twilio_auth_token,
 		6,
 		chrono::Duration::try_hours(30).ok_or("Could not build message history duration!")?
 	);
@@ -334,7 +323,7 @@ pub fn make_wbor_dashboard(
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
 			clock_hands,
-			spinitron_state: SpinitronState::new(get_api_key("spinitron")?)?,
+			spinitron_state: SpinitronState::new(&api_keys.spinitron)?,
 			twilio_state,
 			font_info: &FONT_INFO,
 			fallback_texture_creation_info: TextureCreationInfo::Path(Cow::Borrowed("assets/wbor_no_texture_available.png")),
