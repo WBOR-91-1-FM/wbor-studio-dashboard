@@ -423,10 +423,12 @@ impl<'a> TexturePool<'a> {
 
 				////////// Accounting for the case where there is a very small amount of text, or the surface height doesn't match
 
+
 				// TODO: can I avoid doing right padding or bottom cutting if I just do a plain blit somehow from the rendering code?
 				let surface_is_too_short = surface.width() < text_display_info.max_pixel_width;
 				let text_height_doesnt_match = surface.height() != text_display_info.pixel_height;
 
+				// TODO: why is the text height so incorrect right now for fullscreen mode on Fedora?
 				if surface_is_too_short || text_height_doesnt_match {
 					let dimensions;
 
