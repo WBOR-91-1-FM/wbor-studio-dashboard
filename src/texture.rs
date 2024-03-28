@@ -106,6 +106,7 @@ type TextureHandleResult = GenericResult<TextureHandle>;
 /* TODO:
 - Can I make one megatexture, and just make handles point to a rect within it?
 - Perhaps make the fallback texture a property of the texture pool itself
+- Would it make sense to make a trait called `TextureRenderingMethod` for normal textures and fonts? That might make this code cleaner
 */
 impl<'a> TexturePool<'a> {
 	pub fn new(texture_creator: &'a TextureCreator,
