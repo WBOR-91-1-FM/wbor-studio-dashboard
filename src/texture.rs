@@ -306,7 +306,7 @@ impl<'a> TexturePool<'a> {
 		texture.set_alpha_mod(a);
 	}
 
-	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, blend_mode: sdl2::render::BlendMode) {
+	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, blend_mode: render::BlendMode) {
 		let texture = self.get_texture_from_handle_mut(handle);
 		texture.set_blend_mode(blend_mode);
 	}
