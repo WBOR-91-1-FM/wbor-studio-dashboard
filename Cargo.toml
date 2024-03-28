@@ -1,5 +1,5 @@
 [package]
-name = "wbor_studio_dashboard"
+name = "wbor-studio-dashboard"
 version = "0.1.0"
 edition = "2021"
 
