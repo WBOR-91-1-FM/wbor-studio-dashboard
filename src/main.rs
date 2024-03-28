@@ -39,7 +39,7 @@ TODO:
 	- Make a little script on the Pi to clear the message history every 2 weeks - or maybe do it from within the dashboard - checking the date via modulus?
 	- Use the max durations of Spinitron spins to reduce the number of API calls
 	- Add a 'no recent spins' message if there are no spins in the last 60 minutes
-	- Remove the `wbor` file prefixes in the `assets` folder
+	- Remove the `wbor` image file prefixes in the `assets` folder
 	- Finish the background image (vary it based on the theme?)
 	- Maybe make a custom OpenGL renderer (may be more performant). Tricky parts would be text rendering, and keping everything safe. Perhaps Vulkan instead? Or something more general?
 	- Make some functions const
