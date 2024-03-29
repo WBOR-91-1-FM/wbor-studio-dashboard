@@ -334,9 +334,9 @@ impl<'a> TexturePool<'a> {
 		maybe_options: Option<&FontInfo>) -> &ttf::Font {
 
 		// TODO: don't unwrap
-		let font = self.font_cache.entry((path, point_size)).or_insert_with(|| {
-			self.ttf_context.load_font(path, point_size).unwrap()
-		});
+		let font = self.font_cache.entry((path, point_size)).or_insert_with(
+			|| self.ttf_context.load_font(path, point_size).unwrap()
+		);
 
 		if let Some(options) = maybe_options {
 			font.set_style(options.style);
