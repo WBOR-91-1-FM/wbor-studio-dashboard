@@ -319,7 +319,7 @@ pub fn make_dashboard(
 	);
 
 	fn shared_window_state_updater(state: &mut DynamicOptional, texture_pool: &mut TexturePool) -> GenericResult<()> {
-		let state = state.get_inner_value_mut::<SharedWindowState>();
+		let state = state.get_mut::<SharedWindowState>();
 
 		let mut error = None;
 

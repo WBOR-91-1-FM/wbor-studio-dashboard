@@ -30,7 +30,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 	}
 
 	pub fn error_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
-		let inner_shared_state = params.shared_window_state.get_inner_value::<SharedWindowState>();
+		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 		let individual_state = params.window.get_state::<ErrorWindowState>();
 
 		let (curr_error, cached_error) = (

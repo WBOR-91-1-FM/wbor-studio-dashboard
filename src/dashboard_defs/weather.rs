@@ -48,7 +48,7 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
 	*/
 
 	// let individual_window_state = window.get_state::<WeatherWindowState>();
-	let inner_shared_state = params.shared_window_state.get_inner_value::<SharedWindowState>();
+	let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 
 	/*
 	// TODO: perhaps don't build request urls, just build request objects directly

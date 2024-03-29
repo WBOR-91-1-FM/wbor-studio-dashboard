@@ -48,7 +48,7 @@ pub fn make_spinitron_windows(
 	model_update_rate: UpdateRate) -> Vec<Window> {
 
 	fn spinitron_model_window_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
-		let inner_shared_state = params.shared_window_state.get_inner_value::<SharedWindowState>();
+		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 		let spinitron_state = &inner_shared_state.spinitron_state;
 
 		let individual_window_state = params.window.get_state::<SpinitronModelWindowState>();

@@ -533,7 +533,7 @@ pub fn make_twilio_window(
 	let max_num_messages_in_history = twilio_state.continually_updated.get_data().immutable.max_num_messages_in_history;
 
 	fn history_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
-		let inner_shared_state = params.shared_window_state.get_inner_value_mut::<SharedWindowState>();
+		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 		let twilio_state = &mut inner_shared_state.twilio_state;
 		let individual_window_state = params.window.get_state::<TwilioHistoryWindowState>();
 		let sorted_message_ids = &twilio_state.historically_sorted_messages_by_id;
@@ -604,7 +604,7 @@ pub fn make_twilio_window(
 	//////////
 
 	fn top_box_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
-		let inner_shared_state = params.shared_window_state.get_inner_value_mut::<SharedWindowState>();
+		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 		let twilio_state = inner_shared_state.twilio_state.continually_updated.get_data();
 		let text_color = *params.window.get_state::<ColorSDL>();
 

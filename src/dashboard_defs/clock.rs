@@ -90,9 +90,8 @@ impl ClockHands {
 				(curr_time.hour() % 12, 12)
 			];
 
-			let inner_shared_window_state = params.shared_window_state.get_inner_value::<SharedWindowState>();
-
-			let clock_hands = &inner_shared_window_state.clock_hands;
+			let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
+			let clock_hands = &inner_shared_state.clock_hands;
 
 			let clock_hands_as_list: [&RawClockHand; NUM_CLOCK_HANDS] = [
 				&clock_hands.milliseconds, &clock_hands.seconds, &clock_hands.minutes, &clock_hands.hours

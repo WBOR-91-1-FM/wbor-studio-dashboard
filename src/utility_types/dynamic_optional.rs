@@ -20,9 +20,7 @@ impl DynamicOptional {
 		);
 	}
 
-	// TODO: impl some `Into` functions for this, instead of the ugly `get_inner_value`
-
-	pub fn get_inner_value<T: 'static>(&self) -> &T {
+	pub fn get<T: 'static>(&self) -> &T {
 		if let Some(boxed_inner_value) = &self.inner {
 			if let Some(value) = boxed_inner_value.downcast_ref::<T>() {
 				return value;
@@ -31,7 +29,7 @@ impl DynamicOptional {
 		DynamicOptional::fail_for_inner_access::<T>()
 	}
 
-	pub fn get_inner_value_mut<T: 'static>(&mut self) -> &mut T {
+	pub fn get_mut<T: 'static>(&mut self) -> &mut T {
 		if let Some(boxed_inner_value) = &mut self.inner {
 			if let Some(value) = boxed_inner_value.downcast_mut::<T>() {
 				return value;

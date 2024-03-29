@@ -193,11 +193,11 @@ impl Window {
 	////////// Some getters and setters
 
 	pub fn get_state<T: 'static>(&self) -> &T {
-		self.state.get_inner_value()
+		self.state.get()
 	}
 
 	pub fn get_state_mut<T: 'static>(&mut self) -> &mut T {
-		self.state.get_inner_value_mut()
+		self.state.get_mut()
 	}
 
 	pub fn get_contents(&self) -> &WindowContents {
