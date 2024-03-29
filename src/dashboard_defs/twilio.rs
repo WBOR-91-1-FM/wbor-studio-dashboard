@@ -532,16 +532,16 @@ pub fn make_twilio_window(
 
 	let max_num_messages_in_history = twilio_state.continually_updated.get_data().immutable.max_num_messages_in_history;
 
-	fn history_updater_fn((window, _, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
-		let inner_shared_state = shared_state.get_inner_value_mut::<SharedWindowState>();
+	fn history_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
+		let inner_shared_state = params.shared_window_state.get_inner_value_mut::<SharedWindowState>();
 		let twilio_state = &mut inner_shared_state.twilio_state;
-		let individual_window_state = window.get_state::<TwilioHistoryWindowState>();
+		let individual_window_state = params.window.get_state::<TwilioHistoryWindowState>();
 		let sorted_message_ids = &twilio_state.historically_sorted_messages_by_id;
 
 		// Filling the text texture creation info cache
 		if twilio_state.text_texture_creation_info_cache.is_none() {
 			twilio_state.text_texture_creation_info_cache = Some((
-				(area_drawn_to_screen.width(), area_drawn_to_screen.height()),
+				(params.area_drawn_to_screen.width(), params.area_drawn_to_screen.height()),
 				inner_shared_state.font_info,
 				individual_window_state.text_color
 			));
@@ -553,14 +553,14 @@ pub fn make_twilio_window(
 
 			// If this condition is not met, that means that the created texture is still pending
 			if let Some(message_texture) = twilio_state.id_to_texture_map.map.get(message_id) {
-				*window.get_contents_mut() = WindowContents::Texture(message_texture.clone());
+				*params.window.get_contents_mut() = WindowContents::Texture(message_texture.clone());
 			}
 			else {
 				panic!("A message texture was not allocated when it should have been!");
 			}
 		}
 		else {
-			*window.get_contents_mut() = WindowContents::Nothing;
+			*params.window.get_contents_mut() = WindowContents::Nothing;
 		}
 
 		Ok(())
@@ -603,12 +603,12 @@ pub fn make_twilio_window(
 
 	//////////
 
-	fn top_box_updater_fn((window, texture_pool, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
-		let inner_shared_state = shared_state.get_inner_value_mut::<SharedWindowState>();
+	fn top_box_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
+		let inner_shared_state = params.shared_window_state.get_inner_value_mut::<SharedWindowState>();
 		let twilio_state = inner_shared_state.twilio_state.continually_updated.get_data();
-		let text_color = *window.get_state::<ColorSDL>();
+		let text_color = *params.window.get_state::<ColorSDL>();
 
-		let WindowContents::Many(many) = window.get_contents_mut()
+		let WindowContents::Many(many) = params.window.get_contents_mut()
 		else {panic!("The top box for Twilio did not contain a vec of contents!");};
 
 		if let WindowContents::Nothing = many[1] {
@@ -636,12 +636,12 @@ pub fn make_twilio_window(
 					text: Cow::Owned(format!("  Messages to {country_code} ({area_code}) {telephone_prefix}-{line_number}:")),
 					color: text_color,
 					scroll_fn: |_, _| (0.0, true),
-					max_pixel_width: area_drawn_to_screen.width(),
-					pixel_height: area_drawn_to_screen.height()
+					max_pixel_width: params.area_drawn_to_screen.width(),
+					pixel_height: params.area_drawn_to_screen.height()
 				}
 			));
 
-			many[1] = WindowContents::Texture(texture_pool.make_texture(&texture_creation_info)?);
+			many[1] = WindowContents::Texture(params.texture_pool.make_texture(&texture_creation_info)?);
 		}
 
 		Ok(())

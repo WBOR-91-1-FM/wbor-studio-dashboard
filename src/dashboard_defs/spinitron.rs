@@ -47,23 +47,21 @@ pub fn make_spinitron_windows(
 	all_model_windows_info: &[SpinitronModelWindowsInfo; NUM_SPINITRON_MODEL_TYPES],
 	model_update_rate: UpdateRate) -> Vec<Window> {
 
-	fn spinitron_model_window_updater_fn((window, texture_pool,
-		shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
-
-		let inner_shared_state: &SharedWindowState = shared_state.get_inner_value();
+	fn spinitron_model_window_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
+		let inner_shared_state = params.shared_window_state.get_inner_value::<SharedWindowState>();
 		let spinitron_state = &inner_shared_state.spinitron_state;
 
-		let individual_window_state: &SpinitronModelWindowState = window.get_state();
+		let individual_window_state = params.window.get_state::<SpinitronModelWindowState>();
 		let model_name = individual_window_state.model_name;
 
 		let should_update_texture =
 			spinitron_state.model_was_updated(model_name) ||
-			&WindowContents::Nothing == window.get_contents();
+			&WindowContents::Nothing == params.window.get_contents();
 
 		if !should_update_texture {return Ok(());}
 
 		let model = spinitron_state.get_model_by_name(model_name);
-		let window_size_pixels = (area_drawn_to_screen.width(), area_drawn_to_screen.height());
+		let window_size_pixels = (params.area_drawn_to_screen.width(), params.area_drawn_to_screen.height());
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			TextureCreationInfo::Text((
@@ -87,9 +85,9 @@ pub fn make_spinitron_windows(
 			}
 		};
 
-		window.get_contents_mut().update_as_texture(
+		params.window.get_contents_mut().update_as_texture(
 			true,
-			texture_pool,
+			params.texture_pool,
 			&texture_creation_info,
 			&inner_shared_state.fallback_texture_creation_info
 		)

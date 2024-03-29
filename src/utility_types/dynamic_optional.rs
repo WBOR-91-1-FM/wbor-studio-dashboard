@@ -20,6 +20,8 @@ impl DynamicOptional {
 		);
 	}
 
+	// TODO: impl some `Into` functions for this, instead of the ugly `get_inner_value`
+
 	pub fn get_inner_value<T: 'static>(&self) -> &T {
 		if let Some(boxed_inner_value) = &self.inner {
 			if let Some(value) = boxed_inner_value.downcast_ref::<T>() {

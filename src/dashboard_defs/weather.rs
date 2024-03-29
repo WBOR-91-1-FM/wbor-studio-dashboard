@@ -34,7 +34,7 @@ struct WeatherWindowState {
 	location: String
 }
 
-pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_screen): WindowUpdaterParams) -> GenericResult<()> {
+pub fn weather_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
 	let weather_changed = true;
 	let weather_string = "Rain (32f). So cold. ";
 	let weather_text_color = ColorSDL::BLACK;
@@ -48,7 +48,7 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 	*/
 
 	// let individual_window_state = window.get_state::<WeatherWindowState>();
-	let inner_shared_state = shared_state.get_inner_value::<SharedWindowState>();
+	let inner_shared_state = params.shared_window_state.get_inner_value::<SharedWindowState>();
 
 	/*
 	// TODO: perhaps don't build request urls, just build request objects directly
@@ -159,14 +159,14 @@ pub fn weather_updater_fn((window, texture_pool, shared_state, area_drawn_to_scr
 				(1.0 - base_scroll, true)
 			},
 
-			max_pixel_width: area_drawn_to_screen.width(),
-			pixel_height: area_drawn_to_screen.height()
+			max_pixel_width: params.area_drawn_to_screen.width(),
+			pixel_height: params.area_drawn_to_screen.height()
 		}
 	));
 
-	window.get_contents_mut().update_as_texture(
+	params.window.get_contents_mut().update_as_texture(
 		weather_changed,
-		texture_pool,
+		params.texture_pool,
 		&texture_creation_info,
 		&inner_shared_state.fallback_texture_creation_info
 	)

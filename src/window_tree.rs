@@ -36,12 +36,12 @@ impl From<FRect> for Rect {
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
-pub type WindowUpdaterParams<'a, 'b, 'c, 'd> = (
-	&'a mut Window,
-	&'b mut TexturePool<'c>,
-	&'d mut DynamicOptional, // This is the state that is shared among windows (TODO: reduce how much is kept in here)
-	Rect // The area on the screen that the window is drawn to
-);
+pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
+	pub window: &'a mut Window,
+	pub texture_pool: &'b mut TexturePool<'c>,
+	pub shared_window_state: &'d mut DynamicOptional,
+	pub area_drawn_to_screen: Rect
+}
 
 // TODO: genericize these two over one typedef
 
@@ -274,7 +274,12 @@ impl Window {
 
 		if let Some((updater, update_rate)) = self.possible_updater {
 			if update_rate.is_time_to_update(rendering_params.frame_counter) {
-				updater((self, &mut rendering_params.texture_pool, &mut rendering_params.shared_window_state, rect_in_pixels_sdl))?;
+				updater(WindowUpdaterParams {
+					window: self,
+					texture_pool: &mut rendering_params.texture_pool,
+					shared_window_state: &mut rendering_params.shared_window_state,
+					area_drawn_to_screen: rect_in_pixels_sdl
+				})?;
 			}
 		}
 

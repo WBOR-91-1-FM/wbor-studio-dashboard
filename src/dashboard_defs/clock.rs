@@ -80,7 +80,7 @@ impl ClockHands {
 		dial_texture_path: &str,
 		texture_pool: &mut TexturePool) -> GenericResult<(Self, Window)> {
 
-		fn updater_fn((window, _, shared_window_state, _): WindowUpdaterParams) -> GenericResult<()> {
+		fn updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
 			let curr_time = Local::now();
 
 			let time_units: [(u32, u32); NUM_CLOCK_HANDS] = [
@@ -90,7 +90,7 @@ impl ClockHands {
 				(curr_time.hour() % 12, 12)
 			];
 
-			let inner_shared_window_state: &SharedWindowState = shared_window_state.get_inner_value();
+			let inner_shared_window_state: &SharedWindowState = params.shared_window_state.get_inner_value();
 
 			let clock_hands = &inner_shared_window_state.clock_hands;
 
@@ -98,7 +98,7 @@ impl ClockHands {
 				&clock_hands.milliseconds, &clock_hands.seconds, &clock_hands.minutes, &clock_hands.hours
 			];
 
-			let WindowContents::Many(all_contents) = window.get_contents_mut()
+			let WindowContents::Many(all_contents) = params.window.get_contents_mut()
 			else {panic!("The clock's window contents was expected to be a list!")};
 
 			let WindowContents::Lines(rotated_hands) = &mut all_contents[1]
