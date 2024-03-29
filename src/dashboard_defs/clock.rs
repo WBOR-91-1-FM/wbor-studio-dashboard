@@ -90,7 +90,7 @@ impl ClockHands {
 				(curr_time.hour() % 12, 12)
 			];
 
-			let inner_shared_window_state: &SharedWindowState = params.shared_window_state.get_inner_value();
+			let inner_shared_window_state = params.shared_window_state.get_inner_value::<SharedWindowState>();
 
 			let clock_hands = &inner_shared_window_state.clock_hands;
 
