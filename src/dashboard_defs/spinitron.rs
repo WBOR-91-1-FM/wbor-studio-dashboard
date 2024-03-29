@@ -20,7 +20,7 @@ use crate::{
 		PossibleWindowUpdater
 	},
 
-	window_tree_defs::shared_window_state::SharedWindowState
+	dashboard_defs::shared_window_state::SharedWindowState
 };
 
 struct SpinitronModelWindowState {

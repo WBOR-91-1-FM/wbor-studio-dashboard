@@ -25,7 +25,7 @@ use crate::{
         WindowUpdaterParams
 	},
 
-	window_tree_defs::shared_window_state::SharedWindowState
+	dashboard_defs::shared_window_state::SharedWindowState
 };
 
 // TODO: fill this with stuff

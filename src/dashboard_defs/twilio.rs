@@ -11,7 +11,7 @@ use crate::{
 		thread_task::{ContinuallyUpdated, Updatable}
 	},
 
-	window_tree_defs::shared_window_state::SharedWindowState,
+	dashboard_defs::shared_window_state::SharedWindowState,
 	window_tree::{ColorSDL, Window, WindowContents, WindowUpdaterParams},
 	texture::{FontInfo, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool}
 };

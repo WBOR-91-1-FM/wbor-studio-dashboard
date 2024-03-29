@@ -17,7 +17,7 @@ use crate::{
 		WindowUpdaterParams
 	},
 
-	window_tree_defs::shared_window_state::SharedWindowState
+	dashboard_defs::shared_window_state::SharedWindowState
 };
 
 // TODO: maybe replace this with the SDL message box?

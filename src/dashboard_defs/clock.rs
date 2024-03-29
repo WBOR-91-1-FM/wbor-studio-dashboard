@@ -15,7 +15,7 @@ use crate::{
 		dynamic_optional::DynamicOptional
 	},
 
-    window_tree_defs::shared_window_state::SharedWindowState
+	dashboard_defs::shared_window_state::SharedWindowState
 };
 
 use chrono::{Local, Timelike};

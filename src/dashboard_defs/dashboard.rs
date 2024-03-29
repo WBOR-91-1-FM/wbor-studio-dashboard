@@ -21,7 +21,7 @@ use crate::{
 		PossibleSharedWindowStateUpdater
 	},
 
-	window_tree_defs::{
+	dashboard_defs::{
 		error::make_error_window,
 		weather::make_weather_window,
 		shared_window_state::SharedWindowState,

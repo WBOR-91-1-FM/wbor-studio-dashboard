@@ -3,7 +3,7 @@ mod texture;
 mod spinitron;
 mod window_tree;
 mod utility_types;
-mod window_tree_defs;
+mod dashboard_defs;
 
 /*
 Worked from this in the beginning: https://blog.logrocket.com/using-sdl2-bindings-rust/
@@ -113,7 +113,7 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 
 fn main() -> utility_types::generic_result::GenericResult<()> {
 	let app_config: AppConfig = utility_types::json_utils::load_from_file("assets/app_config.json")?;
-	let top_level_window_creator = window_tree_defs::dashboard::make_dashboard;
+	let top_level_window_creator = dashboard_defs::dashboard::make_dashboard;
 
 	//////////
 
