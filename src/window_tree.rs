@@ -353,6 +353,7 @@ impl Window {
 				WindowContents::Texture(texture) => {
 					let texture_pool = &rendering_params.texture_pool;
 
+					// TODO: do I have to modify this for `area_drawn_to_screen`, so that Spinitron spins can have the right texture size?
 					let final_screen_dest_sdl = if skip_aspect_ratio_correction || texture_pool.is_text_texture(texture) {
 						screen_dest
 					}
