@@ -3,8 +3,8 @@
 	"icon_path": "assets/wbor_plane.bmp",
 	"maybe_pause_subduration_ms_when_window_unfocused": 250,
 
-	"screen_option": {"Windowed": [800, 600, false, null]},
-	"option 2": "FullscreenDesktop",
+	"option 1": {"Windowed": [800, 600, false, null]},
+	"screen_option": "FullscreenDesktop",
 	"option 3": "Fullscreen",
 
 	"hide_cursor": true,
