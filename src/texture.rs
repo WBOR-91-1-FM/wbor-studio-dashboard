@@ -127,6 +127,17 @@ impl<'a> TexturePool<'a> {
 		}
 	}
 
+	pub fn is_text_texture(&self, handle: &TextureHandle) -> bool {
+		self.text_metadata.contains_key(handle)
+	}
+
+	// TODO: cache this
+	pub fn get_aspect_ratio_for(&self, handle: &TextureHandle) -> f32 {
+		let texture = self.get_texture_from_handle(handle);
+		let query = texture.query();
+		query.width as f32 / query.height as f32
+	}
+
 	/*
 	pub fn size(&self) -> usize {
 		self.textures.len()
@@ -188,6 +199,7 @@ impl<'a> TexturePool<'a> {
 	- Add an option for not scrolling text (a fixed string that never changes)
 	- Would it be possible to manipulate the canvas scale to be able to only pass normalized coordinates to the renderer?
 	- Make the scroll effect something common?
+	- Use `copy_ex` eventually, and the special canvas functions for things like rounded rectangles
 	*/
 	pub fn draw_texture_to_canvas(&self, handle: &TextureHandle,
 		canvas: &mut CanvasSDL, screen_dest: Rect) -> GenericResult<()> {
@@ -376,7 +388,7 @@ impl<'a> TexturePool<'a> {
 		let max_texture_width = self.max_texture_size.0;
 
 		let font = self.get_cached_font(
-			font_info.path, nearest_point_size, Some(&font_info)
+			font_info.path, nearest_point_size, Some(font_info)
 		);
 
 		////////// Third, cutting the text if it becomes too long
@@ -391,6 +403,8 @@ impl<'a> TexturePool<'a> {
 			let text_slice = &text[..amount_chars_to_keep];
 
 			let cut_texture_width = font.size_of(text_slice)?.0;
+
+			// TODO: why does this fail for a screen resolution of 500 by 2524 on MacOS?
 			assert!(cut_texture_width <= max_texture_width);
 
 			text_slice

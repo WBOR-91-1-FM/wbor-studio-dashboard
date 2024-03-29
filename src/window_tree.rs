@@ -128,6 +128,8 @@ pub struct Window {
 	contents: WindowContents,
 
 	skip_drawing: bool,
+	skip_aspect_ratio_correction: bool,
+
 	maybe_border_color: Option<ColorSDL>,
 
 	// TODO: Make a fn to move a window in some direction (in a FPS-independent way)
@@ -181,6 +183,7 @@ impl Window {
 		Self {
 			possible_updater, state, contents,
 			skip_drawing: false,
+			skip_aspect_ratio_correction: false,
 			maybe_border_color,
 			top_left, size,
 			children: none_if_children_vec_is_empty
@@ -209,6 +212,10 @@ impl Window {
 		self.skip_drawing = skip_drawing;
 	}
 
+	pub fn set_aspect_ratio_correction_skipping(&mut self, skip_aspect_ratio_correction: bool) {
+		self.skip_aspect_ratio_correction = skip_aspect_ratio_correction;
+	}
+
 	////////// These are the window rendering functions (both public and private)
 
 	pub fn render(&mut self, rendering_params: &mut PerFrameConstantRenderingParams) -> GenericResult<()> {
@@ -219,6 +226,24 @@ impl Window {
 
 	fn transform_vec2_to_parent_scale(v: Vec2f, parent_rect: FRect) -> (f32, f32) {
 		(v.x() * parent_rect.width + parent_rect.x, v.y() * parent_rect.height + parent_rect.y)
+	}
+
+	fn get_centered_subrect_with_aspect_ratio(orig_rect: FRect, aspect_ratio: f32) -> FRect {
+		let original_aspect_ratio = orig_rect.width / orig_rect.height;
+
+		let (width, height) = if aspect_ratio > original_aspect_ratio {
+			(orig_rect.width, (orig_rect.width / aspect_ratio))
+		}
+		else {
+			((orig_rect.height * aspect_ratio), orig_rect.height)
+		};
+
+		FRect {
+			x: orig_rect.x + (orig_rect.width - width) * 0.5,
+			y: orig_rect.y + (orig_rect.height - height) * 0.5,
+			width,
+			height
+		}
 	}
 
 	fn inner_render(&mut self,
@@ -254,7 +279,7 @@ impl Window {
 		}
 
 		if !self.skip_drawing {
-			self.draw_window_contents(rendering_params, rect_in_pixels, rect_in_pixels_sdl)?;
+			self.draw_window_contents(rendering_params, rect_in_pixels, rect_in_pixels_sdl, self.skip_aspect_ratio_correction)?;
 		}
 
 		////////// Updating all child windows
@@ -271,7 +296,8 @@ impl Window {
 	fn draw_window_contents(
 		&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
-		screen_dest: FRect, screen_dest_sdl: Rect) -> GenericResult<()> {
+		screen_dest: FRect, screen_dest_sdl: Rect,
+		skip_aspect_ratio_correction: bool) -> GenericResult<()> {
 
 		////////// A function for drawing colors with transparency, and one for drawing the window contents
 
@@ -294,23 +320,24 @@ impl Window {
 
 		fn inner_draw_window_contents(
 			contents: &WindowContents, rendering_params: &mut PerFrameConstantRenderingParams,
-			screen_dest: FRect, screen_dest_sdl: Rect) -> GenericResult<()> {
+			screen_dest: FRect, screen_dest_sdl: Rect,
+			skip_aspect_ratio_correction: bool) -> GenericResult<()> {
 
 			let sdl_canvas = &mut rendering_params.sdl_canvas;
 
 			match contents {
 				WindowContents::Nothing => {},
 
-				WindowContents::Color(color) => {
-					possibly_draw_with_transparency(color, sdl_canvas, |canvas| Ok(canvas.fill_rect(screen_dest_sdl)?))?;
-				},
+				WindowContents::Color(color) =>
+					possibly_draw_with_transparency(color, sdl_canvas, |canvas| Ok(canvas.fill_rect(screen_dest_sdl)?))?,
 
 				WindowContents::Lines(line_series) => {
 					use sdl2::rect::Point as PointSDL;
 
 					for series in line_series {
 						let converted_series: Vec<PointSDL> = series.1.iter().map(|&point| {
-							let xy = Window::transform_vec2_to_parent_scale(point, screen_dest);
+							let parent = Window::get_centered_subrect_with_aspect_ratio(screen_dest, 1.0);
+							let xy = Window::transform_vec2_to_parent_scale(point, parent);
 							PointSDL::new(xy.0 as i32, xy.1 as i32)
 						}).collect();
 
@@ -324,12 +351,25 @@ impl Window {
 				/* TODO: eliminate the partially black border around
 				the opaque areas of textures with alpha values */
 				WindowContents::Texture(texture) => {
-					rendering_params.texture_pool.draw_texture_to_canvas(texture, sdl_canvas, screen_dest_sdl)?;
+					let texture_pool = &rendering_params.texture_pool;
+
+					let final_screen_dest_sdl = if skip_aspect_ratio_correction || texture_pool.is_text_texture(texture) {
+						screen_dest
+					}
+					else {
+						let texture_aspect_ratio = texture_pool.get_aspect_ratio_for(texture);
+						Window::get_centered_subrect_with_aspect_ratio(screen_dest, texture_aspect_ratio)
+					};
+
+					texture_pool.draw_texture_to_canvas(texture, sdl_canvas, final_screen_dest_sdl.into())?;
 				},
 
 				WindowContents::Many(many) => {
 					for nested_contents in many {
-						inner_draw_window_contents(nested_contents, rendering_params, screen_dest, screen_dest_sdl)?;
+						inner_draw_window_contents(
+							nested_contents, rendering_params, screen_dest,
+							screen_dest_sdl, skip_aspect_ratio_correction
+						)?;
 					}
 				}
 			};
@@ -337,7 +377,10 @@ impl Window {
 			Ok(())
 		}
 
-		inner_draw_window_contents(&self.contents, rendering_params, screen_dest, screen_dest_sdl)?;
+		inner_draw_window_contents(
+			&self.contents, rendering_params,
+			screen_dest, screen_dest_sdl, skip_aspect_ratio_correction
+		)?;
 
 		//////////
 

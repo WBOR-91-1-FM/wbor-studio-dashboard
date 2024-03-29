@@ -33,7 +33,6 @@ TODO:
 	- Render a text drop shadow
 	- Set more rendering hints later on, if needed (beyond just the scale quality)
 	- Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
-	- If possible, figure out how to use the extra wasted space lost when doing aspect ratio correction
 	- Run the dashboard on a PVM, or an original iMac, eventually?
 	- For logging, write the current spin to a file once it updates
 	- Make a little script on the Pi to clear the message history every 2 weeks - or maybe do it from within the dashboard - checking the date via modulus?
@@ -193,7 +192,6 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 	let texture_creator = sdl_canvas.texture_creator();
 
 	let fps = sdl_video_subsystem.current_display_mode(0)?.refresh_rate as u32;
-	let output_size = sdl_canvas.output_size()?;
 
 	let sdl_renderer_info = sdl_canvas.info();
 	let max_texture_size = (sdl_renderer_info.max_texture_width, sdl_renderer_info.max_texture_height);
@@ -208,7 +206,7 @@ fn main() -> utility_types::generic_result::GenericResult<()> {
 		};
 
 	let core_init_info = (top_level_window_creator)(
-		&mut rendering_params.texture_pool, output_size, utility_types::update_rate::UpdateRateCreator::new(fps)
+		&mut rendering_params.texture_pool, utility_types::update_rate::UpdateRateCreator::new(fps)
 	);
 
 	let (mut top_level_window, shared_window_state, shared_window_state_updater) =

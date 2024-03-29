@@ -587,7 +587,7 @@ pub fn make_twilio_window(
 		);
 
 		// This is just the history window with the background contents
-		Window::new(
+		let mut with_background_contents = Window::new(
 			None,
 			DynamicOptional::NONE,
 			message_background_contents.clone(),
@@ -595,7 +595,10 @@ pub fn make_twilio_window(
 			Vec2f::new(0.0, history_window_height * i as f32),
 			Vec2f::new(1.0, history_window_height),
 			Some(vec![history_window])
-		)
+		);
+
+		with_background_contents.set_aspect_ratio_correction_skipping(true);
+		with_background_contents
 	}).collect();
 
 	//////////
@@ -644,6 +647,8 @@ pub fn make_twilio_window(
 		Ok(())
 	}
 
+	//////////
+
 	let top_box = Window::new(
 		Some((top_box_updater_fn, update_rate)),
 		DynamicOptional::new(text_color),
@@ -653,8 +658,6 @@ pub fn make_twilio_window(
 		Vec2f::new(size.x(), top_box_height),
 		None
 	);
-
-	//////////
 
 	// This just contains the history windows
 	let history_window_container = Window::new(
