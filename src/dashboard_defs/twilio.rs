@@ -5,10 +5,10 @@ use crate::{
 	request,
 
 	utility_types::{
-		generic_result::GenericResult,
 		dynamic_optional::DynamicOptional,
 		update_rate::UpdateRate, vec2f::Vec2f,
-		thread_task::{ContinuallyUpdated, Updatable}
+		thread_task::{ContinuallyUpdated, Updatable},
+		generic_result::{GenericResult, MaybeError}
 	},
 
 	dashboard_defs::shared_window_state::SharedWindowState,
@@ -65,7 +65,7 @@ impl TextureSubpoolManager {
 	fn re_request_slot(&mut self,
 		incoming_texture: &TextureHandle,
 		texture_creation_info: &TextureCreationInfo,
-		texture_pool: &mut TexturePool) -> GenericResult<()> {
+		texture_pool: &mut TexturePool) -> MaybeError {
 
 		if let Some(is_used) = self.subpool.get(incoming_texture) {
 			// println!("(re-request) checking {:?} for being used before", incoming_texture);
@@ -125,7 +125,7 @@ impl<V> SyncedMessageMap<V> {
 		// TODO: make the output an enum too (would that be a dependent type?); perhaps via a mutable output parameter
 		mut syncer: impl FnMut(SyncedMessageMapAction<'_, V, OffshoreV>) -> GenericResult<Option<V>>)
 
-		-> GenericResult<()> {
+		-> MaybeError {
 
 		let local = &mut self.map;
 		let offshore = &offshore_map.map;
@@ -287,7 +287,7 @@ impl TwilioStateData {
 }
 
 impl Updatable for TwilioStateData {
-	fn update(&mut self) -> GenericResult<()> {
+	fn update(&mut self) -> MaybeError {
 		////////// Making a request, and getting a response
 
 		let curr_time = Timezone::now();
@@ -532,7 +532,7 @@ pub fn make_twilio_window(
 
 	let max_num_messages_in_history = twilio_state.continually_updated.get_data().immutable.max_num_messages_in_history;
 
-	fn history_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
+	fn history_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 		let twilio_state = &mut inner_shared_state.twilio_state;
 		let individual_window_state = params.window.get_state::<TwilioHistoryWindowState>();
@@ -603,7 +603,7 @@ pub fn make_twilio_window(
 
 	//////////
 
-	fn top_box_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
+	fn top_box_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 		let twilio_state = inner_shared_state.twilio_state.continually_updated.get_data();
 		let text_color = *params.window.get_state::<ColorSDL>();

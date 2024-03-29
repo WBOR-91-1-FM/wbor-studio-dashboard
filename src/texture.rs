@@ -7,8 +7,8 @@ use crate::{
 	window_tree::{CanvasSDL, ColorSDL},
 
 	utility_types::{
-		generic_result::GenericResult,
-		vec2f::assert_in_unit_interval
+		vec2f::assert_in_unit_interval,
+		generic_result::{GenericResult, MaybeError}
 	}
 };
 
@@ -205,7 +205,7 @@ impl<'a> TexturePool<'a> {
 	- Use `copy_ex` eventually, and the special canvas functions for things like rounded rectangles
 	*/
 	pub fn draw_texture_to_canvas(&self, handle: &TextureHandle,
-		canvas: &mut CanvasSDL, screen_dest: Rect) -> GenericResult<()> {
+		canvas: &mut CanvasSDL, screen_dest: Rect) -> MaybeError {
 
 		let texture = self.get_texture_from_handle(handle);
 		let possible_text_metadata = self.text_metadata.get(handle);
@@ -305,7 +305,7 @@ impl<'a> TexturePool<'a> {
 	}
 
 	// TODO: if possible, update the texture in-place instead (if they occupy the amount of space, or less)
-	pub fn remake_texture(&mut self, creation_info: &TextureCreationInfo, handle: &TextureHandle) -> GenericResult<()> {
+	pub fn remake_texture(&mut self, creation_info: &TextureCreationInfo, handle: &TextureHandle) -> MaybeError {
 		let new_texture = self.make_raw_texture(creation_info)?;
 
 		self.possibly_update_text_metadata(&new_texture, handle, creation_info);

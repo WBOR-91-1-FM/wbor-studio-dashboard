@@ -1,6 +1,6 @@
 use std::thread;
 use std::sync::mpsc;
-use crate::utility_types::generic_result::{self, GenericResult, SendableGenericResult};
+use crate::utility_types::generic_result::{self, {GenericResult, MaybeError}, SendableGenericResult};
 
 struct ThreadTask<T> {
 	thread_receiver: mpsc::Receiver<T>
@@ -31,7 +31,7 @@ impl<T: Send + 'static> ThreadTask<T> {
 
 // TODO: can I avoid using threads here, and just have an async function that runs in short bursts when you call `update`?
 pub trait Updatable {
-	fn update(&mut self) -> GenericResult<()>;
+	fn update(&mut self) -> MaybeError;
 }
 
 pub struct ContinuallyUpdated<T> {

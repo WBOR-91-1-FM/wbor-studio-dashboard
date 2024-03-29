@@ -13,7 +13,7 @@ use crate::{
 
 	utility_types::{
 		vec2f::Vec2f,
-		generic_result::GenericResult,
+		generic_result::MaybeError,
         dynamic_optional::DynamicOptional,
 		update_rate::{UpdateRateCreator, Seconds}
 	},
@@ -34,7 +34,7 @@ struct WeatherWindowState {
 	location: String
 }
 
-pub fn weather_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
+pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let weather_changed = true;
 	let weather_string = "Rain (32f). So cold. ";
 	let weather_text_color = ColorSDL::BLACK;

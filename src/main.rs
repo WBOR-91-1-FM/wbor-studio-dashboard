@@ -110,7 +110,7 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 }
 */
 
-fn main() -> utility_types::generic_result::GenericResult<()> {
+fn main() -> utility_types::generic_result::MaybeError {
 	let app_config: AppConfig = utility_types::json_utils::load_from_file("assets/app_config.json")?;
 	let top_level_window_creator = dashboard_defs::dashboard::make_dashboard;
 

@@ -8,7 +8,7 @@ use crate::{
 	utility_types::{
 		vec2f::Vec2f,
 		update_rate::UpdateRate,
-		generic_result::GenericResult,
+		generic_result::MaybeError,
 		dynamic_optional::DynamicOptional
 	},
 
@@ -47,7 +47,7 @@ pub fn make_spinitron_windows(
 	all_model_windows_info: &[SpinitronModelWindowsInfo; NUM_SPINITRON_MODEL_TYPES],
 	model_update_rate: UpdateRate) -> Vec<Window> {
 
-	fn spinitron_model_window_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
+	fn spinitron_model_window_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 		let spinitron_state = &inner_shared_state.spinitron_state;
 

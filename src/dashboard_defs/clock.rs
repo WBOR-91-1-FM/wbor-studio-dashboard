@@ -11,8 +11,8 @@ use crate::{
 	utility_types::{
 		vec2f::Vec2f,
 		update_rate::UpdateRate,
-		generic_result::GenericResult,
-		dynamic_optional::DynamicOptional
+		dynamic_optional::DynamicOptional,
+		generic_result::{GenericResult, MaybeError}
 	},
 
 	dashboard_defs::shared_window_state::SharedWindowState
@@ -80,7 +80,7 @@ impl ClockHands {
 		dial_texture_path: &str,
 		texture_pool: &mut TexturePool) -> GenericResult<(Self, Window)> {
 
-		fn updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
+		fn updater_fn(params: WindowUpdaterParams) -> MaybeError {
 			let curr_time = Local::now();
 
 			let time_units: [(u32, u32); NUM_CLOCK_HANDS] = [

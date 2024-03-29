@@ -6,7 +6,7 @@ use crate::{
 	utility_types::{
 		vec2f::Vec2f,
 		update_rate::UpdateRate,
-		generic_result::GenericResult,
+		generic_result::MaybeError,
 		dynamic_optional::DynamicOptional
 	},
 
@@ -29,7 +29,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 		text_color: ColorSDL
 	}
 
-	pub fn error_updater_fn(params: WindowUpdaterParams) -> GenericResult<()> {
+	pub fn error_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 		let individual_state = params.window.get_state::<ErrorWindowState>();
 

@@ -1,6 +1,6 @@
 use crate::{
 	utility_types::{
-		generic_result::GenericResult,
+		generic_result::{GenericResult, MaybeError},
 		thread_task::{Updatable, ContinuallyUpdated}
 	},
 
@@ -69,7 +69,7 @@ impl SpinitronStateData {
 }
 
 impl Updatable for SpinitronStateData {
-	fn update(&mut self) -> GenericResult<()> {
+	fn update(&mut self) -> MaybeError {
 		let api_key = &self.api_key;
 		let new_spin = get_curr_spin(api_key)?;
 

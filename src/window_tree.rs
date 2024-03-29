@@ -3,7 +3,7 @@ use sdl2::{self, rect::Rect};
 use crate::{
 	utility_types::{
 		vec2f::Vec2f,
-		generic_result::GenericResult,
+		generic_result::MaybeError,
 		dynamic_optional::DynamicOptional,
 		update_rate::{UpdateRate, FrameCounter}
 	},
@@ -46,12 +46,12 @@ pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
 // TODO: genericize these two over one typedef
 
 pub type PossibleWindowUpdater = Option<(
-	fn(WindowUpdaterParams) -> GenericResult<()>,
+	fn(WindowUpdaterParams) -> MaybeError,
 	UpdateRate
 )>;
 
 pub type PossibleSharedWindowStateUpdater = Option<(
-	fn(&mut DynamicOptional, &mut TexturePool) -> GenericResult<()>,
+	fn(&mut DynamicOptional, &mut TexturePool) -> MaybeError,
 	UpdateRate
 )>;
 
@@ -86,7 +86,7 @@ impl WindowContents {
 		should_remake: bool,
 		texture_pool: &mut TexturePool,
 		texture_creation_info: &TextureCreationInfo,
-		fallback_texture_creation_info: &TextureCreationInfo) -> GenericResult<()> {
+		fallback_texture_creation_info: &TextureCreationInfo) -> MaybeError {
 
 		/* This is a macro for making or remaking a texture. If making or
 		remaking fails, a fallback texture is put into that texture's slot. */
@@ -218,7 +218,7 @@ impl Window {
 
 	////////// These are the window rendering functions (both public and private)
 
-	pub fn render(&mut self, rendering_params: &mut PerFrameConstantRenderingParams) -> GenericResult<()> {
+	pub fn render(&mut self, rendering_params: &mut PerFrameConstantRenderingParams) -> MaybeError {
 		let output_size = rendering_params.sdl_canvas.output_size()?;
 		let sdl_window_bounds = FRect {x: 0.0, y: 0.0, width: output_size.0 as f32, height: output_size.1 as f32};
 		self.inner_render(rendering_params, sdl_window_bounds)
@@ -248,7 +248,7 @@ impl Window {
 
 	fn inner_render(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
-		parent_rect: FRect) -> GenericResult<()> {
+		parent_rect: FRect) -> MaybeError {
 
 		////////// Getting the new pixel-space bounding box for this window
 
@@ -302,13 +302,13 @@ impl Window {
 		&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
 		screen_dest: FRect, screen_dest_sdl: Rect,
-		skip_aspect_ratio_correction: bool) -> GenericResult<()> {
+		skip_aspect_ratio_correction: bool) -> MaybeError {
 
 		////////// A function for drawing colors with transparency, and one for drawing the window contents
 
 		fn possibly_draw_with_transparency(color: &ColorSDL,
-			sdl_canvas: &mut CanvasSDL, mut drawer: impl FnMut(&mut CanvasSDL) -> GenericResult<()>)
-			-> GenericResult<()> {
+			sdl_canvas: &mut CanvasSDL, mut drawer: impl FnMut(&mut CanvasSDL) -> MaybeError)
+			-> MaybeError {
 
 			use sdl2::render::BlendMode;
 
@@ -326,7 +326,7 @@ impl Window {
 		fn inner_draw_window_contents(
 			contents: &WindowContents, rendering_params: &mut PerFrameConstantRenderingParams,
 			screen_dest: FRect, screen_dest_sdl: Rect,
-			skip_aspect_ratio_correction: bool) -> GenericResult<()> {
+			skip_aspect_ratio_correction: bool) -> MaybeError {
 
 			let sdl_canvas = &mut rendering_params.sdl_canvas;
 

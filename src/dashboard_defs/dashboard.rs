@@ -9,8 +9,8 @@ use crate::{
 	utility_types::{
 		json_utils,
 		vec2f::Vec2f,
-		generic_result::GenericResult,
 		dynamic_optional::DynamicOptional,
+		generic_result::{GenericResult, MaybeError},
 		update_rate::{UpdateRate, UpdateRateCreator}
 	},
 
@@ -318,7 +318,7 @@ pub fn make_dashboard(
 		}
 	);
 
-	fn shared_window_state_updater(state: &mut DynamicOptional, texture_pool: &mut TexturePool) -> GenericResult<()> {
+	fn shared_window_state_updater(state: &mut DynamicOptional, texture_pool: &mut TexturePool) -> MaybeError {
 		let state = state.get_mut::<SharedWindowState>();
 
 		let mut error = None;
