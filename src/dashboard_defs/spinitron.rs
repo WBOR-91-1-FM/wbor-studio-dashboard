@@ -97,6 +97,7 @@ pub fn make_spinitron_windows(
 
 	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
 
+	// TODO: perhaps for making multiple model windows, allow for an option to have sub-model-windows
 	all_model_windows_info.iter().flat_map(|general_info| {
 		let mut output_windows = Vec::new();
 
