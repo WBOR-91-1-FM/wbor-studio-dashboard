@@ -28,7 +28,8 @@ pub type TextTextureScrollFn = fn(f64, bool) -> (f64, bool);
 pub struct FontInfo {
 	pub path: &'static str, // TODO: support non-static paths for this
 	pub style: ttf::FontStyle,
-	pub hinting: ttf::Hinting
+	pub hinting: ttf::Hinting,
+	pub maybe_outline_width: Option<u16>
 }
 
 // TODO: make a constructor for this, instead of making everything `pub`.
@@ -330,7 +331,7 @@ impl<'a> TexturePool<'a> {
 	//////////
 
 	fn get_cached_font(&mut self, path: &'static str, point_size: u16,
-		maybe_options: Option<(ttf::FontStyle, &ttf::Hinting)>) -> &ttf::Font {
+		maybe_options: Option<&FontInfo>) -> &ttf::Font {
 
 		// TODO: don't unwrap
 		let font = self.font_cache.entry((path, point_size)).or_insert_with(|| {
@@ -338,9 +339,12 @@ impl<'a> TexturePool<'a> {
 		});
 
 		if let Some(options) = maybe_options {
-			font.set_style(options.0);
-			font.set_hinting(options.1.clone());
-			// font.set_outline_width(options.2); // TODO: make an optional field for this
+			font.set_style(options.style);
+			font.set_hinting(options.hinting.clone());
+
+			if let Some(outline_width) = options.maybe_outline_width {
+				font.set_outline_width(outline_width);
+			}
 		}
 
 		font
@@ -372,8 +376,7 @@ impl<'a> TexturePool<'a> {
 		let max_texture_width = self.max_texture_size.0;
 
 		let font = self.get_cached_font(
-			font_info.path, nearest_point_size,
-			Some((font_info.style, &font_info.hinting))
+			font_info.path, nearest_point_size, Some(&font_info)
 		);
 
 		////////// Third, cutting the text if it becomes too long

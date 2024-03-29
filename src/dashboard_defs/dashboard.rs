@@ -61,7 +61,8 @@ pub fn make_dashboard(
 	const FONT_INFO: FontInfo = FontInfo {
 		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
 		style: FontStyle::NORMAL,
-		hinting: Hinting::Normal
+		hinting: Hinting::Normal,
+		maybe_outline_width: None
 	};
 
 	let top_bar_window_size_y = 0.1;
