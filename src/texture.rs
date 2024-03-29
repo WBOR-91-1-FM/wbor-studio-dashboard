@@ -402,10 +402,18 @@ impl<'a> TexturePool<'a> {
 			// println!("Cutting texture text because it is too long.");
 
 			let ratio_over_max_width = max_texture_width as f64 / initial_texture_width as f64;
-			let amount_chars_to_keep = (text.len() as f64 * ratio_over_max_width) as usize;
-			let text_slice = &text[..amount_chars_to_keep];
+			let mut amount_chars_to_keep = (text.len() as f64 * ratio_over_max_width) as usize;
+			let mut text_slice = &text[..amount_chars_to_keep];
 
-			let cut_texture_width = font.size_of(text_slice)?.0;
+			let mut cut_texture_width = font.size_of(text_slice)?.0;
+
+			/* In case cutting the texture doesn't fully work, just cut off the
+			tail characters until it works (TODO: make more efficient) */
+			while cut_texture_width > max_texture_width {
+				amount_chars_to_keep -= 1;
+				text_slice = &text[..amount_chars_to_keep];
+				cut_texture_width = font.size_of(text_slice)?.0;
+			}
 
 			// TODO: why does this fail for a screen resolution of 500 by 2524 on MacOS?
 			assert!(cut_texture_width <= max_texture_width);
