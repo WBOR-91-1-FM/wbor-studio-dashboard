@@ -159,6 +159,9 @@ impl<'a> TexturePool<'a> {
 
 		//////////
 
+		/* TODO: why does this bug still happen on MacOS with the multi-monitor setup?
+		Perhaps from monitor shutoff -> app moves to being displayed on the laptop screen -> resolution change?
+		Test this overnight with no automatic standby, and with automatic standby, to track the time at which this happened. */
 		let how_much_wider_the_texture_is_than_its_screen_dest =
 			texture_size.0 as i32 - screen_dest.width() as i32;
 
