@@ -314,7 +314,7 @@ pub fn make_dashboard(
 			twilio_state,
 			font_info: &FONT_INFO,
 			fallback_texture_creation_info: TextureCreationInfo::Path(Cow::Borrowed("assets/wbor_no_texture_available.png")),
-			dashboard_error: None
+			curr_dashboard_error: None
 		}
 	);
 
@@ -345,7 +345,7 @@ pub fn make_dashboard(
 			*inner_error += "! ";
 		}
 
-		state.dashboard_error = error;
+		state.curr_dashboard_error = error;
 
 		Ok(())
 	}

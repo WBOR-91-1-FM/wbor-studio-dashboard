@@ -34,7 +34,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 		let individual_state = window.get_state::<ErrorWindowState>();
 
 		let (curr_error, cached_error) = (
-			&inner_shared_state.dashboard_error, &individual_state.prev_error
+			&inner_shared_state.curr_dashboard_error, &individual_state.prev_error
 		);
 
 		// This means that the error changed (or disappeared)!
