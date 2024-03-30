@@ -12,7 +12,7 @@ TODO:
 
 - Features:
 	- Avoid screen burn-in somehow on non-dynamic parts of the screen (ideas below):
-		- Shut off at night
+		- Shut off at night (or just for a few hours)
 		- Screensavers
 		- Layout swap (move screen elements around with a rapid or smooth animation) (do once every 15 minutes or so?)
 		- Theme swap (instant or gradual) (based on things like weather, season, time of day, holiday, simple dark/light mode for day/night)
