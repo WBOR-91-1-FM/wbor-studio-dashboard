@@ -69,6 +69,7 @@ pub struct PerFrameConstantRenderingParams<'a> {
 pub type GeneralLine<T> = (ColorSDL, Vec<T>);
 pub type Line = GeneralLine<Vec2f>;
 
+// TODO: make the border color a part of this
 #[derive(Clone, PartialEq)]
 pub enum WindowContents {
 	Nothing,
@@ -284,7 +285,12 @@ impl Window {
 		}
 
 		if !self.skip_drawing {
-			self.draw_window_contents(rendering_params, rect_in_pixels, rect_in_pixels_sdl, self.skip_aspect_ratio_correction)?;
+			self.draw_window_contents(
+				rendering_params,
+				rect_in_pixels,
+				rect_in_pixels_sdl,
+				self.skip_aspect_ratio_correction
+			)?;
 		}
 
 		////////// Updating all child windows
