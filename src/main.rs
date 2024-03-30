@@ -53,6 +53,7 @@ TODO:
 	- Show the album history on the bookshelf
 	- Make Nathan Fielder pop up sometimes (at a random time, for a random amount of time, saying something random, e.g. "Hey. I'm proud of you.")
 	- Put my name somewhere in a corner on the dashboard
+	- Flash recent text messages with some other color (or make them red, maybe?)
 */
 
 // https://gamedev.stackexchange.com/questions/137882/
