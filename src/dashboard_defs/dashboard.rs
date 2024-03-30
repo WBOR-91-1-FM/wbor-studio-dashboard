@@ -213,7 +213,7 @@ pub fn make_dashboard(
 
 	let weather_window = make_weather_window(
 		Vec2f::ZERO,
-		Vec2f::new_scalar(0.2),
+		Vec2f::new(0.4, 0.3),
 		&update_rate_creator,
 		&api_keys.openweathermap,
 		"Brunswick",
