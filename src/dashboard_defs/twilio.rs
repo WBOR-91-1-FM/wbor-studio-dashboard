@@ -175,7 +175,7 @@ type MessageAgeData = Option<(&'static str, &'static str, i64)>;
 struct MessageInfo {
 	age_data: MessageAgeData,
 	display_text: String,
-	from: String,
+	maybe_from: Option<String>, // This is `None` if the message identity is hidden
 	body: String,
 	time_sent: Timestamp,
 	time_loaded_by_app: Timestamp, // This includes sub-second precision, while the time sent above does not
@@ -186,7 +186,8 @@ struct ImmutableTwilioStateData {
 	account_sid: String,
 	request_auth: String,
 	max_num_messages_in_history: usize,
-	message_history_duration: chrono::Duration
+	message_history_duration: chrono::Duration,
+	reveal_texter_identities: bool
 }
 
 #[derive(Clone)]
@@ -218,7 +219,8 @@ pub struct TwilioState<'a> {
 impl TwilioStateData {
 	fn new(account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
-		message_history_duration: chrono::Duration) -> Self {
+		message_history_duration: chrono::Duration,
+		reveal_texter_identities: bool) -> Self {
 
 		use base64::{engine::general_purpose::STANDARD, Engine};
 		let request_auth_base64 = STANDARD.encode(format!("{account_sid}:{auth_token}"));
@@ -228,7 +230,8 @@ impl TwilioStateData {
 				account_sid: account_sid.to_string(),
 				request_auth: "Basic ".to_string() + &request_auth_base64,
 				max_num_messages_in_history,
-				message_history_duration
+				message_history_duration,
+				reveal_texter_identities
 			}),
 
 			curr_messages: SyncedMessageMap::new(max_num_messages_in_history)
@@ -276,12 +279,29 @@ impl TwilioStateData {
 		None
 	}
 
-	fn make_message_display_text(age_data: MessageAgeData, body: &str) -> String {
-		if let Some((unit_name, plural_suffix, unit_amount)) = age_data {
+	fn format_phone_number(number: &str, before: &str, after_1: &str, after_2: &str) -> String {
+		let (country_code, area_code, telephone_prefix, line_number) = (
+			&number[0..2], &number[2..5], &number[5..8], &number[8..12]
+		);
+
+		format!("{before}{country_code} ({area_code}) {telephone_prefix}-{line_number}{after_1}{after_2}")
+	}
+
+	fn make_message_display_text(age_data: MessageAgeData, body: &str, maybe_from: Option<&str>) -> String {
+		let display_text = if let Some((unit_name, plural_suffix, unit_amount)) = age_data {
 			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}'. ")
 		}
 		else {
 			format!("Right now: '{body}'. ")
+		};
+
+		//////////
+
+		if let Some(from) = maybe_from {
+			Self::format_phone_number(from, "From ", ", ", &display_text)
+		}
+		else {
+			display_text
 		}
 	}
 }
@@ -334,7 +354,14 @@ impl Updatable for TwilioStateData {
 							(id.into(), Timezone::now())
 						};
 
-					Some((id_on_heap, (message_field("from"), message_field("body"), time_sent, time_loaded_by_app)))
+					let maybe_from = if self.immutable.reveal_texter_identities {
+						Some(message_field("from"))
+					}
+					else {
+						None
+					};
+
+					Some((id_on_heap, (maybe_from, message_field("body"), time_sent, time_loaded_by_app)))
 				}
 				else {
 					None
@@ -359,19 +386,29 @@ impl Updatable for TwilioStateData {
 						curr_message.just_updated = age_data != curr_message.age_data;
 
 						if curr_message.just_updated {
-							curr_message.display_text = Self::make_message_display_text(age_data, &curr_message.body);
+							curr_message.display_text = Self::make_message_display_text(
+								age_data, &curr_message.body, curr_message.maybe_from.as_deref()
+							);
+
 							curr_message.age_data = age_data;
 						}
 					},
 
-					SyncedMessageMapAction::MakeLocalFromOffshore((from, body, wrongly_typed_time_sent, time_loaded_by_app)) => {
+					SyncedMessageMapAction::MakeLocalFromOffshore((maybe_from, body, wrongly_typed_time_sent, time_loaded_by_app)) => {
 						let time_sent = (*wrongly_typed_time_sent).into();
 						let age_data = Self::get_message_age_data(curr_time, time_sent);
 
+						let boxed_maybe_from = if let Some(from) = maybe_from {
+							Some(from.to_string())
+						}
+						else {
+							None
+						};
+
 						return Ok(Some(MessageInfo {
 							age_data,
-							display_text: Self::make_message_display_text(age_data, body),
-							from: from.to_string(),
+							display_text: Self::make_message_display_text(age_data, body, *maybe_from),
+							maybe_from: boxed_maybe_from,
 							body: body.to_string(),
 							time_sent,
 							time_loaded_by_app: *time_loaded_by_app,
@@ -392,11 +429,12 @@ impl TwilioState<'_> {
 	pub fn new(
 		account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
-		message_history_duration: chrono::Duration) -> Self {
+		message_history_duration: chrono::Duration,
+		reveal_texter_identities: bool) -> Self {
 
 		let data = TwilioStateData::new(
 			account_sid, auth_token, max_num_messages_in_history,
-			message_history_duration
+			message_history_duration, reveal_texter_identities
 		);
 
 		Self {
@@ -626,15 +664,11 @@ pub fn make_twilio_window(
 
 			//////////
 
-			let (country_code, area_code, telephone_prefix, line_number) = (
-				&number[0..2], &number[2..5], &number[5..8], &number[8..12]
-			);
-
 			let texture_creation_info = TextureCreationInfo::Text((
 				inner_shared_state.font_info,
 
 				TextDisplayInfo {
-					text: Cow::Owned(format!("  Messages to {country_code} ({area_code}) {telephone_prefix}-{line_number}:")),
+					text: Cow::Owned(TwilioStateData::format_phone_number(number, " Messages to ", ":", "")),
 					color: text_color,
 					scroll_fn: |_, _| (0.0, true),
 					max_pixel_width: params.area_drawn_to_screen.0,
