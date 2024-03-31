@@ -11,10 +11,11 @@ use crate::{
 
 pub const NUM_SPINITRON_MODEL_TYPES: usize = 4;
 
-// TODO: make these lazy-static regexps (find a matching lazy-static version from another package); or compile them at compile-time somehow
-const SPIN_IMAGE_SIZE_REGEXP_PATTERN: &str = r#"\d+x\d+"#;
-const SPIN_IMAGE_REGEXP_PATTERN: &str = r#"^https:\/\/.+\d+x\d+bb.jpg$"#;
-const DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP_PATTERN: &str = r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#;
+lazy_static::lazy_static!(
+	static ref SPIN_IMAGE_SIZE_REGEXP: Regex = Regex::new(r#"\d+x\d+bb"#).unwrap();
+	static ref SPIN_IMAGE_REGEXP: Regex = Regex::new(r#"^https:\/\/.+\d+x\d+bb.+$"#).unwrap();
+	static ref DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP: Regex = Regex::new(r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#).unwrap();
+);
 
 ////////// This is a set of model-related traits
 
@@ -45,7 +46,7 @@ pub trait SpinitronModel {
 		maybe_url: &'a Option<String>,
 		make_fallback_for_no_url: impl FnOnce() -> MaybeTextureCreationInfo<'a>,
 
-		regexp: &str,
+		regexp: &Regex,
 		if_matches: impl FnOnce(&'a str) -> TextureCreationInfo<'a>,
 		if_not: impl FnOnce(&'a str) -> TextureCreationInfo<'a>)
 
@@ -55,10 +56,8 @@ pub trait SpinitronModel {
 			maybe_url,
 
 			|url| {
-				let compiled_regexp = Regex::new(regexp).unwrap();
-
 				Some(
-					if compiled_regexp.is_match(url) {if_matches(url)}
+					if regexp.is_match(url) {if_matches(url)}
 					else {if_not(url)}
 				)
 			},
@@ -74,7 +73,7 @@ pub trait SpinitronModel {
 
 		Self::evaluate_model_image_url_with_regexp(url,
 			|| None,
-			DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP_PATTERN,
+			&DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP,
 
 			// If it matches the default pattern, use the no-persona or no-show image
 			|_| TextureCreationInfo::Path(Cow::Borrowed(image_for_no_persona_or_show)),
@@ -107,11 +106,10 @@ impl SpinitronModel for Spin {
 	fn get_texture_creation_info(&self, (texture_width, texture_height): (u32, u32)) -> MaybeTextureCreationInfo {
 		Self::evaluate_model_image_url_with_regexp(&self.image,
 			|| None,
-			SPIN_IMAGE_REGEXP_PATTERN,
+			&SPIN_IMAGE_REGEXP,
 
 			|url| {
-				let size_pattern = Regex::new(SPIN_IMAGE_SIZE_REGEXP_PATTERN).unwrap();
-				let with_size = size_pattern.replace(url, format!("{texture_width}x{texture_height}"));
+				let with_size = SPIN_IMAGE_SIZE_REGEXP.replace(url, format!("{texture_width}x{texture_height}bb"));
 				TextureCreationInfo::Url(with_size)
 			},
 

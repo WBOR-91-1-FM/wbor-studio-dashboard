@@ -4,8 +4,8 @@
 	"maybe_pause_subduration_ms_when_window_unfocused": 250,
 
 	"option 1": {"Windowed": [800, 600, false, null]},
-	"option 2": "FullscreenDesktop",
-	"screen_option": "Fullscreen",
+	"screen_option": "FullscreenDesktop",
+	"option 3": "Fullscreen",
 
 	"hide_cursor": true,
 	"use_linear_filtering": true,
