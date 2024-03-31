@@ -116,7 +116,7 @@ impl SpinitronModel for Spin {
 			},
 
 			|url| {
-				println!("The core structure of the spin image URL has changed. Failing URL: '{url}'. Unclear how to modify spin image size now.");
+				log::error!("The core structure of the spin image URL has changed. Failing URL: '{url}'. Unclear how to modify spin image size now.");
 				TextureCreationInfo::Url(Cow::Borrowed(url))
 			}
 		)

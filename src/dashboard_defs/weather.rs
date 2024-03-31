@@ -134,7 +134,6 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 
 	let mut weather_string = String::new();
 	maybe_add(&mut weather_string, w.main.feels_like, |t| format!("It feels like {t}"));
-
 	println!("ws = {:?}", weather_string);
 	*/
 

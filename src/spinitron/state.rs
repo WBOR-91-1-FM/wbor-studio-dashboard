@@ -60,7 +60,7 @@ impl SpinitronStateData {
 		and the playlist's show ID is set after that. */
 
 		if playlist.get_show_id().is_none() {
-			println!("The playlist's show id was None, so setting it manually to the show id");
+			log::info!("The playlist's show id was None, so setting it manually to the show id");
 			playlist.set_show_id(show.get_id());
 		}
 
@@ -109,7 +109,7 @@ impl Updatable for SpinitronStateData {
 				if let Some(new_playlist_show_id) = new_playlist.get_show_id() {
 					// If the show id didn't match up, then refresh it
 					if self.show.get_id() != new_playlist_show_id {
-						println!("Do conventional refresh for show id");
+						log::info!("Do conventional refresh for show id");
 						self.show = get_from_id(api_key, Some(new_playlist_show_id))?;
 					}
 				}
@@ -118,7 +118,7 @@ impl Updatable for SpinitronStateData {
 					someone is playing music without logging it to a show's playlist.
 					From this, the current show will be inferred based on the schedule,
 					and the current playlist's show will be synced with the one from that show. */
-					println!("Do unconventional refresh for show id");
+					log::info!("Do unconventional refresh for show id");
 					self.show = Self::get_show_while_syncing_show_id(api_key, &mut new_playlist)?;
 				}
 

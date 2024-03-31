@@ -74,7 +74,7 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 		}
 
 		if let Some(err) = error {
-			println!("Updating the {} data on this iteration failed. Error: '{err}'.", self.name);
+			log::error!("Updating the {} data on this iteration failed. Error: '{err}'.", self.name);
 			*self = Self::new(&self.data, self.name); // Restarting when an error happens
 			return Ok(false);
 		}

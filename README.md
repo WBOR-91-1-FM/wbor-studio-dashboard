@@ -22,4 +22,8 @@
 
 - `cargo run --release`
 
+Or with logging:
+
+- `RUST_LOG=wbor_studio_dashboard cargo run --release`
+
 ## Troubleshooting

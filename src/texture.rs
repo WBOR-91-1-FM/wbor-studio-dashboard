@@ -407,7 +407,7 @@ impl<'a> TexturePool<'a> {
 		let initial_texture_width = font.size_of(text)?.0;
 
 		let cut_text = if initial_texture_width > max_texture_width {
-			// println!("Cutting texture text because it is too long.");
+			log::info!("Cutting texture text because it is too long.");
 
 			let ratio_over_max_width = max_texture_width as f64 / initial_texture_width as f64;
 			let mut amount_chars_to_keep = (text.len() as f64 * ratio_over_max_width) as usize;
@@ -423,7 +423,7 @@ impl<'a> TexturePool<'a> {
 				cut_texture_width = font.size_of(text_slice)?.0;
 			}
 
-			// TODO: why does this fail for a screen resolution of 500 by 2524 on MacOS?
+			// TODO: why does this fail for a screen resolution of 500 by 2524 on MacOS (for some especially long texts)?
 			assert!(cut_texture_width <= max_texture_width);
 
 			text_slice

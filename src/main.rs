@@ -28,7 +28,6 @@ TODO:
 	- Maybe put the bounding box definition one layer out (with the parent)
 	- Abstract the main loop out, so that just some data and fns are passed into it
 	- Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
-	- Or, make the error more minimal, just saying "internal dashboard error (your spins or texts may not show up!)". After that, print a message saying "error resolved", and then disappear the window.
 	- Maybe draw rounded rectangles with `sdl_gfx` later on
 	- Render a text drop shadow
 	- Set more rendering hints later on, if needed (beyond just the scale quality)
@@ -112,6 +111,10 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 */
 
 fn main() -> utility_types::generic_result::MaybeError {
+	env_logger::init();
+
+	log::info!("App launched!");
+
 	let app_config: AppConfig = utility_types::json_utils::load_from_file("assets/app_config.json")?;
 	let top_level_window_creator = dashboard_defs::dashboard::make_dashboard;
 
@@ -153,7 +156,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 	// TODO: why does not setting the opacity result in broken fullscreen screen clearing?
 	if let ScreenOption::Windowed(.., Some(opacity)) = app_config.screen_option {
 		if let Err(err) = sdl_window.set_opacity(opacity) {
-			println!("Window translucency not supported by your current platform! Official error: '{err}'.");
+			log::warn!("Window translucency not supported by your current platform! Official error: '{err}'.");
 		}
 	}
 
@@ -224,6 +227,8 @@ fn main() -> utility_types::generic_result::MaybeError {
 	let mut pausing_window = false;
 	// let mut initial_num_textures_in_pool = None;
 
+	log::info!("Finished setting up app");
+
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
 			use sdl2::{event::{self, Event}, keyboard::Keycode};
@@ -259,13 +264,13 @@ fn main() -> utility_types::generic_result::MaybeError {
 		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
 
 		if let Err(err) = top_level_window.render(&mut rendering_params) {
-			println!("An error arose during rendering: '{err}'."); // TODO: put this error in the red dialog on the screen (pass into the renderer)
+			log::error!("An error arose during rendering: '{err}'."); // TODO: put this error in the red dialog on the screen (pass into the renderer)
 		}
 
 		if let Some((shared_window_state_updater, shared_update_rate)) = shared_window_state_updater {
 			if shared_update_rate.is_time_to_update(rendering_params.frame_counter) {
 				if let Err(err) = shared_window_state_updater(&mut rendering_params.shared_window_state, &mut rendering_params.texture_pool) {
-					println!("An error arose from the shared window state updater: '{err}'."); // TODO: put this error in the red dialog on the screen
+					log::error!("An error arose from the shared window state updater: '{err}'."); // TODO: put this error in the red dialog on the screen
 				}
 			}
 		}
