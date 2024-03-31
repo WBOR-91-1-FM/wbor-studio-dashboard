@@ -398,12 +398,7 @@ impl Updatable for TwilioStateData {
 						let time_sent = (*wrongly_typed_time_sent).into();
 						let age_data = Self::get_message_age_data(curr_time, time_sent);
 
-						let boxed_maybe_from = if let Some(from) = maybe_from {
-							Some(from.to_string())
-						}
-						else {
-							None
-						};
+						let boxed_maybe_from = maybe_from.map(|from| from.to_string());
 
 						return Ok(Some(MessageInfo {
 							age_data,
