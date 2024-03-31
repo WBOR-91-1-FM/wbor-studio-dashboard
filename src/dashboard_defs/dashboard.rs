@@ -227,7 +227,7 @@ pub fn make_dashboard(
 		&api_keys.twilio_account_sid,
 		&api_keys.twilio_auth_token,
 		6,
-		chrono::Duration::try_hours(30).ok_or("Could not build message history duration!")?
+		chrono::Duration::try_days(5).ok_or("Could not build message history duration!")?
 	);
 
 	let twilio_window = make_twilio_window(
