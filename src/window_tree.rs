@@ -40,7 +40,7 @@ pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
 	pub window: &'a mut Window,
 	pub texture_pool: &'b mut TexturePool<'c>,
 	pub shared_window_state: &'d mut DynamicOptional,
-	pub area_drawn_to_screen: Rect
+	pub area_drawn_to_screen: (u32, u32)
 }
 
 // TODO: genericize these two over one typedef
@@ -76,7 +76,7 @@ pub enum WindowContents {
 	Color(ColorSDL),
 	Lines(Vec<Line>),
 	Texture(TextureHandle),
-	Many(Vec<WindowContents>)
+	Many(Vec<WindowContents>) // Note: recursive `Many` items here are allowed.
 }
 
 impl WindowContents {
@@ -129,6 +129,10 @@ pub struct Window {
 	contents: WindowContents,
 
 	skip_drawing: bool,
+
+	/* Note that if this is set, aspect ratio correction won't happen,
+	except for 2 cases: colors and text textures, in which aspect ratio
+	correction will never happen. */
 	skip_aspect_ratio_correction: bool,
 
 	maybe_border_color: Option<ColorSDL>,
@@ -229,24 +233,6 @@ impl Window {
 		(v.x() * parent_rect.width + parent_rect.x, v.y() * parent_rect.height + parent_rect.y)
 	}
 
-	fn get_centered_subrect_with_aspect_ratio(orig_rect: FRect, aspect_ratio: f32) -> FRect {
-		let original_aspect_ratio = orig_rect.width / orig_rect.height;
-
-		let (width, height) = if aspect_ratio > original_aspect_ratio {
-			(orig_rect.width, (orig_rect.width / aspect_ratio))
-		}
-		else {
-			((orig_rect.height * aspect_ratio), orig_rect.height)
-		};
-
-		FRect {
-			x: orig_rect.x + (orig_rect.width - width) * 0.5,
-			y: orig_rect.y + (orig_rect.height - height) * 0.5,
-			width,
-			height
-		}
-	}
-
 	fn inner_render(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
 		parent_rect: FRect) -> MaybeError {
@@ -255,14 +241,12 @@ impl Window {
 
 		let rect_origin = Self::transform_vec2_to_parent_scale(self.top_left, parent_rect);
 
-		let rect_in_pixels = FRect {
+		let screen_dest = FRect {
 			x: rect_origin.0,
 			y: rect_origin.1,
 			width: self.size.x() * parent_rect.width,
 			height: self.size.y() * parent_rect.height
 		};
-
-		let rect_in_pixels_sdl: Rect = rect_in_pixels.into();
 
 		////////// Updating the window
 
@@ -279,42 +263,108 @@ impl Window {
 					window: self,
 					texture_pool: &mut rendering_params.texture_pool,
 					shared_window_state: &mut rendering_params.shared_window_state,
-					area_drawn_to_screen: rect_in_pixels_sdl
+					area_drawn_to_screen: (screen_dest.width as u32, screen_dest.height as u32)
 				})?;
 			}
 		}
 
 		if !self.skip_drawing {
-			self.draw_window_contents(
-				rendering_params,
-				rect_in_pixels,
-				rect_in_pixels_sdl,
-				self.skip_aspect_ratio_correction
-			)?;
+			self.draw_window_contents(rendering_params, screen_dest)?;
 		}
 
 		////////// Updating all child windows
 
 		if let Some(children) = &mut self.children {
 			for child in children {
-				child.inner_render(rendering_params, rect_in_pixels)?;
+				child.inner_render(rendering_params, screen_dest)?;
 			}
 		}
 
 		Ok(())
 	}
 
-	fn draw_window_contents(
-		&mut self,
+	fn draw_window_contents(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
-		screen_dest: FRect, screen_dest_sdl: Rect,
-		skip_aspect_ratio_correction: bool) -> MaybeError {
+		uncorrected_screen_dest: FRect) -> MaybeError {
 
-		////////// A function for drawing colors with transparency, and one for drawing the window contents
+		//////////
 
-		fn possibly_draw_with_transparency(color: &ColorSDL,
-			sdl_canvas: &mut CanvasSDL, mut drawer: impl FnMut(&mut CanvasSDL) -> MaybeError)
-			-> MaybeError {
+		draw_contents(
+			&self.contents, rendering_params,
+			uncorrected_screen_dest,
+			self.skip_aspect_ratio_correction
+		)?;
+
+		if let Some(border_color) = &self.maybe_border_color {
+			possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
+				|canvas| Ok(canvas.draw_rect(uncorrected_screen_dest.into())?))?;
+		}
+
+		return Ok(());
+
+		////////// A function for drawing the contents passed to it
+
+		fn draw_contents(
+			contents: &WindowContents,
+			rendering_params: &mut PerFrameConstantRenderingParams,
+			uncorrected_screen_dest: FRect,
+			skip_aspect_ratio_correction: bool) -> MaybeError {
+
+			let maybe_corrected_screen_dest = maybe_correct_aspect_ratio(
+				contents, uncorrected_screen_dest, &rendering_params.texture_pool,
+				skip_aspect_ratio_correction);
+
+			let sdl_canvas = &mut rendering_params.sdl_canvas;
+
+			match contents {
+				WindowContents::Nothing => {},
+
+				WindowContents::Color(color) => possibly_draw_with_transparency(
+					color, sdl_canvas, |canvas|
+						Ok(canvas.fill_rect::<Rect>(uncorrected_screen_dest.into())?)
+					)?,
+
+				WindowContents::Lines(line_series) => {
+					use sdl2::rect::Point as PointSDL;
+
+					for series in line_series {
+						let converted_series: Vec<PointSDL> = series.1.iter().map(|&point| {
+							let xy = Window::transform_vec2_to_parent_scale(point, maybe_corrected_screen_dest);
+							PointSDL::new(xy.0 as i32, xy.1 as i32)
+						}).collect();
+
+						possibly_draw_with_transparency(&series.0, sdl_canvas, |canvas| {
+							canvas.draw_lines(&*converted_series)?;
+							Ok(())
+						})?;
+					}
+				},
+
+				/* TODO: eliminate the partially black border around
+				the opaque areas of textures with alpha values */
+				WindowContents::Texture(texture) =>
+					rendering_params.texture_pool.draw_texture_to_canvas(
+						texture, sdl_canvas, maybe_corrected_screen_dest.into()
+					)?,
+
+				WindowContents::Many(many) => {
+					for nested_contents in many {
+						draw_contents(
+							nested_contents, rendering_params,
+							uncorrected_screen_dest,
+							skip_aspect_ratio_correction
+						)?;
+					}
+				}
+			};
+
+			Ok(())
+		}
+
+		////////// A function for drawing colors with transparency
+
+		fn possibly_draw_with_transparency(color: &ColorSDL, sdl_canvas: &mut CanvasSDL,
+			mut drawer: impl FnMut(&mut CanvasSDL) -> MaybeError) -> MaybeError {
 
 			use sdl2::render::BlendMode;
 
@@ -329,78 +379,50 @@ impl Window {
 			Ok(())
 		}
 
-		fn inner_draw_window_contents(
-			contents: &WindowContents, rendering_params: &mut PerFrameConstantRenderingParams,
-			screen_dest: FRect, screen_dest_sdl: Rect,
-			skip_aspect_ratio_correction: bool) -> MaybeError {
+		////////// A function for correcting the aspect ratio of some window contents
 
-			let sdl_canvas = &mut rendering_params.sdl_canvas;
+		fn maybe_correct_aspect_ratio(contents: &WindowContents,
+			uncorrected_screen_dest: FRect, texture_pool: &TexturePool,
+			skip_aspect_ratio_correction: bool) -> FRect {
 
 			match contents {
-				WindowContents::Nothing => {},
-
-				WindowContents::Color(color) =>
-					possibly_draw_with_transparency(color, sdl_canvas, |canvas| Ok(canvas.fill_rect(screen_dest_sdl)?))?,
-
-				WindowContents::Lines(line_series) => {
-					use sdl2::rect::Point as PointSDL;
-
-					for series in line_series {
-						let converted_series: Vec<PointSDL> = series.1.iter().map(|&point| {
-							let parent = Window::get_centered_subrect_with_aspect_ratio(screen_dest, 1.0);
-							let xy = Window::transform_vec2_to_parent_scale(point, parent);
-							PointSDL::new(xy.0 as i32, xy.1 as i32)
-						}).collect();
-
-						possibly_draw_with_transparency(&series.0, sdl_canvas, |canvas| {
-							canvas.draw_lines(&*converted_series)?;
-							Ok(())
-						})?;
-					}
-				},
-
-				/* TODO: eliminate the partially black border around
-				the opaque areas of textures with alpha values */
 				WindowContents::Texture(texture) => {
-					let texture_pool = &rendering_params.texture_pool;
-
-					// TODO: do I have to modify this for `area_drawn_to_screen`, so that Spinitron spins can have the right texture size?
-					let final_screen_dest_sdl = if skip_aspect_ratio_correction || texture_pool.is_text_texture(texture) {
-						screen_dest
+					if skip_aspect_ratio_correction || texture_pool.is_text_texture(texture) {
+						uncorrected_screen_dest
 					}
 					else {
 						let texture_aspect_ratio = texture_pool.get_aspect_ratio_for(texture);
-						Window::get_centered_subrect_with_aspect_ratio(screen_dest, texture_aspect_ratio)
-					};
-
-					texture_pool.draw_texture_to_canvas(texture, sdl_canvas, final_screen_dest_sdl.into())?;
+						get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, texture_aspect_ratio)
+					}
 				},
 
-				WindowContents::Many(many) => {
-					for nested_contents in many {
-						inner_draw_window_contents(
-							nested_contents, rendering_params, screen_dest,
-							screen_dest_sdl, skip_aspect_ratio_correction
-						)?;
-					}
+				WindowContents::Color(_) | WindowContents::Many(_) => uncorrected_screen_dest,
+
+				_ => {
+					if skip_aspect_ratio_correction {uncorrected_screen_dest}
+					else {get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, 1.0)}
 				}
+			}
+		}
+
+		////////// A function for making a rect within another one with a given aspect ratio
+
+		fn get_centered_subrect_with_aspect_ratio(orig_rect: FRect, desired_aspect_ratio: f32) -> FRect {
+			let orig_aspect_ratio = orig_rect.width / orig_rect.height;
+
+			let (width, height) = if desired_aspect_ratio > orig_aspect_ratio {
+				(orig_rect.width, orig_rect.width / desired_aspect_ratio)
+			}
+			else {
+				(orig_rect.height * desired_aspect_ratio, orig_rect.height)
 			};
 
-			Ok(())
+			FRect {
+				x: orig_rect.x + (orig_rect.width - width) * 0.5,
+				y: orig_rect.y + (orig_rect.height - height) * 0.5,
+				width,
+				height
+			}
 		}
-
-		inner_draw_window_contents(
-			&self.contents, rendering_params,
-			screen_dest, screen_dest_sdl, skip_aspect_ratio_correction
-		)?;
-
-		//////////
-
-		if let Some(border_color) = &self.maybe_border_color {
-			possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
-				|canvas| Ok(canvas.draw_rect(screen_dest_sdl)?))?;
-		}
-
-		Ok(())
 	}
 }

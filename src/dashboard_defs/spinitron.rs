@@ -47,6 +47,11 @@ pub fn make_spinitron_windows(
 	all_model_windows_info: &[SpinitronModelWindowsInfo; NUM_SPINITRON_MODEL_TYPES],
 	model_update_rate: UpdateRate) -> Vec<Window> {
 
+	/* Note: the drawn size passed into this does not account for aspect ratio correction.
+	For Spinitron models, the size is only needed for spin textures all and text textures.
+	For spin textures, the you can figure out the corrected texture size since spin textures
+	are square, and you can get the corrected size by taking the min of the two components
+	of `area_drawn_to_screen`. */
 	fn spinitron_model_window_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 		let spinitron_state = &inner_shared_state.spinitron_state;
@@ -61,7 +66,7 @@ pub fn make_spinitron_windows(
 		if !should_update_texture {return Ok(());}
 
 		let model = spinitron_state.get_model_by_name(model_name);
-		let window_size_pixels = (params.area_drawn_to_screen.width(), params.area_drawn_to_screen.height());
+		let window_size_pixels = params.area_drawn_to_screen;
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			TextureCreationInfo::Text((
@@ -79,7 +84,9 @@ pub fn make_spinitron_windows(
 			))
 		}
 		else {
-			match model.get_texture_creation_info(window_size_pixels) {
+			let size = window_size_pixels.0.min(window_size_pixels.1);
+
+			match model.get_texture_creation_info((size, size)) {
 				Some(texture_creation_info) => texture_creation_info,
 				None => inner_shared_state.fallback_texture_creation_info.clone()
 			}

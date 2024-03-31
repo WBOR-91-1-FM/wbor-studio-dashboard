@@ -52,8 +52,8 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 							((seed % repeat_rate_secs) / repeat_rate_secs, true)
 						},
 
-						max_pixel_width: params.area_drawn_to_screen.width(),
-						pixel_height: params.area_drawn_to_screen.height()
+						max_pixel_width: params.area_drawn_to_screen.0,
+						pixel_height: params.area_drawn_to_screen.1
 					}
 				));
 

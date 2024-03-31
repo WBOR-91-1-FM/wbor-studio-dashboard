@@ -1,5 +1,13 @@
-use std::{borrow::Cow, collections::HashMap};
-use sdl2::{self, ttf, image::LoadTexture, rect::Rect, render::{self, Texture}};
+use std::{
+	borrow::Cow,
+	collections::HashMap
+};
+
+use sdl2::{
+	self, ttf,
+	render::{self, Texture},
+	image::LoadTexture, rect::Rect
+};
 
 use crate::{
 	request,

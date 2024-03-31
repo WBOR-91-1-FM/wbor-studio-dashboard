@@ -159,8 +159,8 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 				(1.0 - base_scroll, true)
 			},
 
-			max_pixel_width: params.area_drawn_to_screen.width(),
-			pixel_height: params.area_drawn_to_screen.height()
+			max_pixel_width: params.area_drawn_to_screen.0,
+			pixel_height: params.area_drawn_to_screen.1
 		}
 	));
 

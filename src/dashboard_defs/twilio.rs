@@ -541,7 +541,7 @@ pub fn make_twilio_window(
 		// Filling the text texture creation info cache
 		if twilio_state.text_texture_creation_info_cache.is_none() {
 			twilio_state.text_texture_creation_info_cache = Some((
-				(params.area_drawn_to_screen.width(), params.area_drawn_to_screen.height()),
+				params.area_drawn_to_screen,
 				inner_shared_state.font_info,
 				individual_window_state.text_color
 			));
@@ -575,7 +575,6 @@ pub fn make_twilio_window(
 
 	let all_subwindows = (0..max_num_messages_in_history).rev().map(|i| {
 		// Note: I can't directly put the background contents into the history windows since it's sized differently
-
 		let history_window = Window::new(
 			Some((history_updater_fn, update_rate)),
 			DynamicOptional::new(TwilioHistoryWindowState {message_index: i, text_color}),
@@ -597,7 +596,9 @@ pub fn make_twilio_window(
 			Some(vec![history_window])
 		);
 
+		// Don't want to not stretch the message bubbles
 		with_background_contents.set_aspect_ratio_correction_skipping(true);
+
 		with_background_contents
 	}).collect();
 
@@ -636,8 +637,8 @@ pub fn make_twilio_window(
 					text: Cow::Owned(format!("  Messages to {country_code} ({area_code}) {telephone_prefix}-{line_number}:")),
 					color: text_color,
 					scroll_fn: |_, _| (0.0, true),
-					max_pixel_width: params.area_drawn_to_screen.width(),
-					pixel_height: params.area_drawn_to_screen.height()
+					max_pixel_width: params.area_drawn_to_screen.0,
+					pixel_height: params.area_drawn_to_screen.1
 				}
 			));
 
