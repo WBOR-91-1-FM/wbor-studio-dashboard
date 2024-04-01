@@ -174,7 +174,7 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 // Note: the state code can be empty here!
 pub fn make_weather_window(
 	top_left: Vec2f, size: Vec2f,
-	update_rate_creator: &UpdateRateCreator, api_key: &str,
+	update_rate_creator: UpdateRateCreator, api_key: &str,
 	city_name: &str, state_code: &str, country_code: &str) -> Window {
 
 	const UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes (this is how frequent the weather data is)

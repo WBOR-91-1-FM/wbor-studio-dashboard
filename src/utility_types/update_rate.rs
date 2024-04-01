@@ -14,6 +14,9 @@ pub struct UpdateRate {
 impl UpdateRate {
 	pub const ONCE_PER_FRAME: Self = Self {every_n_frames: 1};
 
+	// TODO: make an option for only running something once instead
+	pub const ALMOST_NEVER: Self = Self {every_n_frames: FrameIndex::MAX};
+
 	fn new(num_seconds_between_updates: Seconds, fps: Fps) -> Self {
 		let max_frame_index = FrameIndex::MAX;
 

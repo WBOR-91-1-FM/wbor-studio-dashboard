@@ -3,7 +3,6 @@ use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
 	texture::{FontInfo, TextureCreationInfo, TexturePool},
-
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
 
 	utility_types::{
@@ -23,6 +22,7 @@ use crate::{
 
 	dashboard_defs::{
 		error::make_error_window,
+		credit::make_credit_window,
 		weather::make_weather_window,
 		shared_window_state::SharedWindowState,
 		twilio::{make_twilio_window, TwilioState},
@@ -214,7 +214,7 @@ pub fn make_dashboard(
 	let weather_window = make_weather_window(
 		Vec2f::ZERO,
 		Vec2f::new(0.4, 0.3),
-		&update_rate_creator,
+		update_rate_creator,
 		&api_keys.openweathermap,
 		"Brunswick",
 		"ME",
@@ -263,6 +263,17 @@ pub fn make_dashboard(
 	);
 
 	all_main_windows.push(error_window);
+
+	////////// Making a credit windoww
+
+	let credit_window = make_credit_window(
+		Vec2f::new(0.85, 0.97),
+		Vec2f::new(0.15, 0.03),
+		ColorSDL::RGB(210, 180, 140),
+		"By Caspian Ahlberg"
+	);
+
+	all_main_windows.push(credit_window);
 
 	////////// Making all of the main windows
 
