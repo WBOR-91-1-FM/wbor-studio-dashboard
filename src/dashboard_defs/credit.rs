@@ -30,6 +30,7 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f, text_color: ColorSDL, te
 		text_color: ColorSDL
 	}
 
+	// TODO: genericize this whole updater-fn scheme (it's very repeated in a lot of places)
 	fn credit_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		if let WindowContents::Texture(_) = params.window.get_contents() {return Ok(());}
 
