@@ -7,8 +7,8 @@ use crate::{
 	utility_types::{
 		dynamic_optional::DynamicOptional,
 		update_rate::UpdateRate, vec2f::Vec2f,
-		thread_task::{ContinuallyUpdated, Updatable},
-		generic_result::{GenericResult, MaybeError}
+		generic_result::{GenericResult, MaybeError},
+		thread_task::{ContinuallyUpdated, Updatable}
 	},
 
 	dashboard_defs::shared_window_state::SharedWindowState,
