@@ -166,8 +166,8 @@ pub fn make_dashboard(
 
 	// Texture path, top left, size
 	let static_texture_info = [
-		("assets/wbor_logo.png", Vec2f::new(0.7, 0.75), Vec2f::new(0.1, 0.05)),
-		("assets/wbor_soup.png", Vec2f::new(0.85, 0.72), Vec2f::new(0.06666666, 0.1))
+		("assets/logo.png", Vec2f::new(0.7, 0.75), Vec2f::new(0.1, 0.05)),
+		("assets/soup.png", Vec2f::new(0.85, 0.72), Vec2f::new(0.06666666, 0.1))
 	];
 
 	all_main_windows.extend(static_texture_info.into_iter().map(|datum| {
@@ -205,7 +205,7 @@ pub fn make_dashboard(
 			hours: ClockHandConfig::new(0.01, 0.02, 0.2, ColorSDL::BLACK) // Hours
 		},
 
-		"assets/wbor_watch_dial.png",
+		"assets/watch_dial.png",
 		texture_pool
 	)?;
 
@@ -246,7 +246,7 @@ pub fn make_dashboard(
 		theme_color_1, theme_color_1,
 
 		WindowContents::Texture(
-			texture_pool.make_texture(&TextureCreationInfo::Path(Cow::Borrowed("assets/wbor_text_bubble.png")))?
+			texture_pool.make_texture(&TextureCreationInfo::Path(Cow::Borrowed("assets/text_bubble.png")))?
 		),
 	);
 
@@ -296,7 +296,7 @@ pub fn make_dashboard(
 		DynamicOptional::NONE,
 
 		WindowContents::Texture(texture_pool.make_texture(
-			&TextureCreationInfo::Path(Cow::Borrowed("assets/wbor_dashboard_background.png"))
+			&TextureCreationInfo::Path(Cow::Borrowed("assets/dashboard_background.png"))
 		)?),
 
 		Some(theme_color_1),
@@ -325,7 +325,7 @@ pub fn make_dashboard(
 			spinitron_state: SpinitronState::new(&api_keys.spinitron)?,
 			twilio_state,
 			font_info: &FONT_INFO,
-			fallback_texture_creation_info: TextureCreationInfo::Path(Cow::Borrowed("assets/wbor_no_texture_available.png")),
+			fallback_texture_creation_info: TextureCreationInfo::Path(Cow::Borrowed("assets/no_texture_available.png")),
 			curr_dashboard_error: None
 		}
 	);
