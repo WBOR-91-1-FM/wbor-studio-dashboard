@@ -71,12 +71,14 @@ pub trait SpinitronModel {
 
 		-> MaybeTextureCreationInfo<'a> where Self: Sized {
 
+		let fallback = TextureCreationInfo::Path(Cow::Borrowed(image_for_no_persona_or_show));
+
 		Self::evaluate_model_image_url_with_regexp(url,
-			|| None,
+			|| Some(fallback.clone()),
 			&DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP,
 
 			// If it matches the default pattern, use the no-persona or no-show image
-			|_| TextureCreationInfo::Path(Cow::Borrowed(image_for_no_persona_or_show)),
+			|_| fallback.clone(),
 
 			// If it doesn't match the default pattern, use the provided image
 			|url| TextureCreationInfo::Url(Cow::Borrowed(url))
