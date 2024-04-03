@@ -7,52 +7,6 @@ mod dashboard_defs;
 
 /*
 Worked from this in the beginning: https://blog.logrocket.com/using-sdl2-bindings-rust/
-
-TODO:
-
-- Features:
-	- Avoid screen burn-in somehow on non-dynamic parts of the screen (ideas below):
-		- Shut off at night (or just for a few hours)
-		- Screensavers
-		- Layout swap (move screen elements around with a rapid or smooth animation) (do once every 15 minutes or so?)
-		- Theme swap (instant or gradual) (based on things like weather, season, time of day, holiday, simple dark/light mode for day/night)
-		- Use a PVM/BVM (they have less burn-in)
-
-	- DJ tips popping up now and then (like a video game loading screen)
-	- Display streaming server online status (determined by whether it pings?) address is: 161.35.248.7
-	- User interaction with the dashboard via the Stream Deck (toggle display elements, ignore DJ text, etc.) https://timothycrosley.github.io/streamdeck-ui/
-
-- Technical:
-	- When an error happens, make it print a message on screen that says that they should reach out to the tech director, wbor@bowdoin.edu (make a log of the error on disk too)
- 	- Crop profile photos, instead of stretching them
-	- Maybe put the bounding box definition one layer out (with the parent)
-	- Abstract the main loop out, so that just some data and fns are passed into it
-	- Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
-	- Maybe draw rounded rectangles with `sdl_gfx` later on
-	- Render a text drop shadow
-	- Set more rendering hints later on, if needed (beyond just the scale quality)
-	- Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
-	- Run the dashboard on a PVM, or an original iMac, eventually?
-	- For logging, write the current spin to a file once it updates
-	- Make a little script on the Pi to clear the message history every 2 weeks - or maybe do it from within the dashboard - checking the date via modulus?
-	- Use the max durations of Spinitron spins to reduce the number of API calls
-	- Add a 'no recent spins' message if there are no spins in the last 60 minutes
-	- Remove the `wbor` image file prefixes in the `assets` folder
-	- Finish the background image (vary it based on the theme?)
-	- Maybe make a custom OpenGL renderer (may be more performant). Tricky parts would be text rendering, and keping everything safe. Perhaps Vulkan instead? Or something more general?
-	- Make some functions const
-	- CI/CD
-	- Test the dashboard out once burn-in is fixed (don't want to ruin the monitor), and leave out a sheet of paper for feedback
-
-- Fun ideas:
-	- Maybe give a retro theme to everything
-	- Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
-	- Different themes per each dashboard setup: wooden, garden, neon retro, frutiger aero, etc.
-	- Fall: leaves + drifting clouds over the screen, summer: shining run rays, spring: occasional rain with sun, winter: snow
-	- Show the album history on the bookshelf
-	- Make Nathan Fielder pop up sometimes (at a random time, for a random amount of time, saying something random, e.g. "Hey. I'm proud of you.")
-	- Put my name somewhere in a corner on the dashboard
-	- Flash recent text messages with some other color (or make them red, maybe?)
 */
 
 // https://gamedev.stackexchange.com/questions/137882/
