@@ -137,7 +137,7 @@ impl SpinitronModel for Persona {
 	fn to_string(&self) -> String {format!("Welcome, {}!", self.name)}
 
 	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
-		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/wbor_no_persona_image.png")
+		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_persona_image.png")
 	}
 }
 
@@ -146,7 +146,7 @@ impl SpinitronModel for Show {
 	fn to_string(&self) -> String {format!("This is '{}'.", self.title)}
 
 	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
-		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/wbor_no_show_image.png")
+		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png")
 	}
 }
 

@@ -1,6 +1,6 @@
 {
 	"title": "WBOR Studio Dashboard",
-	"icon_path": "assets/wbor_plane.bmp",
+	"icon_path": "assets/plane.bmp",
 	"maybe_pause_subduration_ms_when_window_unfocused": 250,
 
 	"option 1": {"Windowed": [800, 600, false, null]},
