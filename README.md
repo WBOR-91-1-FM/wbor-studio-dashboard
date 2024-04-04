@@ -54,6 +54,7 @@ Or with logging:
   - Maybe make a custom OpenGL renderer (may be more performant). Tricky parts would be text rendering, and keping everything safe. Perhaps Vulkan instead? Or something more general?
   - Make some functions const
   - Use SDL3 bindings
+  - Make a small window that shows the dashboard uptime (don't use `chrono::Duration`, since that will limit the uptime to some number of weeks)
 
 - Fun ideas:
   - Run the dashboard on a PVM, or an original iMac, eventually?
