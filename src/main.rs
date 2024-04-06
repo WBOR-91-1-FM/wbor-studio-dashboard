@@ -81,7 +81,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 	use sdl2::video::WindowBuilder;
 
 	let build_window = |width: u32, height: u32, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
-		applier(&mut sdl_video_subsystem.window(&app_config.title, width, height)).allow_highdpi().opengl().build();
+		applier(&mut sdl_video_subsystem.window(&app_config.title, width, height)).allow_highdpi().build();
 
 	let mut sdl_window = match app_config.screen_option {
 		ScreenOption::Windowed(width, height, borderless, _) => build_window(
@@ -182,6 +182,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 	// let mut initial_num_textures_in_pool = None;
 
 	log::info!("Finished setting up app");
+	log::info!("Renderer info: {:?}", sdl_renderer_info);
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
