@@ -181,7 +181,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 	let mut pausing_window = false;
 	// let mut initial_num_textures_in_pool = None;
 
-	log::info!("Finished setting up app");
+	log::info!("Finished setting up window");
 	log::info!("Renderer info: {:?}", sdl_renderer_info);
 
 	'running: loop {
