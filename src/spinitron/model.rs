@@ -103,7 +103,7 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 
 impl SpinitronModel for Spin {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn to_string(&self) -> String {format!("{} (from {}), by {}.", self.song, self.release, self.artist)}
+	fn to_string(&self) -> String {format!("{} (from {}), by {}", self.song, self.release, self.artist)}
 
 	fn get_texture_creation_info(&self, (texture_width, texture_height): (u32, u32)) -> MaybeTextureCreationInfo {
 		Self::evaluate_model_image_url_with_regexp(&self.image,
@@ -143,7 +143,7 @@ impl SpinitronModel for Persona {
 
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn to_string(&self) -> String {format!("This is '{}'.", self.title)}
+	fn to_string(&self) -> String {format!("This is '{}'", self.title)}
 
 	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
 		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png")

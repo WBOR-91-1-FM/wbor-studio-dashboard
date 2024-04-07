@@ -176,7 +176,7 @@ struct MessageInfo {
 	age_data: MessageAgeData,
 	display_text: String,
 	maybe_from: Option<String>, // This is `None` if the message identity is hidden
-	body: String,
+	body: String, // TODO: trim and preceding or trailing whitespace
 	time_sent: Timestamp,
 	time_loaded_by_app: Timestamp, // This includes sub-second precision, while the time sent above does not
 	just_updated: bool
@@ -289,10 +289,10 @@ impl TwilioStateData {
 
 	fn make_message_display_text(age_data: MessageAgeData, body: &str, maybe_from: Option<&str>) -> String {
 		let display_text = if let Some((unit_name, plural_suffix, unit_amount)) = age_data {
-			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}'. ")
+			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}' ")
 		}
 		else {
-			format!("Right now: '{body}'. ")
+			format!("Right now: '{body}' ")
 		};
 
 		//////////
