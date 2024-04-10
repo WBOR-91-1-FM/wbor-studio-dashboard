@@ -75,7 +75,13 @@ pub fn make_spinitron_windows(
 				TextDisplayInfo {
 					text: Cow::Owned(format!("{} ", model.to_string())),
 					color: text_color,
-					scroll_fn: |seed, _| (seed.sin() * 0.5 + 0.5, false), // TODO: pass this in (and why doesn't this scroll when the text is short enough? Good, but not programmed in...)
+
+					/* TODO:
+					- Pass this in
+					- Why doesn't this scroll when the text is short enough? Good, but not programmed in...
+					- Make a scroll fn util file
+					*/
+					scroll_fn: |seed, _| (seed.sin() * 0.5 + 0.5, false),
 
 					// TODO: why does cutting the max pixel width in half still work?
 					max_pixel_width: window_size_pixels.0,
