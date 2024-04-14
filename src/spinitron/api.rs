@@ -18,6 +18,7 @@ use crate::{
 /* TODO:
 - Later on, maybe set up a mock API, for the sake of testing
 - Would it be possible to show the current PSA on the dashboard?
+- Fix the mysterious Serde-Spinitron-API error (that arose from a portion of the logs on the studio dashboard)
 */
 
 fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
