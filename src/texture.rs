@@ -519,7 +519,6 @@ impl<'a> TexturePool<'a> {
 
 			let text_goes_over_max_width = next_total_width > max_texture_width;
 
-			// TODO: test this branch on the Pi
 			if text_goes_over_max_width {
 				log::debug!("A subsurface exceeded the pixel width maximum (the next total was {next_total_width}); will try to trim it");
 
