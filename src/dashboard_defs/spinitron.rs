@@ -1,9 +1,16 @@
 use std::borrow::Cow;
 
 use crate::{
-	texture::{TextDisplayInfo, TextureCreationInfo},
+	spinitron::model::{
+		SpinitronModelName,
+		NUM_SPINITRON_MODEL_TYPES
+	},
 
-	spinitron::model::{SpinitronModelName, NUM_SPINITRON_MODEL_TYPES},
+	texture::{
+		DisplayText,
+		TextDisplayInfo,
+		TextureCreationInfo
+	},
 
 	utility_types::{
 		vec2f::Vec2f,
@@ -73,19 +80,17 @@ pub fn make_spinitron_windows(
 				inner_shared_state.font_info,
 
 				TextDisplayInfo {
-					text: Cow::Owned(format!("{} ", model.to_string())),
+					text: DisplayText::new(Cow::Owned(model.to_string())),
 					color: text_color,
+					pixel_area: params.area_drawn_to_screen, // TODO: why does cutting the max pixel width in half still work?
 
 					/* TODO:
 					- Pass this in
-					- Why doesn't this scroll when the text is short enough? Good, but not programmed in...
 					- Make a scroll fn util file
+					- Why doesn't this scroll when the text is short enough? Good, but not programmed in...
 					*/
-					scroll_fn: |seed, _| (seed.sin() * 0.5 + 0.5, false),
+					scroll_fn: |seed, _| (seed.sin() * 0.5 + 0.5, false)
 
-					// TODO: why does cutting the max pixel width in half still work?
-					max_pixel_width: window_size_pixels.0,
-					pixel_height: window_size_pixels.1
 				}
 			))
 		}

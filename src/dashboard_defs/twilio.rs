@@ -13,7 +13,7 @@ use crate::{
 
 	dashboard_defs::shared_window_state::SharedWindowState,
 	window_tree::{ColorSDL, Window, WindowContents, WindowUpdaterParams},
-	texture::{FontInfo, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool}
+	texture::{FontInfo, DisplayText, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool}
 };
 
 // TODO: split this file up into some smaller files
@@ -289,10 +289,10 @@ impl TwilioStateData {
 
 	fn make_message_display_text(age_data: MessageAgeData, body: &str, maybe_from: Option<&str>) -> String {
 		let display_text = if let Some((unit_name, plural_suffix, unit_amount)) = age_data {
-			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}' ")
+			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}'")
 		}
 		else {
-			format!("Right now: '{body}' ")
+			format!("Right now: '{body}'")
 		};
 
 		//////////
@@ -444,7 +444,7 @@ impl TwilioState<'_> {
 	// This returns false if something failed with the continual updater.
 	pub fn update(&mut self, texture_pool: &mut TexturePool) -> GenericResult<bool> {
 		// TODO: change other instances of `if-let` to this form
-		let Some(((max_pixel_width, pixel_height), font_info, text_color)) = self.text_texture_creation_info_cache else {
+		let Some((pixel_area, font_info, text_color)) = self.text_texture_creation_info_cache else {
 			// println!("It has not been cached yet, so wait for the next iteration");
 			return Ok(true);
 		};
@@ -459,8 +459,9 @@ impl TwilioState<'_> {
 			font_info,
 
 			TextDisplayInfo {
-				text: Cow::Borrowed(""),
+				text: DisplayText::new(Cow::Borrowed("")),
 				color: text_color,
+				pixel_area,
 
 				scroll_fn: |seed, text_fits_in_box| {
 					if text_fits_in_box {return (0.0, true);}
@@ -473,10 +474,7 @@ impl TwilioState<'_> {
 
 					let scroll_fract = if scroll_value < wait_boundary {scroll_value / wait_boundary} else {0.0};
 					(scroll_fract, true)
-				},
-
-				max_pixel_width,
-				pixel_height
+				}
 			}
 		));
 
@@ -488,7 +486,8 @@ impl TwilioState<'_> {
 				let mut update_texture_creation_info = |offshore_message_info: &MessageInfo| {
 					if let TextureCreationInfo::Text((_, ref mut text_display_info)) = &mut texture_creation_info {
 						// println!(">>> Update texture display info");
-						text_display_info.text = Cow::Owned(offshore_message_info.display_text.clone());
+						let inner_text = Cow::Owned(offshore_message_info.display_text.clone());
+						text_display_info.text = DisplayText::new(inner_text).with_padding("", " ")
 					}
 				};
 
@@ -656,6 +655,7 @@ pub fn make_twilio_window(
 			assert!(phone_numbers.len() == 1);
 
 			let number = phone_numbers[0]["phone_number"].as_str().ok_or("Expected the phone number to be a string!")?;
+			let formatted_number = TwilioStateData::format_phone_number(number, "Messages to ", ":", "");
 
 			//////////
 
@@ -663,11 +663,10 @@ pub fn make_twilio_window(
 				inner_shared_state.font_info,
 
 				TextDisplayInfo {
-					text: Cow::Owned(TwilioStateData::format_phone_number(number, " Messages to ", ":", "")),
+					text: DisplayText::new(Cow::Owned(formatted_number)).with_padding(" ", ""),
 					color: text_color,
-					scroll_fn: |_, _| (0.0, true),
-					max_pixel_width: params.area_drawn_to_screen.0,
-					pixel_height: params.area_drawn_to_screen.1
+					pixel_area: params.area_drawn_to_screen,
+					scroll_fn: |_, _| (0.0, true)
 				}
 			));
 

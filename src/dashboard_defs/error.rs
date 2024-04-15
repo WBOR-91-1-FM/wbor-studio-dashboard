@@ -1,7 +1,11 @@
 use std::borrow::Cow;
 
 use crate::{
-	texture::{TextDisplayInfo, TextureCreationInfo},
+	texture::{
+		DisplayText,
+		TextDisplayInfo,
+		TextureCreationInfo
+	},
 
 	utility_types::{
 		vec2f::Vec2f,
@@ -44,16 +48,14 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 					inner_shared_state.font_info,
 
 					TextDisplayInfo {
-						text: Cow::Borrowed(inner_curr_error),
+						text: DisplayText::new(Cow::Borrowed(inner_curr_error)),
 						color: individual_state.text_color,
+						pixel_area: params.area_drawn_to_screen,
 
 						scroll_fn: |seed, _| {
 							let repeat_rate_secs = 2.0;
 							((seed % repeat_rate_secs) / repeat_rate_secs, true)
-						},
-
-						max_pixel_width: params.area_drawn_to_screen.0,
-						pixel_height: params.area_drawn_to_screen.1
+						}
 					}
 				));
 

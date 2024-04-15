@@ -3,6 +3,7 @@ use sdl2::ttf::FontStyle;
 
 use crate::{
 	texture::{
+		DisplayText,
 		TextDisplayInfo,
 		TextureCreationInfo
 	},
@@ -44,11 +45,10 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f, text_color: ColorSDL, te
 			&italicized_font_info,
 
 			TextDisplayInfo {
-				text: Cow::Borrowed(individual_window_state.text),
+				text: DisplayText::new(Cow::Borrowed(individual_window_state.text)),
 				color: individual_window_state.text_color,
-				scroll_fn: |seed, _| (seed.sin() * 0.5 + 0.5, false),
-				max_pixel_width: params.area_drawn_to_screen.0,
-				pixel_height: params.area_drawn_to_screen.1
+				pixel_area: params.area_drawn_to_screen,
+				scroll_fn: |seed, _| (seed.sin() * 0.5 + 0.5, false)
 			}
 		));
 

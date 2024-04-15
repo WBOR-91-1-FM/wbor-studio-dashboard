@@ -103,6 +103,8 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 
 impl SpinitronModel for Spin {
 	fn get_id(&self) -> SpinitronModelId {self.id}
+
+	// TODO: for this, can I split it up into multiple lines, and then render multiline text somehow?
 	fn to_string(&self) -> String {format!("{} (from {}), by {}", self.song, self.release, self.artist)}
 
 	fn get_texture_creation_info(&self, (texture_width, texture_height): (u32, u32)) -> MaybeTextureCreationInfo {

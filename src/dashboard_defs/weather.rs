@@ -9,7 +9,7 @@ use std::borrow::Cow;
 use crate::{
 	// request,
 
-	texture::{TextDisplayInfo, TextureCreationInfo},
+	texture::{DisplayText, TextDisplayInfo, TextureCreationInfo},
 
 	utility_types::{
 		vec2f::Vec2f,
@@ -36,7 +36,7 @@ struct WeatherWindowState {
 
 pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let weather_changed = true;
-	let weather_string = "Rain (32f). So cold. ";
+	let weather_string = "Rain (32f). So cold.";
 	let weather_text_color = ColorSDL::BLACK;
 
 	/*
@@ -149,17 +149,15 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		inner_shared_state.font_info,
 
 		TextDisplayInfo {
-			text: Cow::Borrowed(weather_string),
+			text: DisplayText::new(Cow::Borrowed(weather_string)),
 			color: weather_text_color,
+			pixel_area: params.area_drawn_to_screen,
 
 			scroll_fn: |seed, _| {
 				let repeat_rate_secs = 3.0;
 				let base_scroll = (seed % repeat_rate_secs) / repeat_rate_secs;
 				(1.0 - base_scroll, true)
-			},
-
-			max_pixel_width: params.area_drawn_to_screen.0,
-			pixel_height: params.area_drawn_to_screen.1
+			}
 		}
 	));
 

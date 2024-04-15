@@ -4,9 +4,12 @@ use std::{
 };
 
 use sdl2::{
-	self, ttf,
-	render::{self, Texture},
-	image::LoadTexture, rect::Rect
+	ttf,
+	self,
+	rect::Rect,
+	surface::Surface,
+	image::LoadTexture,
+	render::{self, Texture}
 };
 
 use crate::{
@@ -27,31 +30,101 @@ use crate::{
 The needed structs + data can go there, and the text
 + font scaling metadata can then go in its own struct. */
 
+// TODO: make a constructor for this, instead of making everything `pub`.
+#[derive(Clone)]
+pub struct FontInfo {
+	/* TODO:
+	- Support non-static paths for these two
+	- Allow for a variable number of fallback fonts too
+	- Only load fallbacks when necessary
+	*/
+	pub path: &'static str,
+	pub unusual_chars_fallback_path: &'static str,
+
+	pub font_has_char: fn(&ttf::Font, char) -> bool,
+
+	pub style: ttf::FontStyle,
+	pub hinting: ttf::Hinting,
+	pub maybe_outline_width: Option<u16>
+}
+
+#[derive(Clone)]
+pub struct DisplayText<'a> {
+	text: Cow<'a, str>
+}
+
+impl<'a> DisplayText<'a> {
+	pub fn new(text: Cow<'a, str>) -> Self {
+		const WHITESPACE_REPLACEMENT_PAIRS: [(char, &str); 2] = [
+			('\t', "    "),
+			('\n', " ")
+		];
+
+		/* TODO:
+		- Should I add the rest of the blank characters (see https://invisible-characters.com/ for all), for better cleanup?
+		- The second reason for this is to stop 'nonavailable' character variants to appear - although this would be hard to verify
+		*/
+		const ALL_WHITESPACE_CHARS: [char; 3] = [
+			' ', '\t', '\n'
+		];
+
+		//////////
+
+		let trimmed_text = text.trim();
+		let is_whitespace = |c: char| ALL_WHITESPACE_CHARS.contains(&c);
+
+		/* If a string is only whitespace, make it empty.
+		This also implicitly covers completely empty strings,
+		and plenty of blank Unicode characters (that comes from `trim`).
+
+		Note that this does not return "<BLANK TEXT>" since the case for that
+		is based on if the rendered surface has zero width, not based on the contained
+		characters for the string (and the former should be more reliable). */
+		if trimmed_text.chars().all(is_whitespace) {
+			return Self {text: Cow::Borrowed("")};
+		}
+
+		////////// Replacing all replacable whitespace chars with a single space
+
+		// TODO: can I do this more efficiently (e.g. with regexps)?
+		let mut adjusted = trimmed_text.to_string();
+
+		for (from, to) in WHITESPACE_REPLACEMENT_PAIRS {
+			if adjusted.contains(from) {
+				adjusted = adjusted.replace(from, to);
+			}
+		}
+
+		//////////
+
+		return Self {text: Cow::Owned(adjusted)}
+	}
+
+	// This assumes that the inputted padding characters should not be trimmed/preprocessed at all
+	pub fn with_padding(self, left: &str, right: &str) -> Self {
+		let mut text = self.text.to_string();
+		text.insert_str(0, left);
+		text.push_str(right);
+		Self {text: text.into()}
+	}
+}
+
+//////////
+
 /* Input: seed, and if the text fits fully in the box.
 Output: scroll amount (in [0, 1]), and if the text should wrap or not. */
 pub type TextTextureScrollFn = fn(f64, bool) -> (f64, bool);
 
 // TODO: make a constructor for this, instead of making everything `pub`.
 #[derive(Clone)]
-pub struct FontInfo {
-	pub path: &'static str, // TODO: support non-static paths for this
-	pub style: ttf::FontStyle,
-	pub hinting: ttf::Hinting,
-	pub maybe_outline_width: Option<u16>
-}
-
-// TODO: make a constructor for this, instead of making everything `pub`.
-#[derive(Clone)]
 pub struct TextDisplayInfo<'a> {
-	pub text: Cow<'a, str>,
-	pub color: ColorSDL,
+	pub text: DisplayText<'a>,
+	pub color: ColorSDL, // TODO: change the name of this to `text_color`, perhaps
+	pub pixel_area: (u32, u32),
 
 	/* Maps the unix time in secs to a scroll fraction
 	(0 to 1), and if the scrolling should wrap. */
-	pub scroll_fn: TextTextureScrollFn,
-
-	pub max_pixel_width: u32,
-	pub pixel_height: u32
+	pub scroll_fn: TextTextureScrollFn
 }
 
 #[derive(Clone)]
@@ -66,13 +139,19 @@ pub enum TextureCreationInfo<'a> {
 /*
 - Note that the handle is wrapped in a struct, so that it can't be modified.
 - Multiple ownership is possible, since we can clone the handles.
-- Textures can still be lost if they're reassigned (TODO: find some way to avoid that data loss).
+- Textures can still be lost if they're reassigned (TODO: find some way to avoid that data loss. Also, can I detect this loss with `Rc` somehow?)
 - TODO: perhaps when doing the remaking thing, pass the handle in as `mut`, even when the handle is not modified (would this help?). */
 
 type InnerTextureHandle = u16;
 type TextureCreator = render::TextureCreator<sdl2::video::WindowContext>;
 
-#[derive(Hash, Eq, PartialEq, Clone)] // TODO: remove `Clone`
+type FontPointSize = u16;
+
+// Font path for default, font path for fallback, point size for default, point size for fallback
+type FontCacheKey = (&'static str, &'static str, FontPointSize, FontPointSize);
+type FontPair<'a> = (ttf::Font<'a, 'a>, ttf::Font<'a, 'a>);
+
+#[derive(Hash, Eq, PartialEq, Clone)]
 pub struct TextureHandle {
 	handle: InnerTextureHandle
 }
@@ -103,7 +182,7 @@ pub struct TexturePool<'a> {
 	ttf_context: &'a ttf::Sdl2TtfContext,
 
 	// This maps font paths and point sizes to fonts (TODO: should I limit the cache size?)
-	font_cache: HashMap<(&'static str, u16), ttf::Font<'a, 'a>>,
+	font_cache: HashMap<FontCacheKey, FontPair<'a>>,
 
 	// This maps texture handles of side-scrolling text textures to metadata about that scrolling text
 	text_metadata: HashMap<TextureHandle, SideScrollingTextMetadata>
@@ -117,7 +196,7 @@ pub struct TexturePool<'a> {
 - Would it make sense to make a trait called `TextureRenderingMethod` for normal textures and fonts? That might make this code cleaner
 */
 impl<'a> TexturePool<'a> {
-	const INITIAL_POINT_SIZE: u16 = 100;
+	const INITIAL_POINT_SIZE: FontPointSize = 100;
 	const BLANK_TEXT_DEFAULT: &'static str = "<BLANK TEXT>";
 
 	pub fn new(texture_creator: &'a TextureCreator,
@@ -208,8 +287,8 @@ impl<'a> TexturePool<'a> {
 
 	/* TODO:
 	- Add an option for not scrolling text (a fixed string that never changes)
-	- Would it be possible to manipulate the canvas scale to be able to only pass normalized coordinates to the renderer?
 	- Make the scroll effect something common?
+	- Would it be possible to manipulate the canvas scale to be able to only pass normalized coordinates to the renderer?
 	- Use `copy_ex` eventually, and the special canvas functions for things like rounded rectangles
 	*/
 	pub fn draw_texture_to_canvas(&self, handle: &TextureHandle,
@@ -284,7 +363,7 @@ impl<'a> TexturePool<'a> {
 				let metadata = SideScrollingTextMetadata {
 					size: (query.width, query.height),
 					scroll_fn: text_display_info.scroll_fn,
-					text: text_display_info.text.to_string() // TODO: maybe copy it with a reference count instead?
+					text: text_display_info.text.text.to_string() // TODO: maybe copy it with a reference count instead?
 				};
 
 				self.text_metadata.insert(handle.clone(), metadata);
@@ -292,7 +371,8 @@ impl<'a> TexturePool<'a> {
 
 			_ => {
 				/* If it is not text anymore, but text metadata still
-				exists for this handle, then remove that metadata */
+				exists for this handle, then remove that metadata.
+				TODO: perhaps I could do a font cache clearing here somehow? */
 				if self.text_metadata.contains_key(handle) {
 					self.text_metadata.remove(handle);
 				}
@@ -353,89 +433,240 @@ impl<'a> TexturePool<'a> {
 
 	//////////
 
-	fn get_cached_font(&mut self, path: &'static str, point_size: u16,
-		maybe_options: Option<&FontInfo>) -> &ttf::Font {
-
-		// TODO: don't unwrap
-		let font = self.font_cache.entry((path, point_size)).or_insert_with(
-			|| self.ttf_context.load_font(path, point_size).unwrap()
+	fn get_font_pair(&mut self, key: FontCacheKey, maybe_options: Option<&FontInfo>) -> &FontPair {
+		let fonts = self.font_cache.entry(key).or_insert_with(
+			|| {
+				// TODO: don't unwrap
+				let make_font = |path, point_size| self.ttf_context.load_font(path, point_size).unwrap();
+				let (default_path, fallback_path, default_point_size, fallback_point_size) = key;
+				(make_font(default_path, default_point_size), make_font(fallback_path, fallback_point_size))
+			}
 		);
 
 		if let Some(options) = maybe_options {
-			font.set_style(options.style);
-			font.set_hinting(options.hinting.clone());
+			let set_options = |font: &mut ttf::Font| {
+				font.set_style(options.style);
+				font.set_hinting(options.hinting.clone());
 
-			if let Some(outline_width) = options.maybe_outline_width {
-				font.set_outline_width(outline_width);
+				if let Some(outline_width) = options.maybe_outline_width {
+					font.set_outline_width(outline_width);
+				}
+			};
+
+			set_options(&mut fonts.0);
+			set_options(&mut fonts.1);
+		}
+
+		fonts
+	}
+
+	fn get_point_and_surface_size_for_initial_font(initial_font: &ttf::Font,
+		text_display_info: &TextDisplayInfo) -> GenericResult<(FontPointSize, (u32, u32))> {
+
+		let initial_output_size = initial_font.size_of(&text_display_info.text.text)?;
+
+		let height_ratio_from_expected_size = text_display_info.pixel_area.1 as f64 / initial_output_size.1 as f64;
+		let adjusted_point_size = Self::INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
+
+		// TODO: would it work better if I used `round` or `ceil` for the adjsuted point size instead?
+		Ok((adjusted_point_size as FontPointSize, initial_output_size))
+	}
+
+	//////////
+
+	/* Assuming that the passed-in text will not result in a zero-width
+	surface (that is handled in `make_text_surface`). */
+	fn inner_make_text_surface(text_display_info: &TextDisplayInfo,
+		font_pair: &FontPair, font_has_char: fn(&ttf::Font, char) -> bool,
+		max_texture_width: u32) -> GenericResult<Surface<'a>> {
+
+		let chars: Vec<char> = text_display_info.text.text.chars().collect();
+		let num_chars = chars.len();
+
+		let (default_font, fallback_font) = font_pair;
+
+		let (mut i, mut total_surface_width, mut max_surface_height, mut subsurfaces) = (0, 0, 0, Vec::new());
+
+		while i != num_chars {
+			let (use_plain_font, start) = (font_has_char(default_font, chars[i]), i);
+
+			while i != num_chars && font_has_char(default_font, chars[i]) == use_plain_font {
+				i += 1;
+			}
+
+			let chosen_font = if use_plain_font {default_font} else {fallback_font};
+
+			let compute_span_data = |span: &[char]| -> GenericResult<(String, u32, u32)> {
+				let span_as_string = span.iter().collect::<String>();
+				let subsurface_width = chosen_font.size_of(&span_as_string)?.0;
+				let next_total_width = total_surface_width + subsurface_width;
+
+				Ok((span_as_string, subsurface_width, next_total_width))
+			};
+
+			//////////
+
+			let mut span = &chars[start..i];
+			let (mut span_as_string, mut subsurface_width, mut next_total_width) = compute_span_data(span)?;
+
+			// Not checking for an empty string earlier, since empty Unicode characters can exist
+			if subsurface_width == 0 {
+				log::debug!("Text subsurface with zero width; ignoring it");
+				continue;
+			}
+
+			//////////
+
+			let text_goes_over_max_width = next_total_width > max_texture_width;
+
+			if text_goes_over_max_width {
+				log::debug!("A subsurface exceeded the pixel width maximum (the next total was {next_total_width}); will try to trim it");
+
+				/* If the font is monospace (and not italicized) and it exceeds the
+				max texture width, cut off enough characters to make it fit in one texture.
+				I am not running this branch for italicized fonts since italicized fonts are
+				not really monospaced per character. */
+				if chosen_font.face_is_fixed_width() && !chosen_font.get_style().intersects(ttf::FontStyle::ITALIC) {
+					log::debug!("Doing optimized monospace text span cutting");
+
+					let orig_span_len = span.len();
+					let first_char_pixel_width = chosen_font.size_of_char(span[0])?.0;
+
+					// Checking that the monospace property holds
+					assert!(first_char_pixel_width * orig_span_len as u32 == subsurface_width);
+
+					let pixel_overstep = next_total_width - max_texture_width;
+					let approx_char_overstep = pixel_overstep as f64 / subsurface_width as f64 * orig_span_len as f64;
+					let char_overstep = approx_char_overstep.ceil() as usize;
+
+					// Checking that the cut text amount is not too large for this span
+					assert!(char_overstep <= orig_span_len);
+
+					span = &span[0..orig_span_len - char_overstep];
+					(span_as_string, subsurface_width, next_total_width) = compute_span_data(span)?;
+
+					// Double-checking that the monospace property holds
+					assert!(subsurface_width == first_char_pixel_width * span.len() as u32);
+				}
+				else {
+					log::debug!("Font was not monospaced; doing manual text span cutting");
+
+					while next_total_width > max_texture_width {
+						log::debug!("Doing an iteration of manual inefficient text span cutting");
+						span = &span[0..span.len() - 1];
+						(span_as_string, subsurface_width, next_total_width) = compute_span_data(span)?;
+					}
+				}
+
+				/////////
+
+				log::debug!("Final cut width = {next_total_width} (checking if it is under or equal to the limit of {max_texture_width})");
+				assert!(next_total_width <= max_texture_width);
+
+				if subsurface_width == 0 {
+					log::debug!("Zero-width subsurface width after text cutting; ignoring it");
+					break;
+				}
+			}
+
+			//////////
+
+			let subsurface = chosen_font.render(&span_as_string).blended(text_display_info.color)?;
+			assert!(subsurface_width == subsurface.width());
+
+			total_surface_width += subsurface_width;
+			max_surface_height = max_surface_height.max(subsurface.height());
+			subsurfaces.push(subsurface);
+
+			if text_goes_over_max_width {
+				log::debug!("Stopping the text-texture-generation early after doing the text cutting");
+				break;
 			}
 		}
 
-		font
+		//////////
+
+		/* TODO:
+		- Add ellipses at the end
+		- Support multiline text (cut it off at some point though)
+		- Why is the text height so incorrect right now for fullscreen mode on Fedora?
+		- Can I avoid doing right padding or bottom cutting if I just do a plain blit somehow from the rendering code?
+		*/
+
+		let pixel_height = text_display_info.pixel_area.1;
+
+		if pixel_height != max_surface_height {
+			log::debug!("Doing slight text texture height correction (adjusting {max_surface_height} to {pixel_height})");
+		}
+
+		let mut joined_surface = Surface::new(
+			total_surface_width.max(text_display_info.pixel_area.0),
+			pixel_height, subsurfaces[0].pixel_format_enum()
+		)?;
+
+		let mut dest_rect = Rect::new(0, 0, 1, 1);
+
+		for mut subsurface in subsurfaces {
+			subsurface.set_blend_mode(render::BlendMode::None)?;
+
+			(dest_rect.w, dest_rect.h) = (subsurface.width() as i32, subsurface.height() as i32);
+			subsurface.blit(None, &mut joined_surface, dest_rect)?;
+			dest_rect.x += dest_rect.w;
+		}
+
+		Ok(joined_surface)
 	}
 
-	fn get_font_with_processed_text<'b>(
-		&mut self, font_info: &FontInfo,
-		text_display_info: &'b TextDisplayInfo)
-
-		-> GenericResult<(&'b ttf::Font, &'b str)> {
+	fn make_text_surface(&mut self, font_info: &FontInfo,
+		text_display_info: &TextDisplayInfo) -> GenericResult<Surface<'a>> {
 
 		////////// First, getting a point size
 
-		// Blank text can't be rendered by SDL, so handling that here
-		let text = if text_display_info.text == "" {Self::BLANK_TEXT_DEFAULT} else {&text_display_info.text};
-
-		let initial_font = self.get_cached_font(font_info.path, Self::INITIAL_POINT_SIZE, None);
-		let initial_output_size = initial_font.size_of(text)?; // TODO: can/should I use a unicode variant for emoji rendering then? And maybe only render the first character?
-
-		// TODO: can I cache this height ratio for any text, or would it vary based on the text?
-		let height_ratio_from_expected_size = text_display_info.pixel_height as f64 / initial_output_size.1 as f64;
-		let adjusted_point_size = Self::INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
-
-		// Flooring this makes the assertions at the end of `make_raw_texture` always succeed on MacOS
-		let nearest_point_size = adjusted_point_size as u16;
-
-		////////// Second, making a font
-
 		let max_texture_width = self.max_texture_size.0;
 
-		let font = self.get_cached_font(
-			font_info.path, nearest_point_size, Some(font_info)
+		let (initial_default_font, initial_fallback_font) = self.get_font_pair(
+			(font_info.path, font_info.unusual_chars_fallback_path, Self::INITIAL_POINT_SIZE, Self::INITIAL_POINT_SIZE), None
 		);
 
-		////////// Third, cutting the text if it becomes too long
+		let ((default_point_size, initial_default_output_size),
+			(fallback_point_size, initial_fallback_output_size)) = (
 
-		let initial_texture_width = font.size_of(text)?.0;
+			Self::get_point_and_surface_size_for_initial_font(initial_default_font, text_display_info)?,
+			Self::get_point_and_surface_size_for_initial_font(initial_fallback_font, text_display_info)?
+		);
 
-		let cut_text = if initial_texture_width > max_texture_width {
-			log::info!("Cutting texture text because it is too long.");
+		////////// Second, making a font pair
 
-			let ratio_over_max_width = max_texture_width as f64 / initial_texture_width as f64;
-			let mut amount_chars_to_keep = (text.len() as f64 * ratio_over_max_width) as usize;
-			let mut text_slice = &text[..amount_chars_to_keep];
+		let font_pair = self.get_font_pair(
+			(font_info.path, font_info.unusual_chars_fallback_path, default_point_size, fallback_point_size), Some(font_info)
+		);
 
-			let mut cut_texture_width = font.size_of(text_slice)?.0;
+		////////// Early exit point: if the font turned out to have zero width, then make a blank text surface
 
-			/* In case cutting the texture doesn't fully work, just cut off the
-			tail characters until it works (TODO: make more efficient) */
-			while cut_texture_width > max_texture_width {
-				amount_chars_to_keep -= 1;
-				text_slice = &text[..amount_chars_to_keep];
-				cut_texture_width = font.size_of(text_slice)?.0;
+		let (max_width, needed_height) = text_display_info.pixel_area;
+
+		// Not checking for an empty string earlier, since empty Unicode characters can exist
+		if initial_default_output_size.0 == 0 || initial_fallback_output_size.0 == 0 {
+			log::debug!("Making a blank-text-default text texture");
+
+			let mut blank_surface = font_pair.0.render(Self::BLANK_TEXT_DEFAULT).blended(text_display_info.color)?;
+
+			Ok(if blank_surface.width() < max_width || blank_surface.height() != needed_height {
+				let mut corrected = Surface::new(max_width, needed_height, blank_surface.pixel_format_enum())?;
+				blank_surface.set_blend_mode(render::BlendMode::None)?;
+				blank_surface.blit(None, &mut corrected, None)?;
+				corrected
 			}
-
-			// TODO: why does this fail for a screen resolution of 500 by 2524 on MacOS (for some especially long texts)?
-			assert!(cut_texture_width <= max_texture_width);
-
-			text_slice
+			else {
+				blank_surface
+			})
 		}
 		else {
-			text
-		};
-
-		////////// Fourth, returning the font and the processed text
-
-		Ok((font, cut_text))
+			Self::inner_make_text_surface(text_display_info, font_pair, font_info.font_has_char, max_texture_width)
+		}
 	}
+
+	//////////
 
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
 		let texture = match creation_info {
@@ -443,63 +674,20 @@ impl<'a> TexturePool<'a> {
 				self.texture_creator.load_texture(path as &str)
 			},
 
-			// TODO: could I pass an optional texture-rescaling param here for the Spinitron spin textures (instead of in the model logic?)
+			/* TODO:
+			- Could I pass an optional texture-rescaling param here for the Spinitron spin textures (instead of in the model logic?)
+			- Speed up texture loading by getting the texture bytes in the continual updater
+			*/
 			TextureCreationInfo::Url(url) => {
 				let response = request::get(url)?;
 				self.texture_creator.load_texture_bytes(response.as_bytes())
 			}
 
 			TextureCreationInfo::Text((font_info, text_display_info)) => {
-				////////// Making a surface
+				let surface = self.make_text_surface(font_info, text_display_info)?;
 
-				let mut surface = {
-					let (font, processed_text) = self.get_font_with_processed_text(font_info, text_display_info)?;
-					font.render(processed_text).blended(text_display_info.color)?
-				};
-
-				////////// Accounting for the case where there is a very small amount of text, or the surface height doesn't match
-
-
-				// TODO: can I avoid doing right padding or bottom cutting if I just do a plain blit somehow from the rendering code?
-				let surface_is_too_short = surface.width() < text_display_info.max_pixel_width;
-				let text_height_doesnt_match = surface.height() != text_display_info.pixel_height;
-
-				// TODO: why is the text height so incorrect right now for fullscreen mode on Fedora?
-				if surface_is_too_short || text_height_doesnt_match {
-					let dimensions;
-
-					// With padding on right, and slightly changed height
-					if surface_is_too_short && text_height_doesnt_match {
-						// println!("Add padding to right, and height is off");
-						dimensions = (text_display_info.max_pixel_width, text_display_info.pixel_height);
-					}
-					// With padding on right
-					else if surface_is_too_short {
-						// println!("Add padding to right");
-						dimensions = (text_display_info.max_pixel_width, surface.height());
-					}
-					// With slightly changed height
-					else if text_height_doesnt_match {
-						// println!("Height is off");
-						dimensions = (surface.width(), text_display_info.pixel_height);
-					}
-					else {
-						panic!("Impossible text texture rescaling situation!");
-					}
-
-					let mut resized_dest = sdl2::surface::Surface::new(
-						dimensions.0, dimensions.1, surface.pixel_format_enum()
-					)?;
-
-					surface.set_blend_mode(render::BlendMode::None)?;
-					surface.blit(None, &mut resized_dest, None)?;
-					surface = resized_dest;
-				}
-
-				assert!(surface.width() >= text_display_info.max_pixel_width);
-				assert!(surface.height() == text_display_info.pixel_height);
-
-				////////// Making and returning a finished texture
+				assert!(surface.width() >= text_display_info.pixel_area.0);
+				assert!(surface.height() == text_display_info.pixel_area.1);
 
 				Ok(self.texture_creator.create_texture_from_surface(surface)?)
 			}

@@ -56,9 +56,15 @@ pub fn make_dashboard(
 
 	////////// Defining some shared global variables
 
-	// TODO: find a font that works with both emojis and normal text
 	const FONT_INFO: FontInfo = FontInfo {
-		path: "assets/fonts/Gohu/GohuFontuni14NerdFont-Regular.ttf",
+		path: "assets/fonts/Unifont/unifont-15.1.05.otf",
+		unusual_chars_fallback_path: "assets/fonts/Unifont/unifont_upper-15.1.05.otf",
+
+		/* Providing this function instead of the variant below since
+		`font.find_glyph` is buggy for the Rust sdl2::ttf bindings */
+		font_has_char: |_, c| c as u32 <= 65535,
+		// font_has_char: |font, c| font.find_glyph(c).is_some(),
+
 		style: FontStyle::NORMAL,
 		hinting: Hinting::Normal,
 		maybe_outline_width: None
