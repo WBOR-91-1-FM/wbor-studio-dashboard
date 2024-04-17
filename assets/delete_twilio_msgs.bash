@@ -9,6 +9,7 @@ base_request_url="https://api.twilio.com"
 request_url="$base_request_url/2010-04-01/Accounts/$account_sid/Messages.json?PageSize=$deletion_count"
 msgs_json=`curl -s -X GET $request_url -u $account_sid:$auth_token`
 
+# TODO: allow for search-based deletion
 # TODO: how do I pass many messages to delete at once?
 
 for ((i=0; i<$deletion_count; i++)) do
