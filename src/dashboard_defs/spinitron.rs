@@ -68,7 +68,7 @@ pub fn make_spinitron_windows(
 
 		let should_update_texture =
 			spinitron_state.model_was_updated(model_name) ||
-			&WindowContents::Nothing == params.window.get_contents();
+			matches!(params.window.get_contents(), WindowContents::Nothing);
 
 		if !should_update_texture {return Ok(());}
 
@@ -77,10 +77,10 @@ pub fn make_spinitron_windows(
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			TextureCreationInfo::Text((
-				inner_shared_state.font_info,
+				Cow::Borrowed(inner_shared_state.font_info),
 
 				TextDisplayInfo {
-					text: DisplayText::new(Cow::Owned(model.to_string())),
+					text: DisplayText::new(&model.to_string()),
 					color: text_color,
 					pixel_area: params.area_drawn_to_screen, // TODO: why does cutting the max pixel width in half still work?
 

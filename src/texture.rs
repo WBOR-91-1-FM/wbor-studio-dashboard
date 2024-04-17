@@ -54,7 +54,7 @@ pub struct DisplayText<'a> {
 }
 
 impl<'a> DisplayText<'a> {
-	pub fn new(text: Cow<'a, str>) -> Self {
+	pub fn new(text: &str) -> Self {
 		const WHITESPACE_REPLACEMENT_PAIRS: [(char, &str); 2] = [
 			('\t', "    "),
 			('\n', " ")
@@ -131,7 +131,7 @@ pub struct TextDisplayInfo<'a> {
 pub enum TextureCreationInfo<'a> {
 	Path(Cow<'a, str>),
 	Url(Cow<'a, str>),
-	Text((&'a FontInfo, TextDisplayInfo<'a>))
+	Text((Cow<'a, FontInfo>, TextDisplayInfo<'a>))
 }
 
 //////////

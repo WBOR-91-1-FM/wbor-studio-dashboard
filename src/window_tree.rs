@@ -36,6 +36,8 @@ impl From<FRect> for Rect {
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
+/* TODO: can I pass a current time parameter in here,
+in order to allow for timing-based effects like texture fade-in? */
 pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
 	pub window: &'a mut Window,
 	pub texture_pool: &'b mut TexturePool<'c>,
@@ -70,7 +72,7 @@ pub type GeneralLine<T> = (ColorSDL, Vec<T>);
 pub type Line = GeneralLine<Vec2f>;
 
 // TODO: make the border color a part of this
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub enum WindowContents {
 	Nothing,
 	Color(ColorSDL),

@@ -456,10 +456,10 @@ impl TwilioState<'_> {
 		let offshore = &curr_continual_data.curr_messages;
 
 		let mut texture_creation_info = TextureCreationInfo::Text((
-			font_info,
+			Cow::Borrowed(font_info),
 
 			TextDisplayInfo {
-				text: DisplayText::new(Cow::Borrowed("")),
+				text: DisplayText::new(""),
 				color: text_color,
 				pixel_area,
 
@@ -486,8 +486,7 @@ impl TwilioState<'_> {
 				let mut update_texture_creation_info = |offshore_message_info: &MessageInfo| {
 					if let TextureCreationInfo::Text((_, ref mut text_display_info)) = &mut texture_creation_info {
 						// println!(">>> Update texture display info");
-						let inner_text = Cow::Owned(offshore_message_info.display_text.clone());
-						text_display_info.text = DisplayText::new(inner_text).with_padding("", " ")
+						text_display_info.text = DisplayText::new(&offshore_message_info.display_text).with_padding("", " ")
 					}
 				};
 
@@ -660,10 +659,10 @@ pub fn make_twilio_window(
 			//////////
 
 			let texture_creation_info = TextureCreationInfo::Text((
-				inner_shared_state.font_info,
+				Cow::Borrowed(inner_shared_state.font_info),
 
 				TextDisplayInfo {
-					text: DisplayText::new(Cow::Owned(formatted_number)).with_padding(" ", ""),
+					text: DisplayText::new(&formatted_number).with_padding(" ", ""),
 					color: text_color,
 					pixel_area: params.area_drawn_to_screen,
 					scroll_fn: |_, _| (0.0, true)

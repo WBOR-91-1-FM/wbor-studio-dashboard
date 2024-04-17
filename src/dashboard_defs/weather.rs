@@ -146,10 +146,10 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	*/
 
 	let texture_creation_info = TextureCreationInfo::Text((
-		inner_shared_state.font_info,
+		Cow::Borrowed(inner_shared_state.font_info),
 
 		TextDisplayInfo {
-			text: DisplayText::new(Cow::Borrowed(weather_string)),
+			text: DisplayText::new(weather_string),
 			color: weather_text_color,
 			pixel_area: params.area_drawn_to_screen,
 

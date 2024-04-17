@@ -275,6 +275,7 @@ pub fn make_dashboard(
 	let credit_window = make_credit_window(
 		Vec2f::new(0.85, 0.97),
 		Vec2f::new(0.15, 0.03),
+		ColorSDL::RED,
 		ColorSDL::RGB(210, 180, 140),
 		"By Caspian Ahlberg"
 	);
