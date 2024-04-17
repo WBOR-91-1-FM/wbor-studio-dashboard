@@ -23,7 +23,7 @@ pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 code altogether? Or just keep this wrapper layer as request submitting code? */
 pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> GenericResult<minreq::Response> {
 	const EXPECTED_STATUS_CODE: i32 = 200;
-	const DEFAULT_TIMEOUT_SECONDS: u64 = 10;
+	const DEFAULT_TIMEOUT_SECONDS: u64 = 20;
 
 	let mut request = minreq::get(url);
 
