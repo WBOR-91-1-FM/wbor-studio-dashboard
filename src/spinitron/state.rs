@@ -90,10 +90,10 @@ impl Updatable for SpinitronStateData {
 
 		// Syncing the spin
 		if self.spin.get_id() != new_spin.get_id() {
-			// Syncing the playlist
 
 			let new_spin_playlist_id = new_spin.get_playlist_id();
 
+			// Syncing the playlist
 			if self.playlist.get_id() != new_spin_playlist_id {
 				let mut new_playlist: Playlist = get_from_id(api_key, Some(new_spin_playlist_id))?;
 				let new_playlist_persona_id = new_playlist.get_persona_id();
