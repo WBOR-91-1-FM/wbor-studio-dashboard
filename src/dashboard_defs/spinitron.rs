@@ -82,7 +82,7 @@ pub fn make_spinitron_windows(
 				TextDisplayInfo {
 					text: DisplayText::new(&model.to_string()),
 					color: text_color,
-					pixel_area: params.area_drawn_to_screen, // TODO: why does cutting the max pixel width in half still work?
+					pixel_area: window_size_pixels, // TODO: why does cutting the max pixel width in half still work?
 
 					/* TODO:
 					- Pass this in
