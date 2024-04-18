@@ -90,7 +90,6 @@ impl Updatable for SpinitronStateData {
 
 		// Syncing the spin
 		if self.spin.get_id() != new_spin.get_id() {
-
 			let new_spin_playlist_id = new_spin.get_playlist_id();
 
 			// Syncing the playlist
