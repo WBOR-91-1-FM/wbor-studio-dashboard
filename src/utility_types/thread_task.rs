@@ -11,8 +11,9 @@ impl<T: Send + 'static> ThreadTask<T> {
 		let (thread_sender, thread_receiver) = mpsc::channel();
 
 		thread::spawn(move || {
-			// TODO: fix the panics that occasionally happen here when exiting the app
-			thread_sender.send(computer()).unwrap();
+			if let Err(err) = thread_sender.send(computer()) {
+				log::warn!("Problem with sending to thread (probably harmless): {err}");
+			}
 		});
 
 		Self {thread_receiver}
