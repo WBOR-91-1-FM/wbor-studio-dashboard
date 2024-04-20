@@ -63,7 +63,7 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 		let texture_creation_info = TextureCreationInfo::Text((
 			IndividualState::compute_within_updater(inner_shared_state),
 
-			TextDisplayInfo {
+			TextDisplayInfo { // TODO: pass in the padding here
 				text: DisplayText::new(&extracted_text).with_padding("", " "),
 				color: wrapped_individual_state.text_color,
 				pixel_area: params.area_drawn_to_screen,
