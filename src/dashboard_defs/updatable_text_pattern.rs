@@ -28,9 +28,12 @@ use crate::{
 
 //////////
 
+// Modified font info, and right display string padding
+pub type ComputedInTextUpdater<'a> = (Cow<'a, FontInfo>, &'static str);
+
 pub trait UpdatableTextWindowMethods {
 	fn should_skip_update(updater_params: &mut WindowUpdaterParams) -> bool;
-	fn compute_within_updater<'a>(inner_shared_state: &'a SharedWindowState) -> Cow<'a, FontInfo>; // TODO: support more datatypes for this
+	fn compute_within_updater<'a>(inner_shared_state: &'a SharedWindowState) -> ComputedInTextUpdater<'a>;
 	fn extract_text(&self) -> Cow<str>;
 	fn extract_texture_contents(window_contents: &mut WindowContents) -> &mut WindowContents;
 }
@@ -60,11 +63,13 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 		let extracted_text = wrapped_individual_state.inner.extract_text();
 
-		let texture_creation_info = TextureCreationInfo::Text((
-			IndividualState::compute_within_updater(inner_shared_state),
+		let (modified_font_info, right_padding) = IndividualState::compute_within_updater(inner_shared_state);
 
-			TextDisplayInfo { // TODO: pass in the padding here
-				text: DisplayText::new(&extracted_text).with_padding("", " "),
+		let texture_creation_info = TextureCreationInfo::Text((
+			modified_font_info,
+
+			TextDisplayInfo {
+				text: DisplayText::new(&extracted_text).with_padding("", right_padding),
 				color: wrapped_individual_state.text_color,
 				pixel_area: params.area_drawn_to_screen,
 				scroll_fn: wrapped_individual_state.scroll_fn

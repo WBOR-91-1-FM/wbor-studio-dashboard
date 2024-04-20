@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 
 use crate::{
-	texture::FontInfo,
-
 	utility_types::{
 		vec2f::Vec2f,
 		update_rate::UpdateRate
@@ -52,8 +50,8 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 			}
 		}
 
-		fn compute_within_updater<'a>(inner_shared_state: &'a SharedWindowState) -> Cow<'a, FontInfo> {
-			Cow::Borrowed(inner_shared_state.font_info)
+		fn compute_within_updater<'a>(inner_shared_state: &'a SharedWindowState) -> updatable_text_pattern::ComputedInTextUpdater<'a> {
+			(Cow::Borrowed(inner_shared_state.font_info), " ")
 		}
 
 		fn extract_text(&self) -> Cow<str> {
