@@ -34,7 +34,6 @@ Or with logging:
   - Display streaming server online status (determined by whether it pings?) address is: 161.35.248.7
   - User interaction with the dashboard via the [Stream Deck](https://timothycrosley.github.io/streamdeck-ui/) (toggle display elements, scroll through texts, block a text sender, etc.)
   - Finish the background image (vary it based on the theme?)
-  - Add a 'no recent spins' message if there are no spins in the last 60 minutes
   - Show the album history on the bookshelf
 
 - Technical:
@@ -66,7 +65,7 @@ Or with logging:
     - Summer: shining run rays
     - Spring: occasional rain with sun
     - Winter: snow
-  - Make Nathan Fielder pop up sometimes (at a random time, for a random amount of time, saying something random, e.g. "Hey. I'm proud of you.")
+  - Make Nathan Fielder pop up sometimes (at a random time, for a random amount of time, saying something random, e.g. "Hey. I'm proud of you"). Same with the scary face (make that one window which picks one of those at random times).
   - Avoid screen burn-in somehow on non-dynamic parts of the screen (ideas below):
     - Shut off at night (or just for a few hours)
     - Screensavers

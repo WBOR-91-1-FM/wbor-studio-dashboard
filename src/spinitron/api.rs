@@ -8,7 +8,6 @@ use crate::{
 		wrapper_types::MaybeSpinitronModelId,
 
 		model::{
-			Spin,
 			SpinitronModelWithProps,
 			NUM_SPINITRON_MODEL_TYPES
 		}
@@ -112,11 +111,7 @@ fn do_plural_request<T: SpinitronModelWithProps>(api_key: &str, possible_item_co
 
 //////////
 
-pub fn get_curr_spin(api_key: &str) -> GenericResult<Spin> {
-	do_request(api_key, None)
-}
-
 // TODO: can I make `id` non-optional?
-pub fn get_from_id<T: SpinitronModelWithProps>(api_key: &str, id: MaybeSpinitronModelId) -> GenericResult<T> {
+pub fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: MaybeSpinitronModelId) -> GenericResult<T> {
 	do_request(api_key, id) // TODO: stop using this as a wrapper?
 }

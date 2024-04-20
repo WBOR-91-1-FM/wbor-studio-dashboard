@@ -4,23 +4,62 @@ use crate::{
 		thread_task::{Updatable, ContinuallyUpdated}
 	},
 
-	spinitron::{
-		api::{get_curr_spin, get_from_id},
-
-		model::{
-			Spin, Playlist, Persona, Show,
-			SpinitronModel, SpinitronModelName,
-			NUM_SPINITRON_MODEL_TYPES
-		}
+	spinitron::model::{
+		NUM_SPINITRON_MODEL_TYPES,
+		Spin, Playlist, Persona, Show,
+		SpinitronModel, SpinitronModelName
 	}
 };
+
+#[derive(Clone)]
+struct SpinExpiryData {
+	expiry_duration: chrono::Duration,
+	end_time: chrono::DateTime<chrono::Utc>,
+	marked_as_expired: bool,
+	just_expired: bool
+}
+
+impl SpinExpiryData {
+	fn new(expiry_duration: chrono::Duration, spin: &Spin) -> GenericResult<Self> {
+		let mut data = Self {
+			expiry_duration,
+			end_time: chrono::DateTime::<chrono::Utc>::MIN_UTC,
+			marked_as_expired: false,
+			just_expired: false
+		};
+
+		data.mark_expiration(spin)?;
+		Ok(data)
+	}
+
+	fn mark_expiration(&mut self, spin: &Spin) -> MaybeError {
+		self.end_time = spin.get_end_time()?;
+
+		let curr_time = chrono::Utc::now();
+		let time_after_end = curr_time.signed_duration_since(self.end_time);
+
+		/*
+		if time_after_end.num_microseconds() < Some(0) {
+			println!("This spin is currently ongoing/in-progress!");
+		}
+		*/
+
+		let marked_before = self.marked_as_expired;
+		self.marked_as_expired = time_after_end > self.expiry_duration;
+		self.just_expired = !marked_before && self.marked_as_expired;
+
+		Ok(())
+	}
+}
 
 #[derive(Clone)]
 struct SpinitronStateData {
 	spin: Spin,
 	playlist: Playlist,
 	persona: Persona,
-	show: Show, // TODO: will there ever not be a show?
+	show: Show,
+
+	spin_expiry_data: SpinExpiryData,
 
 	api_key: String,
 
@@ -29,110 +68,74 @@ struct SpinitronStateData {
 	update_status: [bool; NUM_SPINITRON_MODEL_TYPES]
 }
 
-impl SpinitronStateData {
-	fn new(api_key: &str) -> GenericResult<Self> {
-		// TODO: if there is no current spin, will this only return the last one?
-		let spin = get_curr_spin(api_key)?;
-		let mut playlist: Playlist = get_from_id(api_key, Some(spin.get_playlist_id()))?;
-		let persona = get_from_id(api_key, Some(playlist.get_persona_id()))?;
-		let show = Self::get_show_while_syncing_show_id(api_key, &mut playlist)?;
+type SpinitronStateDataParams<'a> = (&'a str, chrono::Duration);
 
-		/*
-		let spin = Spin::default();
-		let playlist = Playlist::default();
-		let persona = Persona::default();
-		let show = Show::default();
-		*/
+impl SpinitronStateData {
+	fn new((api_key, spin_expiry_duration): SpinitronStateDataParams) -> GenericResult<Self> {
+		let spin = Spin::get(api_key)?;
+		let playlist = Playlist::get(api_key)?;
+		let persona =  Persona::get(api_key, &playlist)?;
+		let show = Show::get(api_key)?;
+
+		let spin_expiry_data = SpinExpiryData::new(spin_expiry_duration, &spin)?;
 
 		Ok(Self {
 			spin, playlist, persona, show,
+			spin_expiry_data,
 			api_key: api_key.to_string(),
 			update_status: [false, false, false, false]
 		})
 	}
 
-	fn get_show_while_syncing_show_id(api_key: &str, playlist: &mut Playlist) -> GenericResult<Show> {
-		let show: Show = get_from_id(api_key, playlist.get_show_id())?;
+	fn sync_models(&mut self) -> MaybeError {
+		let api_key = &self.api_key;
 
-		/* It's possible that the playlist will not have a show id
-		(e.g. if someone plays songs, without making a playlist to log them).
-		In that case, this gets the current show according to the schedule,
-		and the playlist's show ID is set after that. */
+		// Step 1: get the current spin.
+		let maybe_new_spin = Spin::get(api_key)?;
 
-		if playlist.get_show_id().is_none() {
-			log::info!("The playlist's show id was None, so setting it manually to the show id");
-			playlist.set_show_id(show.get_id());
+		if maybe_new_spin.get_id() != self.spin.get_id() {
+			self.spin = maybe_new_spin;
 		}
 
-		Ok(show)
+		// Step 2: mark the expiration of the current spin.
+		self.spin_expiry_data.mark_expiration(&self.spin)?;
+
+		/* Step 3: get a maybe new playlist (don't base it on a spin ID,
+		since the spin may not belong to a playlist under automation). */
+		let maybe_new_playlist = Playlist::get(api_key)?;
+
+		if maybe_new_playlist.get_id() != self.playlist.get_id() {
+			/* Step 4: get the persona id based on the playlist id (since otherwise, you'll
+			just get some persona that's first in Spinitron's internal list of personas. */
+			self.persona = Persona::get(api_key, &maybe_new_playlist)?;
+			self.playlist = maybe_new_playlist;
+		}
+
+		/* Step 5: get the current show id (based on what's on the
+		schedule, irrespective of what show was last on).
+		TODO: should I only do this in the branch above? */
+		self.show = Show::get(api_key)?;
+
+		Ok(())
 	}
 }
 
 impl Updatable for SpinitronStateData {
 	fn update(&mut self) -> MaybeError {
-		let api_key = &self.api_key;
-		let new_spin = get_curr_spin(api_key)?;
-
+		// TODO: do a mapping here instead
 		let get_model_ids = |data: &SpinitronStateData| [
 			data.spin.get_id(), data.playlist.get_id(),
 			data.persona.get_id(), data.show.get_id()
 		];
 
 		let original_ids = get_model_ids(self);
-
-		////////// TODO: make this less repetitive
-
-		/* TODO:
-		- Make a `sync` function for each of these instead?
-		- Can a persona change without the spin changing? Maybe ignore that
-		- Can I un-nest these series of `ifs`, into a series of `return`s?
-		*/
-
-		// Syncing the spin
-		if self.spin.get_id() != new_spin.get_id() {
-			let new_spin_playlist_id = new_spin.get_playlist_id();
-
-			// Syncing the playlist
-			if self.playlist.get_id() != new_spin_playlist_id {
-				let mut new_playlist: Playlist = get_from_id(api_key, Some(new_spin_playlist_id))?;
-				let new_playlist_persona_id = new_playlist.get_persona_id();
-
-				// Syncing the persona
-				if self.persona.get_id() != new_playlist_persona_id {
-					self.persona = get_from_id(api_key, Some(new_playlist_persona_id))?;
-				}
-
-				////////// Syncing the show
-
-				// If the playlist has a valid show id
-				if let Some(new_playlist_show_id) = new_playlist.get_show_id() {
-					// If the show id didn't match up, then refresh it
-					if self.show.get_id() != new_playlist_show_id {
-						log::info!("Do conventional refresh for show id");
-						self.show = get_from_id(api_key, Some(new_playlist_show_id))?;
-					}
-				}
-				else {
-					/* In this case, the playlist didn't have a show id. This means that
-					someone is playing music without logging it to a show's playlist.
-					From this, the current show will be inferred based on the schedule,
-					and the current playlist's show will be synced with the one from that show. */
-					log::info!("Do unconventional refresh for show id");
-					self.show = Self::get_show_while_syncing_show_id(api_key, &mut new_playlist)?;
-				}
-
-				self.playlist = new_playlist;
-			}
-
-			self.spin = new_spin;
-		}
-
-		//////////
-
+		self.sync_models()?;
 		let new_ids = get_model_ids(self);
 
-		for i in 0..self.update_status.len() {
-			self.update_status[i] = original_ids[i] != new_ids[i];
+		for ((status, original_id), new_id) in self.update_status
+			.iter_mut().zip(original_ids).zip(new_ids) {
+
+			*status = original_id != new_id;
 		}
 
 		Ok(())
@@ -146,8 +149,8 @@ pub struct SpinitronState {
 }
 
 impl SpinitronState {
-	pub fn new(api_key: &str) -> GenericResult<Self> {
-		let data = SpinitronStateData::new(api_key)?;
+	pub fn new(params: SpinitronStateDataParams) -> GenericResult<Self> {
+		let data = SpinitronStateData::new(params)?;
 		Ok(Self {continually_updated: ContinuallyUpdated::new(&data, "Spinitron")})
 	}
 
@@ -160,6 +163,10 @@ impl SpinitronState {
 			SpinitronModelName::Persona => &data.persona,
 			SpinitronModelName::Show => &data.show
 		}
+	}
+
+	pub fn spin_just_expired(&self) -> bool {
+		self.continually_updated.get_data().spin_expiry_data.just_expired
 	}
 
 	pub fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {

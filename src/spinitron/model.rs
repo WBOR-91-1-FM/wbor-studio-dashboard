@@ -5,8 +5,13 @@ use derive_alias::derive_alias;
 use serde::{Serialize, Deserialize};
 
 use crate::{
-	spinitron::wrapper_types::*,
-	texture::TextureCreationInfo
+	texture::TextureCreationInfo,
+	utility_types::generic_result::GenericResult,
+
+	spinitron::{
+		wrapper_types::*,
+		api::get_model_from_id
+	}
 };
 
 pub const NUM_SPINITRON_MODEL_TYPES: usize = 4;
@@ -153,13 +158,36 @@ impl SpinitronModel for Show {
 }
 
 impl Spin {
-	pub fn get_playlist_id(&self) -> SpinitronModelId {self.playlist_id}
+	// TODO: can I reduce the repetition on the `get`s?
+	pub fn get(api_key: &str) -> GenericResult<Self> {get_model_from_id(api_key, None)}
+
+	pub fn get_end_time(&self) -> GenericResult<chrono::DateTime<chrono::Utc>> {
+		let mut amended_end = self.end.to_string();
+		amended_end.insert(amended_end.len() - 2, ':');
+		Ok(chrono::DateTime::parse_from_rfc3339(&amended_end)?.into())
+	}
+
+	pub fn to_string_when_spin_is_expired() -> &'static str {
+		"No 😰 recent 😬 spins 😟❗"
+	}
+
+	pub fn get_texture_creation_info_when_spin_is_expired() -> TextureCreationInfo<'static> {
+		TextureCreationInfo::Path(Cow::Borrowed("assets/polar_headphones_logo.png"))
+	}
 }
 
 impl Playlist {
-	pub fn get_persona_id(&self) -> SpinitronModelId {self.persona_id}
-	pub fn get_show_id(&self) -> MaybeSpinitronModelId {self.show_id}
-	pub fn set_show_id(&mut self, id: SpinitronModelId) {self.show_id = Some(id);}
+	pub fn get(api_key: &str) -> GenericResult<Self> {get_model_from_id(api_key, None)}
+}
+
+impl Persona {
+	pub fn get(api_key: &str, playlist: &Playlist) -> GenericResult<Self> {
+		get_model_from_id(api_key, Some(playlist.persona_id))
+	}
+}
+
+impl Show {
+	pub fn get(api_key: &str) -> GenericResult<Self> {get_model_from_id(api_key, None)}
 }
 
 impl SpinitronModelWithProps for Spin {}
@@ -190,6 +218,8 @@ pub struct Spin {
 	// TODO: why is `time` not there?
 
 	duration: Uint,
+	end: String,
+
 	request: MaybeBool,
 	new: MaybeBool,
 
@@ -202,10 +232,13 @@ pub struct Spin {
 
 	////////// These are other fields
 
-	// Ignoring "_links" for now. TODO: add start, end, and label later (given the start, can I figure out where I am in the song?)
+	/*
+	- Ignoring "_links" for now.
+	- Also not  keeping the playlist ID here, since if someone doesn't come to their show, then the playlist ID will be invalid.
+	- TODO: add start, end, and label later (given the start, can I figure out where I am in the song?)
+	*/
 
 	id: SpinitronModelId,
-	playlist_id: SpinitronModelId,
 	image: MaybeString // If there's no image, it will be `None` or `Some("")`
 });
 
@@ -214,9 +247,7 @@ derive_spinitron_model_props!(
 pub struct Playlist {
 	id: SpinitronModelId,
 	persona_id: SpinitronModelId, // TODO: why are all the persona ids the same?
-	show_id: MaybeSpinitronModelId, // TODO: why is this optional?
 
-	start: String,
 	end: String,
 	duration: Uint,
 	timezone: String,
@@ -256,7 +287,6 @@ derive_spinitron_model_props!(
 pub struct Show {
 	id: SpinitronModelId,
 
-	start: String,
 	end: String,
 	duration: Uint,
 	timezone: String,

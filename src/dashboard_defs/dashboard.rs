@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+
+use chrono::Duration;
 use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
@@ -233,7 +235,7 @@ pub fn make_dashboard(
 		&api_keys.twilio_account_sid,
 		&api_keys.twilio_auth_token,
 		6,
-		chrono::Duration::try_days(5).ok_or("Could not build message history duration!")?,
+		Duration::days(5),
 		false
 	);
 
@@ -329,7 +331,7 @@ pub fn make_dashboard(
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
 			clock_hands,
-			spinitron_state: SpinitronState::new(&api_keys.spinitron)?,
+			spinitron_state: SpinitronState::new((&api_keys.spinitron, Duration::minutes(20)))?,
 			twilio_state,
 			font_info: &FONT_INFO,
 			fallback_texture_creation_info: TextureCreationInfo::Path(Cow::Borrowed("assets/no_texture_available.png")),

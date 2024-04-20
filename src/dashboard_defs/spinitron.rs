@@ -1,10 +1,9 @@
 use std::borrow::Cow;
 
 use crate::{
-	spinitron::model::{
-		SpinitronModelName,
-		NUM_SPINITRON_MODEL_TYPES
-	},
+	dashboard_defs::shared_window_state::SharedWindowState,
+
+	spinitron::model::{Spin, SpinitronModelName, NUM_SPINITRON_MODEL_TYPES},
 
 	texture::{
 		DisplayText,
@@ -20,14 +19,12 @@ use crate::{
 	},
 
 	window_tree::{
-		ColorSDL,
 		Window,
+		ColorSDL,
 		WindowContents,
 		WindowUpdaterParams,
 		PossibleWindowUpdater
-	},
-
-	dashboard_defs::shared_window_state::SharedWindowState
+	}
 };
 
 struct SpinitronModelWindowState {
@@ -66,21 +63,40 @@ pub fn make_spinitron_windows(
 		let individual_window_state = params.window.get_state::<SpinitronModelWindowState>();
 		let model_name = individual_window_state.model_name;
 
+		//////////
+
+		let spin_just_expired = if let SpinitronModelName::Spin = model_name {
+			spinitron_state.spin_just_expired()
+		}
+		else {
+			false
+		};
+
 		let should_update_texture =
+			spin_just_expired ||
 			spinitron_state.model_was_updated(model_name) ||
 			matches!(params.window.get_contents(), WindowContents::Nothing);
 
 		if !should_update_texture {return Ok(());}
 
+		//////////
+
 		let model = spinitron_state.get_model_by_name(model_name);
 		let window_size_pixels = params.area_drawn_to_screen;
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
+			let text = if spin_just_expired {
+				Cow::Borrowed(Spin::to_string_when_spin_is_expired())
+			}
+			else {
+				Cow::Owned(model.to_string())
+			};
+
 			TextureCreationInfo::Text((
 				Cow::Borrowed(inner_shared_state.font_info),
 
 				TextDisplayInfo {
-					text: DisplayText::new(&model.to_string()),
+					text: DisplayText::new(&text),
 					color: text_color,
 					pixel_area: window_size_pixels, // TODO: why does cutting the max pixel width in half still work?
 
@@ -93,6 +109,9 @@ pub fn make_spinitron_windows(
 
 				}
 			))
+		}
+		else if spin_just_expired {
+			Spin::get_texture_creation_info_when_spin_is_expired()
 		}
 		else {
 			let size = window_size_pixels.0.min(window_size_pixels.1);
