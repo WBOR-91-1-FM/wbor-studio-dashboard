@@ -55,6 +55,7 @@ Or with logging:
   - Use SDL3 bindings
   - Make a small window that shows the dashboard uptime (don't use `chrono::Duration`, since that will limit the uptime to some number of weeks)
   - Investigate the occasionally high CPU usage on the Pi (like 300%!)
+  - Could multiple update rates per window be useful?
 
 - Fun ideas:
   - Run the dashboard on a PVM, or an original iMac, eventually?
