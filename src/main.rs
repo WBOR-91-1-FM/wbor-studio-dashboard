@@ -5,9 +5,7 @@ mod window_tree;
 mod utility_types;
 mod dashboard_defs;
 
-/*
-Worked from this in the beginning: https://blog.logrocket.com/using-sdl2-bindings-rust/
-*/
+// Worked from this in the beginning: https://blog.logrocket.com/using-sdl2-bindings-rust/
 
 // https://gamedev.stackexchange.com/questions/137882/
 #[derive(serde::Deserialize)]
