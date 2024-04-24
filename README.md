@@ -1,8 +1,7 @@
 # WBOR's On-Air-Studio Dashboard
 
 - An in-studio dashboard for [WBOR 91.1 FM](https://wbor.org/), Bowdoin College's student-run radio station.
-- Runs on a little CRT monitor in the on-air studio.
-- Currently in early development.
+- Runs on a little CRT monitor in the on-air studio. New features added every week!
 - Want to contribute? [Get in touch here.](https://wbor.org/contact)
 
 ## Dependencies
