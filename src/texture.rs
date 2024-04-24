@@ -595,9 +595,11 @@ impl<'a> TexturePool<'a> {
 
 		let pixel_height = text_display_info.pixel_area.1;
 
+		/*
 		if pixel_height != max_surface_height {
 			log::debug!("Doing slight text texture height correction (adjusting {max_surface_height} to {pixel_height})");
 		}
+		*/
 
 		let mut joined_surface = Surface::new(
 			total_surface_width.max(text_display_info.pixel_area.0),
