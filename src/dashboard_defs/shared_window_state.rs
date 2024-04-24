@@ -14,7 +14,9 @@ pub struct SharedWindowState<'a> {
 	// This is used whenever a texture can't be loaded
 	pub fallback_texture_creation_info: TextureCreationInfo<'a>,
 
-	pub curr_dashboard_error: Option<String>
+	pub curr_dashboard_error: Option<String>,
+
+	pub rand_generator: rand::rngs::ThreadRng
 
 	/* TODO: can I keep the texture pool here, instead of passing it in to
 	each window on its own (and the shared window state updater)? */

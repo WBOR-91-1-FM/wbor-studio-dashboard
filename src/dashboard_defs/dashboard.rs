@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use chrono::Duration;
-use sdl2::ttf::{FontStyle, Hinting};
+use sdl2::{render::BlendMode, ttf::{FontStyle, Hinting}};
 
 use crate::{
 	texture::{FontInfo, TextureCreationInfo, TexturePool},
@@ -28,6 +28,7 @@ use crate::{
 		weather::make_weather_window,
 		shared_window_state::SharedWindowState,
 		twilio::{make_twilio_window, TwilioState},
+		surprise::{make_surprise_window, SurpriseCreationInfo},
 		clock::{ClockHandConfig, ClockHandConfigs, ClockHands},
 		spinitron::{make_spinitron_windows, SpinitronModelWindowInfo, SpinitronModelWindowsInfo}
 	}
@@ -314,6 +315,43 @@ pub fn make_dashboard(
 		Some(all_main_windows)
 	);
 
+	////////// Making a surprise window
+
+	let surprise_window = make_surprise_window(Vec2f::ZERO, Vec2f::ONE,
+		&[
+			SurpriseCreationInfo {
+				texture_path: "assets/nathan.png",
+				texture_blend_mode: BlendMode::None,
+
+				update_rate: Duration::seconds(30),
+				chance_of_appearing_when_updating: 0.0025,
+				num_update_steps_to_appear_for: 1,
+
+				local_hours_24_start: 8,
+				local_hours_24_end: 22,
+
+				flicker_window: false
+			},
+
+			SurpriseCreationInfo {
+				texture_path: "assets/jumpscare.png",
+				texture_blend_mode: BlendMode::Add,
+
+				update_rate: Duration::milliseconds(35),
+				chance_of_appearing_when_updating: 0.000003,
+				num_update_steps_to_appear_for: 20,
+
+				local_hours_24_start: 0,
+				local_hours_24_end: 5,
+
+				flicker_window: true
+			}
+		],
+
+		update_rate_creator,
+		texture_pool
+	);
+
 	////////// Making the highest-level window
 
 	let all_windows = Window::new(
@@ -323,7 +361,7 @@ pub fn make_dashboard(
 		None,
 		Vec2f::ZERO,
 		Vec2f::ONE,
-		Some(vec![top_bar_window, main_window])
+		Some(vec![top_bar_window, main_window, surprise_window])
 	);
 
 	////////// Defining the shared state
@@ -335,7 +373,8 @@ pub fn make_dashboard(
 			twilio_state,
 			font_info: &FONT_INFO,
 			fallback_texture_creation_info: TextureCreationInfo::Path(Cow::Borrowed("assets/no_texture_available.png")),
-			curr_dashboard_error: None
+			curr_dashboard_error: None,
+			rand_generator: rand::thread_rng()
 		}
 	);
 

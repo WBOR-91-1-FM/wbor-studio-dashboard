@@ -219,6 +219,10 @@ impl Window {
 		self.skip_drawing = skip_drawing;
 	}
 
+	pub fn drawing_is_skipped(&self) -> bool {
+		self.skip_drawing
+	}
+
 	pub fn set_aspect_ratio_correction_skipping(&mut self, skip_aspect_ratio_correction: bool) {
 		self.skip_aspect_ratio_correction = skip_aspect_ratio_correction;
 	}
