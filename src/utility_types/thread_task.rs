@@ -36,7 +36,7 @@ pub trait Updatable {
 }
 
 pub struct ContinuallyUpdated<T> {
-	data: T,
+	curr_data: T,
 	update_task: ThreadTask<SendableGenericResult<T>>,
 	name: &'static str
 }
@@ -55,7 +55,7 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 			}
 		);
 
-		Self {data: data.clone(), update_task, name}
+		Self {curr_data: data.clone(), update_task, name}
 	}
 
 	// This returns false if a thread failed to complete its operation.
@@ -65,7 +65,7 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 		match self.update_task.get_value() {
 			Ok(Some(result_or_err)) => {
 				match result_or_err {
-					Ok(result) => {*self = Self::new(&result, self.name);},
+					Ok(result) => {*self = Self::new(&result, self.name);}
 					Err(err) => {error = Some(err.into());}
 				}
 			},
@@ -76,7 +76,7 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 
 		if let Some(err) = error {
 			log::error!("Updating the {} data on this iteration failed. Error: '{err}'.", self.name);
-			*self = Self::new(&self.data, self.name); // Restarting when an error happens
+			*self = Self::new(&self.curr_data, self.name); // Restarting when an error happens
 			return Ok(false);
 		}
 
@@ -84,6 +84,6 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 	}
 
 	pub fn get_data(&self) -> &T {
-		&self.data
+		&self.curr_data
 	}
 }
