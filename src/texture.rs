@@ -55,17 +55,21 @@ pub struct DisplayText<'a> {
 
 impl<'a> DisplayText<'a> {
 	pub fn new(text: &str) -> Self {
-		const WHITESPACE_REPLACEMENT_PAIRS: [(char, &str); 2] = [
+		// Indicates that emojis should be made colored; not rendered correctly on the Pi
+		const UNICODE_VARIATION_SELECTOR_16: char = '\u{FE0F}';
+
+		const WHITESPACE_REPLACEMENT_PAIRS: [(char, &str); 3] = [
 			('\t', "    "),
-			('\n', " ")
+			('\n', " "),
+			(UNICODE_VARIATION_SELECTOR_16, "")
 		];
 
 		/* TODO:
 		- Should I add the rest of the blank characters (see https://invisible-characters.com/ for all), for better cleanup?
 		- The second reason for this is to stop 'nonavailable' character variants to appear - although this would be hard to verify
 		*/
-		const ALL_WHITESPACE_CHARS: [char; 3] = [
-			' ', '\t', '\n'
+		const ALL_WHITESPACE_CHARS: [char; 4] = [
+			' ', '\t', '\n', UNICODE_VARIATION_SELECTOR_16
 		];
 
 		//////////
@@ -95,9 +99,9 @@ impl<'a> DisplayText<'a> {
 			}
 		}
 
-		//////////
+		////////// Returning
 
-		return Self {text: Cow::Owned(adjusted)}
+		Self {text: Cow::Owned(adjusted)}
 	}
 
 	// This assumes that the inputted padding characters should not be trimmed/preprocessed at all
