@@ -133,6 +133,7 @@ pub struct TextDisplayInfo<'a> {
 
 #[derive(Clone)]
 pub enum TextureCreationInfo<'a> {
+	RawBytes(&'a [u8]),
 	Path(Cow<'a, str>),
 	Url(Cow<'a, str>),
 	Text((Cow<'a, FontInfo>, TextDisplayInfo<'a>))
@@ -676,14 +677,13 @@ impl<'a> TexturePool<'a> {
 
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
 		let texture = match creation_info {
-			TextureCreationInfo::Path(path) => {
-				self.texture_creator.load_texture(path as &str)
-			},
+			// Use this whenever possible (whenever you can preload data into byte form)!
+			TextureCreationInfo::RawBytes(bytes) =>
+				self.texture_creator.load_texture_bytes(bytes),
 
-			/* TODO:
-			- Could I pass an optional texture-rescaling param here for the Spinitron spin textures (instead of in the model logic?)
-			- Speed up texture loading by getting the texture bytes in the continual updater
-			*/
+			TextureCreationInfo::Path(path) =>
+				self.texture_creator.load_texture(path as &str),
+
 			TextureCreationInfo::Url(url) => {
 				let response = request::get(url)?;
 				self.texture_creator.load_texture_bytes(response.as_bytes())

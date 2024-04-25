@@ -12,7 +12,7 @@ pub struct SharedWindowState<'a> {
 	pub font_info: &'a FontInfo,
 
 	// This is used whenever a texture can't be loaded
-	pub fallback_texture_creation_info: TextureCreationInfo<'a>,
+	pub fallback_texture_creation_info: &'a TextureCreationInfo<'a>,
 
 	pub curr_dashboard_error: Option<String>,
 

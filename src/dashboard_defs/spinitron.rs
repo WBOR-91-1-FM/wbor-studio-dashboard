@@ -57,23 +57,16 @@ pub fn make_spinitron_windows(
 	are square, and you can get the corrected size by taking the min of the two components
 	of `area_drawn_to_screen`. */
 	fn spinitron_model_window_updater_fn(params: WindowUpdaterParams) -> MaybeError {
-		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
-		let spinitron_state = &inner_shared_state.spinitron_state;
+		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
+		let spinitron_state = &mut inner_shared_state.spinitron_state;
 
 		let individual_window_state = params.window.get_state::<SpinitronModelWindowState>();
 		let model_name = individual_window_state.model_name;
+		let window_size_pixels = params.area_drawn_to_screen;
 
 		//////////
 
-		let spin_just_expired = if let SpinitronModelName::Spin = model_name {
-			spinitron_state.spin_just_expired()
-		}
-		else {
-			false
-		};
-
 		let should_update_texture =
-			spin_just_expired ||
 			spinitron_state.model_was_updated(model_name) ||
 			matches!(params.window.get_contents(), WindowContents::Nothing);
 
@@ -81,15 +74,12 @@ pub fn make_spinitron_windows(
 
 		//////////
 
-		let model = spinitron_state.get_model_by_name(model_name);
-		let window_size_pixels = params.area_drawn_to_screen;
-
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
-			let text = if spin_just_expired {
+			let text = if spinitron_state.is_spin_and_just_expired(model_name) {
 				Cow::Borrowed(Spin::to_string_when_spin_is_expired())
 			}
 			else {
-				Cow::Owned(model.to_string())
+				Cow::Owned(spinitron_state.get_model_by_name(model_name).to_string())
 			};
 
 			TextureCreationInfo::Text((
@@ -110,23 +100,21 @@ pub fn make_spinitron_windows(
 				}
 			))
 		}
-		else if spin_just_expired {
-			Spin::get_texture_creation_info_when_spin_is_expired()
-		}
 		else {
-			let size = window_size_pixels.0.min(window_size_pixels.1);
-
-			match model.get_texture_creation_info((size, size)) {
-				Some(texture_creation_info) => texture_creation_info,
-				None => inner_shared_state.fallback_texture_creation_info.clone()
+			// Registering the aspect-ratio-corrected spin window size
+			if matches!(model_name, SpinitronModelName::Spin) {
+				let size = window_size_pixels.0.min(window_size_pixels.1);
+				spinitron_state.register_spin_window_size((size, size));
 			}
+
+			spinitron_state.get_cached_texture_creation_info(model_name)
 		};
 
 		params.window.get_contents_mut().update_as_texture(
 			true,
 			params.texture_pool,
 			&texture_creation_info,
-			&inner_shared_state.fallback_texture_creation_info
+			inner_shared_state.fallback_texture_creation_info
 		)
 	}
 

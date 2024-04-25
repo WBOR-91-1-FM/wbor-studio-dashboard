@@ -317,6 +317,7 @@ pub fn make_dashboard(
 
 	////////// Making a surprise window
 
+	// TODO: make Nathan less frequent
 	let surprise_window = make_surprise_window(Vec2f::ZERO, Vec2f::ONE,
 		&[
 			SurpriseCreationInfo {
@@ -366,13 +367,23 @@ pub fn make_dashboard(
 
 	////////// Defining the shared state
 
+	const FALLBACK_TEXTURE_CREATION_INFO: TextureCreationInfo<'static> =
+		TextureCreationInfo::Path(Cow::Borrowed("assets/no_texture_available.png"));
+
+	let initial_spin_window_size_guess = (1000, 1000);
+	let spin_expiry_duration = Duration::minutes(20);
+
+	let spinitron_state = SpinitronState::new(
+		(&api_keys.spinitron, spin_expiry_duration, &FALLBACK_TEXTURE_CREATION_INFO, initial_spin_window_size_guess)
+	)?;
+
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
 			clock_hands,
-			spinitron_state: SpinitronState::new((&api_keys.spinitron, Duration::minutes(20)))?,
+			spinitron_state,
 			twilio_state,
 			font_info: &FONT_INFO,
-			fallback_texture_creation_info: TextureCreationInfo::Path(Cow::Borrowed("assets/no_texture_available.png")),
+			fallback_texture_creation_info: &FALLBACK_TEXTURE_CREATION_INFO,
 			curr_dashboard_error: None,
 			rand_generator: rand::thread_rng()
 		}

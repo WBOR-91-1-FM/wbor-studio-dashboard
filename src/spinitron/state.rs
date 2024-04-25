@@ -1,4 +1,9 @@
+use std::borrow::Cow;
+
 use crate::{
+	request,
+	texture::TextureCreationInfo,
+
 	utility_types::{
 		generic_result::{GenericResult, MaybeError},
 		thread_task::{Updatable, ContinuallyUpdated}
@@ -10,6 +15,8 @@ use crate::{
 		SpinitronModel, SpinitronModelName
 	}
 };
+
+//////////
 
 #[derive(Clone)]
 struct SpinExpiryData {
@@ -52,26 +59,39 @@ impl SpinExpiryData {
 	}
 }
 
+//////////
+
 #[derive(Clone)]
 struct SpinitronStateData {
+	api_key: String,
+
 	spin: Spin,
 	playlist: Playlist,
 	persona: Persona,
 	show: Show,
 
 	spin_expiry_data: SpinExpiryData,
-
-	api_key: String,
+	precached_texture_bytes: [Vec<u8>; NUM_SPINITRON_MODEL_TYPES],
+	fallback_texture_creation_info: &'static TextureCreationInfo<'static>,
 
 	/* The boolean at index `i` is true if the model at index `i` was recently
 	updated. Model indices are (in order) spin, playlist, persona, and show. */
-	update_status: [bool; NUM_SPINITRON_MODEL_TYPES]
+	update_statuses: [bool; NUM_SPINITRON_MODEL_TYPES]
 }
 
-type SpinitronStateDataParams<'a> = (&'a str, chrono::Duration);
+type WindowSize = (u32, u32);
+type SpinitronModels<'a> = [&'a dyn SpinitronModel; NUM_SPINITRON_MODEL_TYPES];
+
+// The third param is the fallback texture creation info, and the fourth one is the spin window size
+type SpinitronStateDataParams<'a> = (&'a str, chrono::Duration, &'static TextureCreationInfo<'static>, WindowSize);
+
+//////////
 
 impl SpinitronStateData {
-	fn new((api_key, spin_expiry_duration): SpinitronStateDataParams) -> GenericResult<Self> {
+	fn new((api_key, spin_expiry_duration,
+		fallback_texture_creation_info, spin_window_size):
+		SpinitronStateDataParams) -> GenericResult<Self> {
+
 		let spin = Spin::get(api_key)?;
 		let playlist = Playlist::get(api_key)?;
 		let persona =  Persona::get(api_key, &playlist)?;
@@ -79,12 +99,54 @@ impl SpinitronStateData {
 
 		let spin_expiry_data = SpinExpiryData::new(spin_expiry_duration, &spin)?;
 
-		Ok(Self {
-			spin, playlist, persona, show,
-			spin_expiry_data,
+		let mut data = Self {
 			api_key: api_key.to_string(),
-			update_status: [false, false, false, false]
-		})
+
+			spin, playlist, persona, show,
+
+			spin_expiry_data,
+			precached_texture_bytes: [vec![], vec![], vec![], vec![]], // TODO: shorten this somehow
+			fallback_texture_creation_info,
+
+			update_statuses: [false; NUM_SPINITRON_MODEL_TYPES]
+		};
+
+		data.precached_texture_bytes = data.get_models().map( // TODO: don't unwrap once `try_map` becomes stable
+			|model| data.get_model_texture_bytes(model, spin_window_size).unwrap()
+		);
+
+		Ok(data)
+	}
+
+	fn get_model_texture_bytes(&self, model: &dyn SpinitronModel, size_pixels: WindowSize) -> GenericResult<Vec<u8>> {
+		let info = match model.get_texture_creation_info(size_pixels) {
+			Some(texture_creation_info) => Cow::Owned(texture_creation_info),
+			None => Cow::Borrowed(self.fallback_texture_creation_info)
+		};
+
+		/* I am doing this to speed up the loading of textures on the main
+		thread, by doing the image URL requesting on this thread instead,
+		and precaching anything from disk in byte form as well. */
+		match info.as_ref() {
+			TextureCreationInfo::Path(path) => {
+				Ok(std::fs::read(&path as &str)?)
+			},
+
+			TextureCreationInfo::Url(url) => {
+				let response = request::get(url)?;
+				Ok(response.as_bytes().to_vec())
+			}
+
+			TextureCreationInfo::RawBytes(_) =>
+				panic!("Spinitron model textures should not be returning raw bytes!"),
+
+			TextureCreationInfo::Text(_) =>
+				panic!("Precaching the text texture creation info is not supported for plain Spinitron model textures!")
+		}
+	}
+
+	fn get_models(&self) -> SpinitronModels {
+		[&self.spin, &self.playlist, &self.persona, &self.show]
 	}
 
 	fn sync_models(&mut self) -> MaybeError {
@@ -97,21 +159,18 @@ impl SpinitronStateData {
 			self.spin = maybe_new_spin;
 		}
 
-		// Step 2: mark the expiration of the current spin.
-		self.spin_expiry_data.mark_expiration(&self.spin)?;
-
-		/* Step 3: get a maybe new playlist (don't base it on a spin ID,
+		/* Step 2: get a maybe new playlist (don't base it on a spin ID,
 		since the spin may not belong to a playlist under automation). */
 		let maybe_new_playlist = Playlist::get(api_key)?;
 
 		if maybe_new_playlist.get_id() != self.playlist.get_id() {
-			/* Step 4: get the persona id based on the playlist id (since otherwise, you'll
+			/* Step 3: get the persona id based on the playlist id (since otherwise, you'll
 			just get some persona that's first in Spinitron's internal list of personas. */
 			self.persona = Persona::get(api_key, &maybe_new_playlist)?;
 			self.playlist = maybe_new_playlist;
 		}
 
-		/* Step 5: get the current show id (based on what's on the
+		/* Step 4: get the current show id (based on what's on the
 		schedule, irrespective of what show was last on).
 		TODO: should I only do this in the branch above? */
 		self.show = Show::get(api_key)?;
@@ -121,22 +180,35 @@ impl SpinitronStateData {
 }
 
 impl Updatable for SpinitronStateData {
-	fn update(&mut self) -> MaybeError {
-		// TODO: do a mapping here instead
-		let get_model_ids = |data: &SpinitronStateData| [
-			data.spin.get_id(), data.playlist.get_id(),
-			data.persona.get_id(), data.show.get_id()
-		];
+	type Param = WindowSize;
+
+	fn update(&mut self, param: &Self::Param) -> MaybeError {
+		////////// Update the models
+
+		let get_model_ids = |data: &Self|
+			data.get_models().map(|model| model.get_id());
 
 		let original_ids = get_model_ids(self);
 		self.sync_models()?;
 		let new_ids = get_model_ids(self);
 
-		for ((status, original_id), new_id) in self.update_status
-			.iter_mut().zip(original_ids).zip(new_ids) {
+		////////// Update the model textures
 
-			*status = original_id != new_id;
+		// TODO: how to do this without all the indexing?
+		for i in 0..NUM_SPINITRON_MODEL_TYPES {
+			let updated = original_ids[i] != new_ids[i];
+
+			if updated {
+				let model = self.get_models()[i];
+				self.precached_texture_bytes[i] = self.get_model_texture_bytes(model, *param)?;
+			}
+
+			self.update_statuses[i] = updated;
 		}
+
+		////////// Marking the expiration of the current spin
+
+		self.spin_expiry_data.mark_expiration(&self.spin)?;
 
 		Ok(())
 	}
@@ -145,15 +217,23 @@ impl Updatable for SpinitronStateData {
 //////////
 
 pub struct SpinitronState {
-	continually_updated: ContinuallyUpdated<SpinitronStateData>
+	continually_updated: ContinuallyUpdated<SpinitronStateData>,
+	saved_continually_updated_param: <SpinitronStateData as Updatable>::Param
 }
 
 impl SpinitronState {
 	pub fn new(params: SpinitronStateDataParams) -> GenericResult<Self> {
 		let data = SpinitronStateData::new(params)?;
-		Ok(Self {continually_updated: ContinuallyUpdated::new(&data, "Spinitron")})
+
+		let initial_spin_window_size_guess = params.3;
+
+		Ok(Self {
+			continually_updated: ContinuallyUpdated::new(&data, initial_spin_window_size_guess, "Spinitron"),
+			saved_continually_updated_param: initial_spin_window_size_guess
+		})
 	}
 
+	// TODO: should I use the `get_models` function here, perhaps?
 	pub fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {
 		let data = self.continually_updated.get_data();
 
@@ -165,15 +245,34 @@ impl SpinitronState {
 		}
 	}
 
-	pub fn spin_just_expired(&self) -> bool {
-		self.continually_updated.get_data().spin_expiry_data.just_expired
+	pub fn is_spin_and_just_expired(&self, model_name: SpinitronModelName) -> bool {
+		matches!(model_name, SpinitronModelName::Spin) && self.continually_updated.get_data().spin_expiry_data.just_expired
 	}
 
 	pub fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {
-		self.continually_updated.get_data().update_status[model_name as usize]
+		self.is_spin_and_just_expired(model_name) || self.continually_updated.get_data().update_statuses[model_name as usize]
+	}
+
+	/* This is meant to be called by a spin texture window, so that the
+	spin window size can be given to the continual updater (which preloads
+	the spin texture's data on its line of execution, for less load times). */
+	pub fn register_spin_window_size(&mut self, size: WindowSize) {
+		self.saved_continually_updated_param = size;
+	}
+
+	// Note: this is not for text textures.
+	pub fn get_cached_texture_creation_info(&self, model_name: SpinitronModelName) -> TextureCreationInfo {
+		// TODO: cache this info for expired spins, instead of loading it like this
+		if self.is_spin_and_just_expired(model_name) {
+			Spin::get_texture_creation_info_when_spin_is_expired()
+		}
+		else {
+			let bytes = &self.continually_updated.get_data().precached_texture_bytes[model_name as usize];
+			TextureCreationInfo::RawBytes(bytes)
+		}
 	}
 
 	pub fn update(&mut self) -> GenericResult<bool> {
-		self.continually_updated.update()
+		self.continually_updated.update(self.saved_continually_updated_param)
 	}
 }

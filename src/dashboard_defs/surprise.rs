@@ -38,9 +38,9 @@ pub struct SurpriseCreationInfo<'a> {
 	pub flicker_window: bool
 }
 
-pub fn make_surprise_window<'a>(
+pub fn make_surprise_window(
 	top_left: Vec2f, size: Vec2f,
-	surprise_creation_info: &[SurpriseCreationInfo<'a>],
+	surprise_creation_info: &[SurpriseCreationInfo],
 	update_rate_creator: UpdateRateCreator,
 	texture_pool: &mut TexturePool) -> Window {
 
