@@ -351,7 +351,7 @@ pub fn make_dashboard(
 
 		update_rate_creator,
 		texture_pool
-	);
+	)?;
 
 	////////// Making the highest-level window
 

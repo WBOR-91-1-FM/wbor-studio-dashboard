@@ -6,7 +6,7 @@ use crate::{
 	texture::{TexturePool, TextureCreationInfo},
 
 	utility_types::{
-		generic_result::MaybeError,
+		generic_result::{GenericResult, MaybeError},
 		dynamic_optional::DynamicOptional,
 		vec2f::{Vec2f, assert_in_unit_interval},
 		update_rate::{UpdateRateCreator, Seconds}
@@ -42,7 +42,7 @@ pub fn make_surprise_window(
 	top_left: Vec2f, size: Vec2f,
 	surprise_creation_info: &[SurpriseCreationInfo],
 	update_rate_creator: UpdateRateCreator,
-	texture_pool: &mut TexturePool) -> Window {
+	texture_pool: &mut TexturePool) -> GenericResult<Window> {
 
 	struct SurpriseInfo {
 		chance_of_appearing_when_updating: SurpriseAppearanceChance, // 0 to 1
@@ -137,7 +137,7 @@ pub fn make_surprise_window(
 			let update_rate = update_rate_creator.new_instance(update_rate_secs);
 			let texture_creation_info = TextureCreationInfo::Path(Cow::Borrowed(creation_info.texture_path));
 
-			let texture = texture_pool.make_texture(&texture_creation_info).unwrap();
+			let texture = texture_pool.make_texture(&texture_creation_info)?;
 			texture_pool.set_blend_mode_for(&texture, creation_info.texture_blend_mode);
 
 			// TODO: when initializing textures, perhaps set a default blend mode of `None`, for the sake of speed (adjust this in other spots later though)
@@ -163,11 +163,11 @@ pub fn make_surprise_window(
 
 			window.set_draw_skipping(true);
 			window.set_aspect_ratio_correction_skipping(true);
-			window
+			Ok(window)
 		}
-	).collect();
+	).collect::<GenericResult<_>>()?;
 
-	Window::new(
+	Ok(Window::new(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Nothing,
@@ -175,5 +175,5 @@ pub fn make_surprise_window(
 		top_left,
 		size,
 		Some(surprise_windows)
-	)
+	))
 }
