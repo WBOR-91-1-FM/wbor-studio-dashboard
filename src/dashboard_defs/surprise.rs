@@ -121,9 +121,12 @@ pub fn make_surprise_window(
 				creation_info.update_rate.subsec_nanos() as Seconds / 1_000_000_000.0;
 
 			log::info!(
-				"Surprise with path '{}' will occur approximately once every {:.3} seconds, and then {} for {:.3} seconds{}",
+				"Surprise with path '{}' will occur approximately once every {:.3} seconds (from {}:00 to {}:00), and then {} for {:.3} seconds{}",
 				creation_info.texture_path,
 				update_rate_secs / creation_info.chance_of_appearing_when_updating as Seconds,
+
+				creation_info.local_hours_24_start,
+				creation_info.local_hours_24_end,
 
 				if creation_info.flicker_window {"flicker"} else {"persist"},
 				update_rate_secs * creation_info.num_update_steps_to_appear_for as Seconds,
