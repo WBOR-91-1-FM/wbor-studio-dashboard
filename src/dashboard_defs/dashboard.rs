@@ -169,32 +169,60 @@ pub fn make_dashboard(
 		&all_model_windows_info, shared_update_rate
 	);
 
-	////////// Making some static texture windows
+	////////// Making a Twilio window
 
-	// TODO: make animated textures possible
+	let twilio_state = TwilioState::new(
+		&api_keys.twilio_account_sid,
+		&api_keys.twilio_auth_token,
+		6,
+		Duration::days(5),
+		false
+	);
 
-	// Texture path, top left, size
-	let static_texture_info = [
-		("assets/logo.png", Vec2f::new(0.7, 0.75), Vec2f::new(0.1, 0.05)),
-		("assets/soup.png", Vec2f::new(0.85, 0.72), Vec2f::new(0.06666666, 0.1))
-	];
+	let twilio_window = make_twilio_window(
+		&twilio_state,
 
-	all_main_windows.extend(static_texture_info.into_iter().map(|datum| {
-		Window::new(
-			None,
-			DynamicOptional::NONE,
+		// This is how often the history windows check for new messages (this is low so that it'll be fast in the beginning)
+		update_rate_creator.new_instance(0.25),
 
-			WindowContents::Texture(texture_pool.make_texture(
-				&TextureCreationInfo::Path(Cow::Borrowed(datum.0))
-			).unwrap()),
+		Vec2f::new(0.58, 0.45), Vec2f::new(0.4, 0.27),
 
-			None,
+		0.025,
+		WindowContents::Color(ColorSDL::RGB(0, 200, 0)),
 
-			datum.1,
-			datum.2,
-			None
-		)
-	}));
+		Vec2f::new(0.1, 0.45),
+		theme_color_1, theme_color_1,
+
+		WindowContents::Texture(texture_pool.make_texture(
+			&TextureCreationInfo::Path(Cow::Borrowed("assets/text_bubble.png"))
+		)?),
+	);
+
+	all_main_windows.push(twilio_window);
+
+	////////// Making an error window
+
+	let error_window = make_error_window(
+		Vec2f::new(0.0, 0.95),
+		Vec2f::new(0.15, 0.05),
+		update_rate_creator.new_instance(2.0),
+		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 190)),
+		ColorSDL::GREEN
+	);
+
+	all_main_windows.push(error_window);
+
+	////////// Making a credit windoww
+
+	let credit_window = make_credit_window(
+		Vec2f::new(0.85, 0.97),
+		Vec2f::new(0.15, 0.03),
+		ColorSDL::RED,
+		ColorSDL::RGB(210, 180, 140),
+		"By Caspian Ahlberg"
+	);
+
+	all_main_windows.push(credit_window);
 
 	////////// Making a clock window
 
@@ -230,60 +258,45 @@ pub fn make_dashboard(
 		"US"
 	);
 
-	////////// Making a Twilio window
+	////////// Making some static texture windows
 
-	let twilio_state = TwilioState::new(
-		&api_keys.twilio_account_sid,
-		&api_keys.twilio_auth_token,
-		6,
-		Duration::days(5),
-		false
-	);
+	// Texture path, top left, size (TODO: make animated textures possible)
+	let static_texture_info = [
+		("assets/dashboard_background.png", Vec2f::ZERO, Vec2f::ONE, false),
+		("assets/logo.png", Vec2f::new(0.7, 0.75), Vec2f::new(0.1, 0.05), false),
+		("assets/soup.png", Vec2f::new(0.85, 0.72), Vec2f::new(0.06666666, 0.1), false)
+	];
 
-	let twilio_window = make_twilio_window(
-		&twilio_state,
+	let mut make_static_texture_window = |(path, tl, size, skip_ar_correction)| {
+		let mut window = Window::new(
+			None,
+			DynamicOptional::NONE,
 
-		// This is how often the history windows check for new messages (this is low so that it'll be fast in the beginning)
-		update_rate_creator.new_instance(0.25),
+			WindowContents::Texture(texture_pool.make_texture(
+				&TextureCreationInfo::Path(Cow::Borrowed(path))
+			).unwrap()),
 
-		Vec2f::new(0.58, 0.45), Vec2f::new(0.4, 0.27),
+			None,
 
-		0.025,
-		WindowContents::Color(ColorSDL::RGB(0, 200, 0)),
+			tl,
+			size,
+			None
+		);
 
-		Vec2f::new(0.1, 0.45),
-		theme_color_1, theme_color_1,
+		window.set_aspect_ratio_correction_skipping(skip_ar_correction);
+		window
+	};
 
-		WindowContents::Texture(
-			texture_pool.make_texture(&TextureCreationInfo::Path(Cow::Borrowed("assets/text_bubble.png")))?
-		),
-	);
+	all_main_windows.extend(static_texture_info.into_iter().map(&mut make_static_texture_window));
 
-	all_main_windows.push(twilio_window);
+	////////// Making a foreground window
 
-	////////// Making an error window
-
-	let error_window = make_error_window(
-		Vec2f::new(0.015, 0.938),
-		Vec2f::new(0.465, 0.05),
-		update_rate_creator.new_instance(2.0),
-		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 160)),
-		ColorSDL::BLUE
-	);
-
-	all_main_windows.push(error_window);
-
-	////////// Making a credit windoww
-
-	let credit_window = make_credit_window(
-		Vec2f::new(0.85, 0.97),
-		Vec2f::new(0.15, 0.03),
-		ColorSDL::RED,
-		ColorSDL::RGB(210, 180, 140),
-		"By Caspian Ahlberg"
-	);
-
-	all_main_windows.push(credit_window);
+	let foreground_window = make_static_texture_window((
+		"assets/dashboard_foreground.png",
+		Vec2f::ZERO,
+		Vec2f::ONE,
+		true
+	));
 
 	////////// Making all of the main windows
 
@@ -291,12 +304,14 @@ pub fn make_dashboard(
 	let main_window_size_y = 1.0 - main_window_tl_y - main_windows_gap_size;
 	let x_width_from_main_window_gap_size = 1.0 - main_windows_gap_size * 2.0;
 
+	let top_bar_tl = Vec2f::new_scalar(main_windows_gap_size);
+
 	let top_bar_window = Window::new(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(128, 0, 32)),
 		None,
-		Vec2f::new_scalar(main_windows_gap_size),
+		top_bar_tl,
 		Vec2f::new(x_width_from_main_window_gap_size, top_bar_window_size_y),
 		Some(vec![clock_window, weather_window])
 	);
@@ -304,11 +319,7 @@ pub fn make_dashboard(
 	let main_window = Window::new(
 		None,
 		DynamicOptional::NONE,
-
-		WindowContents::Texture(texture_pool.make_texture(
-			&TextureCreationInfo::Path(Cow::Borrowed("assets/dashboard_background.png"))
-		)?),
-
+		WindowContents::Nothing,
 		Some(theme_color_1),
 		Vec2f::new(main_windows_gap_size, main_window_tl_y),
 		Vec2f::new(x_width_from_main_window_gap_size, main_window_size_y),
@@ -354,14 +365,14 @@ pub fn make_dashboard(
 
 	////////// Making the highest-level window
 
-	let all_windows = Window::new(
+	let all_windows_collection = Window::new(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(0, 128, 128)),
 		None,
 		Vec2f::ZERO,
 		Vec2f::ONE,
-		Some(vec![top_bar_window, main_window, surprise_window])
+		Some(vec![top_bar_window, main_window, foreground_window, surprise_window])
 	);
 
 	////////// Defining the shared state
@@ -424,7 +435,7 @@ pub fn make_dashboard(
 	//////////
 
 	Ok((
-		all_windows,
+		all_windows_collection,
 		boxed_shared_state,
 		Some((shared_window_state_updater, shared_update_rate))
 	))
