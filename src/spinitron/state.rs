@@ -98,6 +98,7 @@ impl SpinitronStateData {
 		let show = Show::get(api_key)?;
 
 		let spin_expiry_data = SpinExpiryData::new(spin_expiry_duration, &spin)?;
+		const INITIAL_PRECACHED: Vec<u8> = Vec::new();
 
 		let mut data = Self {
 			api_key: api_key.to_string(),
@@ -105,7 +106,7 @@ impl SpinitronStateData {
 			spin, playlist, persona, show,
 
 			spin_expiry_data,
-			precached_texture_bytes: [vec![], vec![], vec![], vec![]], // TODO: shorten this somehow
+			precached_texture_bytes: [INITIAL_PRECACHED; 4], // TODO: shorten this somehow
 			fallback_texture_creation_info,
 
 			update_statuses: [false; NUM_SPINITRON_MODEL_TYPES]
