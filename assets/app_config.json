@@ -9,5 +9,5 @@
 
 	"hide_cursor": true,
 	"use_linear_filtering": true,
-	"background_color": [50, 50, 50]
+	"background_color": [0, 128, 128]
 }
