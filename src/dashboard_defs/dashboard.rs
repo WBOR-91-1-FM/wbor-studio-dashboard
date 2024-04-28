@@ -208,7 +208,7 @@ pub fn make_dashboard(
 		ColorSDL::GREEN
 	);
 
-	////////// Making a credit windoww
+	////////// Making a credit window
 
 	let credit_window = make_credit_window(
 		Vec2f::new(0.85, 0.97),
