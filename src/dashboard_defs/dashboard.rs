@@ -255,13 +255,19 @@ pub fn make_dashboard(
 	////////// Making some static texture windows
 
 	// Texture path, top left, size (TODO: make animated textures possible)
-	let static_texture_info = [
+	let main_static_texture_info = [
 		("assets/dashboard_background.png", Vec2f::ZERO, Vec2f::ONE, false),
-		("assets/logo.png", Vec2f::new(0.7, 0.75), Vec2f::new(0.1, 0.05), false),
-		("assets/soup.png", Vec2f::new(0.85, 0.72), Vec2f::new(0.06666666, 0.1), false)
+		("assets/logo.png", Vec2f::new(0.6, 0.75), Vec2f::new(0.1, 0.05), false),
+		("assets/soup.png", Vec2f::new(0.45, 0.72), Vec2f::new(0.06666666, 0.1), false),
+		("assets/ness.bmp", Vec2f::new(0.28, 0.73), Vec2f::new_scalar(0.08), false)
 	];
 
-	let mut make_static_texture_window = |(path, tl, size, skip_ar_correction)| {
+	let foreground_static_texture_info = [
+		("assets/dashboard_foreground.png", Vec2f::ZERO, Vec2f::ONE, true)
+	];
+
+	let make_static_texture_window =
+		|(path, tl, size, skip_ar_correction), texture_pool: &mut TexturePool| {
 		let mut window = Window::new(
 			None,
 			DynamicOptional::NONE,
@@ -281,18 +287,13 @@ pub fn make_dashboard(
 		window
 	};
 
+	let add_static_texture_set =
+		|set: &mut Vec<Window>, all_info: &[(&'static str, Vec2f, Vec2f, bool)], texture_pool: &mut TexturePool|
+		set.extend(all_info.iter().map(|&info| make_static_texture_window(info, texture_pool)));
+
 	let mut all_main_windows = vec![twilio_window, error_window, credit_window];
-	all_main_windows.extend(static_texture_info.into_iter().map(&mut make_static_texture_window));
 	all_main_windows.extend(spinitron_windows);
-
-	////////// Making a foreground window
-
-	let foreground_window = make_static_texture_window((
-		"assets/dashboard_foreground.png",
-		Vec2f::ZERO,
-		Vec2f::ONE,
-		true
-	));
+	add_static_texture_set(&mut all_main_windows, &main_static_texture_info, texture_pool);
 
 	////////// Making all of the main windows
 
@@ -361,14 +362,18 @@ pub fn make_dashboard(
 
 	////////// Making the highest-level window
 
-	let all_windows_collection = Window::new(
+	let mut all_windows = vec![top_bar_window, main_window];
+	add_static_texture_set(&mut all_windows, &foreground_static_texture_info, texture_pool);
+	all_windows.push(surprise_window);
+
+	let all_windows_window = Window::new(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(0, 128, 128)),
 		None,
 		Vec2f::ZERO,
 		Vec2f::ONE,
-		Some(vec![top_bar_window, main_window, foreground_window, surprise_window])
+		Some(all_windows)
 	);
 
 	////////// Defining the shared state
@@ -431,7 +436,7 @@ pub fn make_dashboard(
 	//////////
 
 	Ok((
-		all_windows_collection,
+		all_windows_window,
 		boxed_shared_state,
 		Some((shared_window_state_updater, shared_update_rate))
 	))
