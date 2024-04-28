@@ -324,7 +324,7 @@ pub fn make_dashboard(
 				texture_blend_mode: BlendMode::None,
 
 				update_rate: Duration::seconds(15),
-				chance_of_appearing_when_updating: 0.00075,
+				chance_of_appearing_when_updating: 0.0007,
 				num_update_steps_to_appear_for: 1,
 
 				local_hours_24_start: 8,
