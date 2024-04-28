@@ -374,7 +374,8 @@ pub fn make_dashboard(
 	let spin_expiry_duration = Duration::minutes(20);
 
 	let spinitron_state = SpinitronState::new(
-		(&api_keys.spinitron, spin_expiry_duration, &FALLBACK_TEXTURE_CREATION_INFO, initial_spin_window_size_guess)
+		(&api_keys.spinitron, spin_expiry_duration,
+		&FALLBACK_TEXTURE_CREATION_INFO, initial_spin_window_size_guess)
 	)?;
 
 	let boxed_shared_state = DynamicOptional::new(
