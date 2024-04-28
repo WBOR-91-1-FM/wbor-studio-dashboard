@@ -317,15 +317,14 @@ pub fn make_dashboard(
 
 	////////// Making a surprise window
 
-	// TODO: make Nathan less frequent
 	let surprise_window = make_surprise_window(Vec2f::ZERO, Vec2f::ONE,
 		&[
 			SurpriseCreationInfo {
 				texture_path: "assets/nathan.png",
 				texture_blend_mode: BlendMode::None,
 
-				update_rate: Duration::seconds(30),
-				chance_of_appearing_when_updating: 0.0025,
+				update_rate: Duration::seconds(15),
+				chance_of_appearing_when_updating: 0.00075,
 				num_update_steps_to_appear_for: 1,
 
 				local_hours_24_start: 8,
