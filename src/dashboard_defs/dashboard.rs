@@ -165,7 +165,7 @@ pub fn make_dashboard(
 	];
 
 	// The Spinitron windows update at the same rate as the shared update rate
-	let mut all_main_windows = make_spinitron_windows(
+	let spinitron_windows = make_spinitron_windows(
 		&all_model_windows_info, shared_update_rate
 	);
 
@@ -198,8 +198,6 @@ pub fn make_dashboard(
 		)?),
 	);
 
-	all_main_windows.push(twilio_window);
-
 	////////// Making an error window
 
 	let error_window = make_error_window(
@@ -210,8 +208,6 @@ pub fn make_dashboard(
 		ColorSDL::GREEN
 	);
 
-	all_main_windows.push(error_window);
-
 	////////// Making a credit windoww
 
 	let credit_window = make_credit_window(
@@ -221,8 +217,6 @@ pub fn make_dashboard(
 		ColorSDL::RGB(210, 180, 140),
 		"By Caspian Ahlberg"
 	);
-
-	all_main_windows.push(credit_window);
 
 	////////// Making a clock window
 
@@ -287,7 +281,9 @@ pub fn make_dashboard(
 		window
 	};
 
+	let mut all_main_windows = vec![twilio_window, error_window, credit_window];
 	all_main_windows.extend(static_texture_info.into_iter().map(&mut make_static_texture_window));
+	all_main_windows.extend(spinitron_windows);
 
 	////////// Making a foreground window
 
