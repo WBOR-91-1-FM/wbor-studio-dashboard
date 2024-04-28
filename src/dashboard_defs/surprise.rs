@@ -143,8 +143,6 @@ pub fn make_surprise_window(
 			let texture = texture_pool.make_texture(&texture_creation_info)?;
 			texture_pool.set_blend_mode_for(&texture, creation_info.texture_blend_mode);
 
-			// TODO: when initializing textures, perhaps set a default blend mode of `None`, for the sake of speed (adjust this in other spots later though)
-
 			let mut window = Window::new(
 				Some((updater_fn, update_rate)),
 
