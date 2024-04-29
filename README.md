@@ -24,7 +24,7 @@
 
 Or with logging:
 
-- `RUST_LOG=wbor_studio_dashboard cargo run --release`
+- `RUST_LOG=wbor-studio-dashboard cargo run --release`
 
 ## TODO
 
