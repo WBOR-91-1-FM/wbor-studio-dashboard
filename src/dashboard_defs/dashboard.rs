@@ -60,8 +60,8 @@ pub fn make_dashboard(
 	////////// Defining some shared global variables
 
 	const FONT_INFO: FontInfo = FontInfo {
-		path: "assets/fonts/Unifont/unifont-15.1.05.otf",
-		unusual_chars_fallback_path: "assets/fonts/Unifont/unifont_upper-15.1.05.otf",
+		path: "assets/unifont/unifont-15.1.05.otf",
+		unusual_chars_fallback_path: "assets/unifont/unifont_upper-15.1.05.otf",
 
 		/* Providing this function instead of the variant below since
 		`font.find_glyph` is buggy for the Rust sdl2::ttf bindings */
