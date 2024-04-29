@@ -36,7 +36,6 @@ Or with logging:
   - Show the album history on the bookshelf
 
 - Technical:
-  - CI/CD
   - When an error happens, make it print a message on screen that says that they should reach out to the tech director, `wbor@bowdoin.edu` (make a log of the error on disk too)
   - Crop all Spinitron photos 1:1 square
   - Maybe put the bounding box definition one layer out (with the parent)
@@ -55,6 +54,7 @@ Or with logging:
   - Make a small window that shows the dashboard uptime (don't use `chrono::Duration`, since that will limit the uptime to some number of weeks)
   - Investigate the occasionally high CPU usage on the Pi (like 300%!), along with the Spinitron null field mystery bug
   - Could multiple update rates per window be useful?
+  - CD to Pi?
 
 - Fun ideas:
   - Run the dashboard on a PVM, or an original iMac, eventually?
