@@ -1,9 +1,13 @@
 use crate::{
-	window_tree::{
-		GeneralLine, ColorSDL, Window, WindowContents, WindowUpdaterParams
-	},
-
 	texture::TexturePool,
+
+	window_tree::{
+		Window,
+		ColorSDL,
+		GeneralLine,
+		WindowContents,
+		WindowUpdaterParams
+	},
 
 	utility_types::{
 		vec2f::Vec2f,
@@ -34,7 +38,7 @@ pub struct ClockHandConfig {
 }
 
 impl ClockHandConfig {
-	pub fn new(x_extent: f32, minor_y_extent: f32, major_y_extent: f32, color: ColorSDL) -> Self {
+	pub const fn new(x_extent: f32, minor_y_extent: f32, major_y_extent: f32, color: ColorSDL) -> Self {
 		Self {x_extent, minor_y_extent, major_y_extent, color}
 	}
 
@@ -102,6 +106,7 @@ impl ClockHands {
 
 			let mut prev_time_fract = 0.0;
 
+			// TODO: don't index here
 			for (i, time_unit) in time_units.iter().enumerate() {
 				let time_fract = (time_unit.0 as f32 + prev_time_fract) / time_unit.1 as f32;
 				prev_time_fract = time_fract;

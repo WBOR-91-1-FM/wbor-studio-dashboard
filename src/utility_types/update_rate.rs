@@ -41,7 +41,7 @@ impl UpdateRate {
 		Self {every_n_frames: num_frames_between_updates as FrameIndex}
 	}
 
-	pub fn is_time_to_update(self, frame_counter: FrameCounter) -> bool {
+	pub const fn is_time_to_update(self, frame_counter: FrameCounter) -> bool {
 		frame_counter.wrapping_frame_index.0 % self.every_n_frames == 0
 	}
 }
@@ -54,7 +54,7 @@ pub struct FrameCounter {
 }
 
 impl FrameCounter {
-	pub fn new() -> Self {
+	pub const fn new() -> Self {
 		Self {wrapping_frame_index: Wrapping(0)}
 	}
 
@@ -71,7 +71,7 @@ pub struct UpdateRateCreator {
 }
 
 impl UpdateRateCreator {
-	pub fn new(fps: Fps) -> Self {
+	pub const fn new(fps: Fps) -> Self {
 		Self {fps}
 	}
 

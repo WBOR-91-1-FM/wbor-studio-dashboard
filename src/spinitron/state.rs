@@ -146,7 +146,7 @@ impl SpinitronStateData {
 		}
 	}
 
-	fn get_models(&self) -> SpinitronModels {
+	const fn get_models(&self) -> SpinitronModels {
 		[&self.spin, &self.playlist, &self.persona, &self.show]
 	}
 
@@ -235,7 +235,7 @@ impl SpinitronState {
 	}
 
 	// TODO: should I use the `get_models` function here, perhaps?
-	pub fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {
+	pub const fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {
 		let data = self.continually_updated.get_data();
 
 		match name {
@@ -246,11 +246,11 @@ impl SpinitronState {
 		}
 	}
 
-	pub fn is_spin_and_just_expired(&self, model_name: SpinitronModelName) -> bool {
+	pub const fn is_spin_and_just_expired(&self, model_name: SpinitronModelName) -> bool {
 		matches!(model_name, SpinitronModelName::Spin) && self.continually_updated.get_data().spin_expiry_data.just_expired
 	}
 
-	pub fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {
+	pub const fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {
 		self.is_spin_and_just_expired(model_name) || self.continually_updated.get_data().update_statuses[model_name as usize]
 	}
 

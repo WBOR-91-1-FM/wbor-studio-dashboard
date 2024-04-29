@@ -119,13 +119,11 @@ impl<V> SyncedMessageMap<V> {
 		Self {map}
 	}
 
-	fn sync<OffshoreV>(&mut self,
-		max_size: usize,
+	fn sync<OffshoreV>(&mut self, max_size: usize,
 		offshore_map: &SyncedMessageMap<OffshoreV>,
-		// TODO: make the output an enum too (would that be a dependent type?); perhaps via a mutable output parameter
-		mut syncer: impl FnMut(SyncedMessageMapAction<'_, V, OffshoreV>) -> GenericResult<Option<V>>)
 
-		-> MaybeError {
+		// TODO: make the output an enum too (would that be a dependent type?); perhaps via a mutable output parameter
+		mut syncer: impl FnMut(SyncedMessageMapAction<'_, V, OffshoreV>) -> GenericResult<Option<V>>) -> MaybeError {
 
 		let local = &mut self.map;
 		let offshore = &offshore_map.map;

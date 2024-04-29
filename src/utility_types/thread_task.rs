@@ -90,7 +90,7 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 		Ok(true)
 	}
 
-	pub fn get_data(&self) -> &T {
+	pub const fn get_data(&self) -> &T {
 		&self.curr_data
 	}
 }

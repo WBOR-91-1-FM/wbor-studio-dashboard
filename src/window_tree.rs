@@ -210,7 +210,7 @@ impl Window {
 		self.state.get_mut()
 	}
 
-	pub fn get_contents(&self) -> &WindowContents {
+	pub const fn get_contents(&self) -> &WindowContents {
 		&self.contents
 	}
 
@@ -222,7 +222,7 @@ impl Window {
 		self.skip_drawing = skip_drawing;
 	}
 
-	pub fn drawing_is_skipped(&self) -> bool {
+	pub const fn drawing_is_skipped(&self) -> bool {
 		self.skip_drawing
 	}
 

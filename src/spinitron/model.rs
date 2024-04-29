@@ -167,11 +167,11 @@ impl Spin {
 		Ok(chrono::DateTime::parse_from_rfc3339(&amended_end)?.into())
 	}
 
-	pub fn to_string_when_spin_is_expired() -> &'static str {
+	pub const fn to_string_when_spin_is_expired() -> &'static str {
 		"No 😰 recent 😬 spins 😟❗"
 	}
 
-	pub fn get_texture_creation_info_when_spin_is_expired() -> TextureCreationInfo<'static> {
+	pub const fn get_texture_creation_info_when_spin_is_expired() -> TextureCreationInfo<'static> {
 		TextureCreationInfo::Path(Cow::Borrowed("assets/polar_headphones_logo.png"))
 	}
 }

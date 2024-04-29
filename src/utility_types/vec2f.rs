@@ -32,11 +32,11 @@ impl Vec2f {
 		Self {x, y}
 	}
 
-	pub fn x(&self) -> Component {
+	pub const fn x(&self) -> Component {
 		self.x
 	}
 
-	pub fn y(&self) -> Component {
+	pub const fn y(&self) -> Component {
 		self.y
 	}
 
