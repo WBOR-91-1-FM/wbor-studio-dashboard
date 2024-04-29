@@ -98,26 +98,28 @@ impl ClockHands {
 				&clock_hands.milliseconds, &clock_hands.seconds, &clock_hands.minutes, &clock_hands.hours
 			];
 
+			//////////
+
 			let WindowContents::Many(all_contents) = params.window.get_contents_mut()
 			else {panic!("The clock's window contents was expected to be a list!")};
 
 			let WindowContents::Lines(rotated_hands) = &mut all_contents[1]
 			else {panic!("The second item in the clock's window contents was not a set of lines!")};
 
+			//////////
+
 			let mut prev_time_fract = 0.0;
 
-			// TODO: don't index here
-			for (i, time_unit) in time_units.iter().enumerate() {
+			for ((raw_hand, rotated_hand), time_unit) in
+				clock_hands_as_list.into_iter().zip(rotated_hands.iter_mut().rev()).zip(time_units) {
+
 				let time_fract = (time_unit.0 as f32 + prev_time_fract) / time_unit.1 as f32;
 				prev_time_fract = time_fract;
 
 				let angle = time_fract * std::f32::consts::TAU;
 				let (cos_angle, sin_angle) = (angle.cos(), angle.sin());
 
-				let raw_hand = &clock_hands_as_list[i];
-				let rotated_hand = &mut rotated_hands[(NUM_CLOCK_HANDS - 1) - i].1;
-
-				raw_hand.1.iter().zip(rotated_hand).for_each(|(raw, dest)| {
+				rotated_hand.1.iter_mut().zip(&raw_hand.1).for_each(|(dest, raw)| {
 					*dest = Vec2f::new(
 						(raw.0 * cos_angle - raw.1 * sin_angle) + CLOCK_CENTER.0,
 						(raw.0 * sin_angle + raw.1 * cos_angle) + CLOCK_CENTER.1
