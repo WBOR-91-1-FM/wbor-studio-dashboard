@@ -3,9 +3,9 @@
 	"icon_path": "assets/plane.bmp",
 	"maybe_pause_subduration_ms_when_window_unfocused": 250,
 
-	"option 1": {"Windowed": [800, 600, false, null]},
-	"screen_option": "FullscreenDesktop",
-	"option 3": "Fullscreen",
+	"o1": {"Windowed": [1200, 800, false, null]},
+	"o2": "FullscreenDesktop",
+	"screen_option": "Fullscreen",
 
 	"hide_cursor": true,
 	"use_linear_filtering": true,

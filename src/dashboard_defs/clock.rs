@@ -3,10 +3,7 @@ use crate::{
 		GeneralLine, ColorSDL, Window, WindowContents, WindowUpdaterParams
 	},
 
-	texture::{
-		TexturePool,
-		TextureCreationInfo
-	},
+	texture::TexturePool,
 
 	utility_types::{
 		vec2f::Vec2f,
@@ -115,9 +112,7 @@ impl ClockHands {
 				let raw_hand = &clock_hands_as_list[i];
 				let rotated_hand = &mut rotated_hands[(NUM_CLOCK_HANDS - 1) - i].1;
 
-				rotated_hand.iter_mut().enumerate().for_each(|(index, dest)| {
-					let raw = raw_hand.1[index];
-
+				raw_hand.1.iter().zip(rotated_hand).for_each(|(raw, dest)| {
 					*dest = Vec2f::new(
 						(raw.0 * cos_angle - raw.1 * sin_angle) + CLOCK_CENTER.0,
 						(raw.0 * sin_angle + raw.1 * cos_angle) + CLOCK_CENTER.1
@@ -130,9 +125,7 @@ impl ClockHands {
 
 		//////////
 
-		let texture_contents = WindowContents::Texture(
-			texture_pool.make_texture(&TextureCreationInfo::Path(std::borrow::Cow::Borrowed(dial_texture_path)))?
-		);
+		let texture_contents = WindowContents::make_texture_contents(dial_texture_path, texture_pool)?;
 
 		let clock_hand_configs_as_list: [&ClockHandConfig; NUM_CLOCK_HANDS] = [
 			&hand_configs.milliseconds, &hand_configs.seconds,

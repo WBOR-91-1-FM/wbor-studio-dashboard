@@ -3,13 +3,12 @@ use sdl2::{self, rect::Rect};
 use crate::{
 	utility_types::{
 		vec2f::Vec2f,
-		generic_result::MaybeError,
 		dynamic_optional::DynamicOptional,
-		update_rate::{UpdateRate, FrameCounter}
+		update_rate::{UpdateRate, FrameCounter},
+		generic_result::{GenericResult, MaybeError}
 	},
 
 	texture::{TexturePool, TextureHandle, TextureCreationInfo}
-
 };
 
 ////////// These are some general utility types (TODO: put some of them in `utility_types`)
@@ -82,6 +81,11 @@ pub enum WindowContents {
 }
 
 impl WindowContents {
+	pub fn make_texture_contents(path: &str, texture_pool: &mut TexturePool) -> GenericResult<Self> {
+		let creation_info = TextureCreationInfo::Path(std::borrow::Cow::Borrowed(path));
+		Ok(Self::Texture(texture_pool.make_texture(&creation_info)?))
+	}
+
 	/* This is used for updating the texture of a window whose
 	contents is a texture (but maybe starts out as something else) */
 	pub fn update_as_texture(
@@ -120,7 +124,6 @@ impl WindowContents {
 		*self = WindowContents::Texture(updated_texture);
 		Ok(())
 	}
-
 }
 
 //////////

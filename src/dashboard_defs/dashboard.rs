@@ -193,9 +193,7 @@ pub fn make_dashboard(
 		Vec2f::new(0.1, 0.45),
 		theme_color_1, theme_color_1,
 
-		WindowContents::Texture(texture_pool.make_texture(
-			&TextureCreationInfo::Path(Cow::Borrowed("assets/text_bubble.png"))
-		)?),
+		WindowContents::make_texture_contents("assets/text_bubble.png", texture_pool)?
 	);
 
 	////////// Making an error window
@@ -256,7 +254,7 @@ pub fn make_dashboard(
 
 	// Texture path, top left, size (TODO: make animated textures possible)
 	let main_static_texture_info = [
-		("assets/dashboard_background.png", Vec2f::ZERO, Vec2f::ONE, false),
+		("assets/dashboard_bookshelf.png", Vec2f::ZERO, Vec2f::ONE, false),
 		("assets/logo.png", Vec2f::new(0.6, 0.75), Vec2f::new(0.1, 0.05), false),
 		("assets/soup.png", Vec2f::new(0.45, 0.72), Vec2f::new(0.06666666, 0.1), false),
 		("assets/ness.bmp", Vec2f::new(0.28, 0.73), Vec2f::new_scalar(0.08), false)
@@ -266,18 +264,18 @@ pub fn make_dashboard(
 		("assets/dashboard_foreground.png", Vec2f::ZERO, Vec2f::ONE, true)
 	];
 
+	let background_static_texture_info = [
+		// "assets/dashboard_background.png"
+	];
+
+	// TODO: inline this function
 	let make_static_texture_window =
 		|(path, tl, size, skip_ar_correction), texture_pool: &mut TexturePool| {
 		let mut window = Window::new(
 			None,
 			DynamicOptional::NONE,
-
-			WindowContents::Texture(texture_pool.make_texture(
-				&TextureCreationInfo::Path(Cow::Borrowed(path))
-			).unwrap()),
-
+			WindowContents::make_texture_contents(path, texture_pool).unwrap(),
 			None,
-
 			tl,
 			size,
 			None
@@ -313,15 +311,23 @@ pub fn make_dashboard(
 		Some(vec![clock_window, weather_window])
 	);
 
-	let main_window = Window::new(
+	let mut main_window = Window::new(
 		None,
 		DynamicOptional::NONE,
-		WindowContents::Nothing,
+
+		WindowContents::Many(
+			background_static_texture_info.into_iter().map(|path|
+				WindowContents::make_texture_contents(path, texture_pool)
+			).collect::<GenericResult<_>>()?
+		),
+
 		Some(theme_color_1),
 		Vec2f::new(main_windows_gap_size, main_window_tl_y),
 		Vec2f::new(x_width_from_main_window_gap_size, main_window_size_y),
 		Some(all_main_windows)
 	);
+
+	main_window.set_aspect_ratio_correction_skipping(true);
 
 	////////// Making a surprise window
 
