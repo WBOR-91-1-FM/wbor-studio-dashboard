@@ -293,7 +293,7 @@ pub struct Show {
 
 	one_off: Bool,
 
-	category: String,
+	category: MaybeString,
 	title: String,
 	description: String,
 

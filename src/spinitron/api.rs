@@ -6,11 +6,7 @@ use crate::{
 
 	spinitron::{
 		wrapper_types::MaybeSpinitronModelId,
-
-		model::{
-			SpinitronModelWithProps,
-			NUM_SPINITRON_MODEL_TYPES
-		}
+		model::{SpinitronModelWithProps, NUM_SPINITRON_MODEL_TYPES}
 	}
 };
 

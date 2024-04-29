@@ -52,7 +52,7 @@ Or with logging:
   - Make some functions const
   - Use SDL3 bindings
   - Make a small window that shows the dashboard uptime (don't use `chrono::Duration`, since that will limit the uptime to some number of weeks)
-  - Investigate the occasionally high CPU usage on the Pi (like 300%!), along with the Spinitron null field mystery bug
+  - Investigate the occasionally high CPU usage on the Pi (like 300%!)
   - Could multiple update rates per window be useful?
   - CD to Pi?
 
