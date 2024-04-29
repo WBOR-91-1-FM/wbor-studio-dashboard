@@ -676,7 +676,7 @@ impl<'a> TexturePool<'a> {
 	//////////
 
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
-		let texture = match creation_info {
+		Ok(match creation_info {
 			// Use this whenever possible (whenever you can preload data into byte form)!
 			TextureCreationInfo::RawBytes(bytes) =>
 				self.texture_creator.load_texture_bytes(bytes),
@@ -697,8 +697,6 @@ impl<'a> TexturePool<'a> {
 
 				Ok(self.texture_creator.create_texture_from_surface(surface)?)
 			}
-		};
-
-		Ok(texture?)
+		}?)
 	}
 }
