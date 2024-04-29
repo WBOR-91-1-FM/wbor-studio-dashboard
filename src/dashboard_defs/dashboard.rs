@@ -268,26 +268,24 @@ pub fn make_dashboard(
 		// "assets/dashboard_background.png"
 	];
 
-	// TODO: inline this function
-	let make_static_texture_window =
-		|(path, tl, size, skip_ar_correction), texture_pool: &mut TexturePool| {
-		let mut window = Window::new(
-			None,
-			DynamicOptional::NONE,
-			WindowContents::make_texture_contents(path, texture_pool).unwrap(),
-			None,
-			tl,
-			size,
-			None
-		);
-
-		window.set_aspect_ratio_correction_skipping(skip_ar_correction);
-		window
-	};
-
 	let add_static_texture_set =
-		|set: &mut Vec<Window>, all_info: &[(&'static str, Vec2f, Vec2f, bool)], texture_pool: &mut TexturePool|
-		set.extend(all_info.iter().map(|&info| make_static_texture_window(info, texture_pool)));
+		|set: &mut Vec<Window>, all_info: &[(&'static str, Vec2f, Vec2f, bool)], texture_pool: &mut TexturePool| {
+
+		set.extend(all_info.iter().map(|&(path, tl, size, skip_ar_correction)| {
+			let mut window = Window::new(
+				None,
+				DynamicOptional::NONE,
+				WindowContents::make_texture_contents(path, texture_pool).unwrap(),
+				None,
+				tl,
+				size,
+				None
+			);
+
+			window.set_aspect_ratio_correction_skipping(skip_ar_correction);
+			window
+		}))
+	};
 
 	let mut all_main_windows = vec![twilio_window, error_window, credit_window];
 	all_main_windows.extend(spinitron_windows);
