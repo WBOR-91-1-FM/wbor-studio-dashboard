@@ -180,6 +180,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 	// let mut initial_num_textures_in_pool = None;
 
 	log::info!("Finished setting up window");
+	log::info!("Canvas size: {:?}", rendering_params.sdl_canvas.output_size()?);
 	log::info!("Renderer info: {:?}", sdl_renderer_info);
 
 	'running: loop {
