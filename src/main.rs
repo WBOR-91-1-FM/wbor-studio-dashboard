@@ -94,7 +94,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 		),
 
 		ScreenOption::Fullscreen => {
-			let mode = sdl_video_subsystem.desktop_display_mode(0)?;
+			let mode = sdl_video_subsystem.display_mode(0, 0)?;
 
 			build_window(
 				mode.w as u32, mode.h as u32,
