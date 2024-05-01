@@ -36,15 +36,13 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 
 		let mut cloned_data = data.clone();
 
-		let mut computer = move || {
-			match cloned_data.update(&param) {
-				Ok(_) => Ok(cloned_data.clone()),
-				Err(err) => Err(err.to_string())
-			}
-		};
-
 		thread::spawn(move || {
-			if let Err(err) = thread_sender.send(computer()) {
+			let result = match cloned_data.update(&param) {
+				Ok(_) => Ok(cloned_data),
+				Err(err) => Err(err.to_string())
+			};
+
+			if let Err(err) = thread_sender.send(result) {
 				log::warn!("Problem with sending to thread (probably harmless): {err}");
 			}
 		});
