@@ -1,37 +1,7 @@
 use std::thread;
 use std::sync::mpsc;
 
-use crate::utility_types::generic_result::{
-	self,
-	SendableGenericResult,
-	{GenericResult, MaybeError}
-};
-
-struct ThreadTask<T> {
-	thread_receiver: mpsc::Receiver<T>
-}
-
-impl<T: Send + 'static> ThreadTask<T> {
-	fn new(mut computer: impl FnMut() -> T + Send + 'static) -> Self {
-		let (thread_sender, thread_receiver) = mpsc::channel();
-
-		thread::spawn(move || {
-			if let Err(err) = thread_sender.send(computer()) {
-				log::warn!("Problem with sending to thread (probably harmless): {err}");
-			}
-		});
-
-		Self {thread_receiver}
-	}
-
-	fn get_value(&self) -> GenericResult<Option<T>> {
-		match self.thread_receiver.try_recv() {
-			Ok(value) => Ok(Some(value)),
-			Err(mpsc::TryRecvError::Empty) => Ok(None),
-			Err(err) => Err(err.into())
-		}
-	}
-}
+use crate::utility_types::generic_result::{GenericResult, MaybeError};
 
 //////////
 
@@ -44,41 +14,47 @@ pub trait Updatable {
 
 pub struct ContinuallyUpdated<T> {
 	curr_data: T,
-	update_task: ThreadTask<SendableGenericResult<T>>,
+	thread_receiver: mpsc::Receiver<Result<T, String>>,
 	name: &'static str
 }
 
-// TODO: inline `ThreadTask` into this?
 impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 	/* TODO: can I make this lazy, so that it only starts working once I call `update`,
 	and possibly only update again after a successful `update` call (with a pause?) */
 	pub fn new(data: &T, param: <T as Updatable>::Param, name: &'static str) -> Self {
 		let mut cloned_data = data.clone();
 
-		let update_task = ThreadTask::new(
-			move || {
-				generic_result::make_sendable(cloned_data.update(&param))?;
-				Ok(cloned_data.clone())
-			}
-		);
+		let (thread_sender, thread_receiver) = mpsc::channel();
 
-		Self {curr_data: data.clone(), update_task, name}
+		let mut computer = move || {
+			match cloned_data.update(&param) {
+				Ok(_) => Ok(cloned_data.clone()),
+				Err(err) => Err(err.to_string())
+			}
+		};
+
+		thread::spawn(move || {
+			if let Err(err) = thread_sender.send(computer()) {
+				log::warn!("Problem with sending to thread (probably harmless): {err}");
+			}
+		});
+
+		Self {curr_data: data.clone(), thread_receiver, name}
 	}
 
 	// This returns false if a thread failed to complete its operation.
 	pub fn update(&mut self, param: <T as Updatable>::Param) -> GenericResult<bool> {
-		let mut error: Option<Box<dyn std::error::Error>> = None;
+		let mut error: Option<String> = None;
 
-		match self.update_task.get_value() {
-			Ok(Some(result_or_err)) => {
-				match result_or_err {
-					Ok(result) => {*self = Self::new(&result, param.clone(), self.name);}
-					Err(err) => {error = Some(err.into());}
-				}
+		match self.thread_receiver.try_recv() {
+			Ok(Ok(new_data)) => *self = Self::new(&new_data, param.clone(), self.name),
+			Ok(Err(err)) => error = Some(err.into()),
+
+			Err(mpsc::TryRecvError::Empty) => {
+				// Waiting for a response...
 			},
 
-			Ok(None) => {},
-			Err(err) => {error = Some(err);}
+			Err(err) => error = Some(err.to_string())
 		}
 
 		if let Some(err) = error {
