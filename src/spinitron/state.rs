@@ -120,30 +120,34 @@ impl SpinitronStateData {
 	}
 
 	fn get_model_texture_bytes(&self, model: &dyn SpinitronModel, size_pixels: WindowSize) -> GenericResult<Vec<u8>> {
+		fn load_for_info(info: Cow<TextureCreationInfo>) -> GenericResult<Vec<u8>> {
+			/* I am doing this to speed up the loading of textures on the main
+			thread, by doing the image URL requesting on this thread instead,
+			and precaching anything from disk in byte form as well. */
+			match info.as_ref() {
+				TextureCreationInfo::Path(path) =>
+					Ok(std::fs::read(&path as &str)?),
+
+				TextureCreationInfo::Url(url) =>
+					Ok(request::get(url)?.as_bytes().to_vec()),
+
+				TextureCreationInfo::RawBytes(_) =>
+					panic!("Spinitron model textures should not be returning raw bytes!"),
+
+				TextureCreationInfo::Text(_) =>
+					panic!("Precaching the text texture creation info is not supported for plain Spinitron model textures!")
+			}
+		}
+
 		let info = match model.get_texture_creation_info(size_pixels) {
 			Some(texture_creation_info) => Cow::Owned(texture_creation_info),
 			None => Cow::Borrowed(self.fallback_texture_creation_info)
 		};
 
-		/* I am doing this to speed up the loading of textures on the main
-		thread, by doing the image URL requesting on this thread instead,
-		and precaching anything from disk in byte form as well. */
-		match info.as_ref() {
-			TextureCreationInfo::Path(path) => {
-				Ok(std::fs::read(&path as &str)?)
-			},
-
-			TextureCreationInfo::Url(url) => {
-				let response = request::get(url)?;
-				Ok(response.as_bytes().to_vec())
-			}
-
-			TextureCreationInfo::RawBytes(_) =>
-				panic!("Spinitron model textures should not be returning raw bytes!"),
-
-			TextureCreationInfo::Text(_) =>
-				panic!("Precaching the text texture creation info is not supported for plain Spinitron model textures!")
-		}
+		load_for_info(info).or_else(|error| {
+			log::warn!("Reverting to fallback texture for Spinitron model. Error: '{error}'");
+			load_for_info(Cow::Borrowed(self.fallback_texture_creation_info))
+		})
 	}
 
 	const fn get_models(&self) -> SpinitronModels {
