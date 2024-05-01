@@ -56,7 +56,7 @@ impl<T: Updatable + Clone + Send + 'static> ContinuallyUpdated<T> {
 
 		match self.thread_receiver.try_recv() {
 			Ok(Ok(new_data)) => *self = Self::new(&new_data, param.clone(), self.name),
-			Ok(Err(err)) => error = Some(err.into()),
+			Ok(Err(err)) => error = Some(err),
 			Err(mpsc::TryRecvError::Empty) => {}, // Waiting for a response...
 			Err(err) => error = Some(err.to_string())
 		}
