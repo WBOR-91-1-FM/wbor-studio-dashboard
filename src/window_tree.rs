@@ -11,7 +11,7 @@ use crate::{
 	texture::{TexturePool, TextureHandle, TextureCreationInfo}
 };
 
-////////// These are some general utility types (TODO: put some of them in `utility_types`)
+////////// These are some general utility types
 
 /* TODO: make this more similar to `Rect`, in terms of operations.
 Also make a constructor for this. */
@@ -32,6 +32,7 @@ impl From<FRect> for Rect {
 	}
 }
 
+// TODO: maybe put these in `utility_types`
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 
