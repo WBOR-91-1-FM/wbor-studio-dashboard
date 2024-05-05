@@ -233,7 +233,7 @@ impl SpinitronState {
 		let initial_spin_window_size_guess = params.3;
 
 		Ok(Self {
-			continually_updated: ContinuallyUpdated::new(&data, initial_spin_window_size_guess, "Spinitron"),
+			continually_updated: ContinuallyUpdated::new(&data, &initial_spin_window_size_guess, "Spinitron"),
 			saved_continually_updated_param: initial_spin_window_size_guess
 		})
 	}
@@ -278,6 +278,6 @@ impl SpinitronState {
 	}
 
 	pub fn update(&mut self) -> GenericResult<bool> {
-		self.continually_updated.update(self.saved_continually_updated_param)
+		self.continually_updated.update(&self.saved_continually_updated_param)
 	}
 }

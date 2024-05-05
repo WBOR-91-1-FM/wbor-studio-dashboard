@@ -433,7 +433,7 @@ impl TwilioState<'_> {
 		);
 
 		Self {
-			continually_updated: ContinuallyUpdated::new(&data, (), "Twilio"),
+			continually_updated: ContinuallyUpdated::new(&data, &(), "Twilio"),
 			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
 			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
 			historically_sorted_messages_by_id: Vec::new(),
@@ -449,7 +449,7 @@ impl TwilioState<'_> {
 			return Ok(true);
 		};
 
-		let continual_updater_succeeded = self.continually_updated.update(())?;
+		let continual_updater_succeeded = self.continually_updated.update(&())?;
 		let curr_continual_data = self.continually_updated.get_data();
 
 		let local = &mut self.id_to_texture_map;
