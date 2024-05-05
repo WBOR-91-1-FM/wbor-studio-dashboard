@@ -36,8 +36,8 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 
 		thread::spawn(move || {
 			loop {
-				fn handle_channel_error<Error: std::fmt::Display>(err: Error, transfer_description: &str) {
-					log::warn!("Problem with {transfer_description} main thread (probably harmless, at program shutdown): {err}");
+				fn handle_channel_error<Error: std::fmt::Display>(err: Error, name: &str, transfer_description: &str) {
+					log::warn!("Problem from {name} with {transfer_description} main thread (probably harmless, at program shutdown): {err}");
 				}
 
 				/* `recv` will block until it receives the parameter! The parameters will
@@ -46,7 +46,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 					Ok(inner_param) => inner_param,
 
 					Err(err) => {
-						handle_channel_error(err, "receiving parameter from");
+						handle_channel_error(err, name, "receiving parameter from");
 						return;
 					}
 				};
@@ -57,7 +57,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 				};
 
 				if let Err(err) = data_sender.send(result) {
-					handle_channel_error(err, "sending data back to the");
+					handle_channel_error(err, name, "sending data back to the");
 					return;
 				}
 			}
