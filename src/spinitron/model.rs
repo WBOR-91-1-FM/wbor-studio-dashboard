@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use regex::Regex;
 use derive_alias::derive_alias;
@@ -20,6 +21,29 @@ lazy_static::lazy_static!(
 	static ref SPIN_IMAGE_SIZE_REGEXP: Regex = Regex::new(r#"\d+x\d+bb"#).unwrap();
 	static ref SPIN_IMAGE_REGEXP: Regex = Regex::new(r#"^https:\/\/.+\d+x\d+bb.+$"#).unwrap();
 	static ref DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP: Regex = Regex::new(r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#).unwrap();
+
+	static ref SHOW_CATEGORY_EMOJIS_MAPPING: HashMap<&'static str, &'static str> = HashMap::from([
+		("Automation", "🤖"),
+		("Ambient", "🌌"),
+		("Blues", "🎺"),
+		("Classical", "🎼🎻"),
+		("Country", "🤠👢"),
+		("Dance", "🕺🪩💃"),
+		("Electronic", "⚡"),
+		("Experimental", "🌀"),
+		("Folk", "🪕"),
+		("Hip-Hop", "📾"),
+		("Jazz", "🎷"),
+		("Metal", "🤘👹"),
+		("Music", "🎵"),
+		("News", "📰"),
+		("Pop", "🎤"),
+		("Punk", "🤘🔥"),
+		("RnB", "﹏🎺﹏"),
+		("Regional", "🗺️"),
+		("Rock", "🎸"),
+		("Talk", "🗣️")
+	]);
 );
 
 ////////// This is a set of model-related traits
@@ -150,7 +174,25 @@ impl SpinitronModel for Persona {
 
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn to_string(&self) -> String {format!("This is '{}'", self.title)}
+
+	fn to_string(&self) -> String {
+		let (mut show_emojis, mut spacing) = ("", "");
+
+		if let Some(category) = &self.category {
+			if let Some(emojis) = SHOW_CATEGORY_EMOJIS_MAPPING.get(category.as_str()) {
+				show_emojis = emojis;
+				spacing = " ";
+			}
+			else {
+				log::warn!("Unrecognized genre '{category}' for show with name '{}'", self.title);
+			}
+		}
+		else {
+			log::warn!("No genre for show with name '{}'", self.title);
+		}
+
+		format!("{show_emojis}{spacing}This is '{}'{spacing}{show_emojis}", self.title)
+	}
 
 	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
 		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png")
