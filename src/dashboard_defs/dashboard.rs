@@ -91,13 +91,14 @@ pub fn make_dashboard(
 	let persona_tl = Vec2f::new(spin_tr + main_windows_gap_size, spin_tl.y());
 	let persona_size = Vec2f::new_scalar(0.1);
 
+	let persona_text_tl = Vec2f::translate_y(&persona_tl, persona_size.y());
+	let persona_text_height = 0.02;
+
 	let show_tl = Vec2f::new(persona_tl.x() + persona_size.x() + main_windows_gap_size, spin_tl.y());
 	let show_size = Vec2f::new_scalar(1.0 - show_tl.x() - main_windows_gap_size);
 
 	let show_text_tl = Vec2f::translate(&(spin_tl + spin_size), 0.03, -0.2);
 	let show_text_size = Vec2f::new(0.37, 0.05);
-
-	let welcome_sign_size = Vec2f::new(persona_size.x(), persona_size.y() * 0.2);
 
 	// TODO: make a type for the top-left/size combo (and add useful utility functions from there)
 
@@ -157,8 +158,8 @@ pub fn make_dashboard(
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
-				tl: persona_tl,
-				size: welcome_sign_size,
+				tl: persona_text_tl,
+				size: Vec2f::new(persona_size.x(), persona_text_height),
 				border_color: Some(theme_color_1)
 			})
 		}
