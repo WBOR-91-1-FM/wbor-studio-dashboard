@@ -383,6 +383,7 @@ pub fn make_dashboard(
 
 	////////// Defining the shared state
 
+	// TODO: make it possible to get different variants of this texture (randomly chosen)
 	const FALLBACK_TEXTURE_CREATION_INFO: TextureCreationInfo<'static> =
 		TextureCreationInfo::Path(Cow::Borrowed("assets/no_texture_available.png"));
 
