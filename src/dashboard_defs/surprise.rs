@@ -2,6 +2,8 @@ use std::borrow::Cow;
 
 use chrono::Timelike;
 
+// TODO: add the ability to activate a surprise via an API call
+
 use crate::{
 	texture::{TexturePool, TextureCreationInfo},
 
