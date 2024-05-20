@@ -5,21 +5,20 @@ use chrono::Timelike;
 // TODO: add the ability to activate a surprise via an API call
 
 use crate::{
-	texture::{TexturePool, TextureCreationInfo},
-
-	utility_types::{
-		generic_result::{GenericResult, MaybeError},
-		dynamic_optional::DynamicOptional,
-		vec2f::{Vec2f, assert_in_unit_interval},
-		update_rate::{UpdateRateCreator, Seconds}
-	},
-
 	window_tree::{
 		Window,
 		WindowContents,
 		WindowUpdaterParams
 	},
 
+	utility_types::{
+		dynamic_optional::DynamicOptional,
+		vec2f::{Vec2f, assert_in_unit_interval},
+		update_rate::{UpdateRateCreator, Seconds},
+		generic_result::{GenericResult, MaybeError}
+	},
+
+	texture::{TexturePool, TextureCreationInfo},
 	dashboard_defs::shared_window_state::SharedWindowState
 };
 
