@@ -411,6 +411,7 @@ impl<'a> TexturePool<'a> {
 
 	////////// TODO: use these
 
+	/*
 	pub fn set_color_mod_for(&mut self, handle: &TextureHandle, r: u8, g: u8, b: u8) {
 		let texture = self.get_texture_from_handle_mut(handle);
 		texture.set_color_mod(r, g, b);
@@ -420,6 +421,7 @@ impl<'a> TexturePool<'a> {
 		let texture = self.get_texture_from_handle_mut(handle);
 		texture.set_alpha_mod(a);
 	}
+	*/
 
 	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, blend_mode: render::BlendMode) {
 		let texture = self.get_texture_from_handle_mut(handle);
