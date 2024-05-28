@@ -168,7 +168,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 	let (mut top_level_window, shared_window_state, shared_window_state_updater) =
 		match core_init_info {
 			Ok(info) => info,
-			Err(err) => {panic!("An error arose when initializing the application: '{err}'.");}
+			Err(err) => panic!("An error arose when initializing the application: '{err}'.")
 		};
 
 	rendering_params.shared_window_state = shared_window_state;
