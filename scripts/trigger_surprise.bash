@@ -13,7 +13,7 @@ fail() {
 surprise_index=$1
 
 unsigned_int_pattern='^[0-9]+$'
-[[ "$surprise_index" =~ $unsigned_int_pattern ]] || fail "No valid surprise index supplied."
+[[ $surprise_index =~ $unsigned_int_pattern ]] || fail "No valid surprise index supplied."
 
 ##########
 
