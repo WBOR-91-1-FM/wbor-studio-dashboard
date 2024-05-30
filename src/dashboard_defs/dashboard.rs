@@ -362,7 +362,7 @@ pub fn make_dashboard(
 
 			SurpriseCreationInfo {
 				texture_path: "assets/horrible.webp",
-				texture_blend_mode: BlendMode::Mul,
+				texture_blend_mode: BlendMode::Add,
 
 				update_rate: Duration::milliseconds(100),
 				num_update_steps_to_appear_for: 9,
