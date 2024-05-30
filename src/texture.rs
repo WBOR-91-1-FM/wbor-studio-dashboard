@@ -5,7 +5,6 @@ use std::{
 
 use sdl2::{
 	ttf,
-	self,
 	rect::Rect,
 	surface::Surface,
 	image::LoadTexture,
