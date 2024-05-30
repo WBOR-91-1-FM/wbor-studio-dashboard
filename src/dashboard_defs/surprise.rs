@@ -26,7 +26,12 @@ use crate::{
 };
 
 /* Note: some surprises may take somewhat long to be
-triggered if their update rates are relatively infrequent. */
+triggered if their update rates are relatively infrequent.
+
+Also, artificial surprise triggering will not work correctly
+if the dashboard window is not in focus (TODO: fix). A temporary
+solution is to set the `maybe_pause_subduration_ms_when_window_unfocused`
+field in `app_config.json` to null. */
 
 type NumAppearanceSteps = u16;
 type SurpriseAppearanceChance = f64; // 0 to 1
@@ -119,7 +124,7 @@ pub fn make_surprise_window(
 			}
 		}
 
-		sb = s.borrow();
+		sb = s.borrow(); // Note that the atomic bool clearing only happens on the right index
 		sb.curr_signaled_index == index && check_and_clear_atomic_bool(&sb.one_was_artificially_triggered)
 	}
 
