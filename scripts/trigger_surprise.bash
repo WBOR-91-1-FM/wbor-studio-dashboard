@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Script param: surprise index.
 # Note: this script will kill the dashboard if it hasn't been fully launched yet!
 # So, wait for it to fully launch before running it.
