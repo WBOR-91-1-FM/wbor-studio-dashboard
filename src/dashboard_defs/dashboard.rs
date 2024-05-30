@@ -214,7 +214,7 @@ pub fn make_dashboard(
 		Vec2f::new(0.15, 0.03),
 		ColorSDL::RED,
 		ColorSDL::RGB(210, 180, 140),
-		"By Caspian Ahlberg"
+		"By: Caspian Ahlberg"
 	);
 
 	////////// Making a clock window
