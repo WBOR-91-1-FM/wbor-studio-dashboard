@@ -21,7 +21,7 @@ unsigned_int_pattern='^[0-9]+$'
 
 # Param: the signal to send
 try_signal() {
-	pkill -$1 wbor-studio-dashboard || fail "Could not send the signal '$1' to the dashboard (check if it's running)!"
+	pkill -f -$1 wbor-studio-dashboard || fail "Could not send the signal '$1' to the dashboard (check if it's running)!"
 }
 
 # 1. Send repeated signals to increment surprise index (SIGUSR1)
