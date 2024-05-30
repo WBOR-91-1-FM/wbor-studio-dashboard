@@ -445,7 +445,7 @@ pub fn make_dashboard(
 		}
 
 		if let Some(inner_error) = &mut error {
-			*inner_error += "! ";
+			*inner_error += "!";
 		}
 
 		state.curr_dashboard_error = error;
