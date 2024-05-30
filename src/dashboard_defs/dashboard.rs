@@ -337,8 +337,8 @@ pub fn make_dashboard(
 				texture_blend_mode: BlendMode::None,
 
 				update_rate: Duration::seconds(15),
-				chance_of_appearing_when_updating: 0.0007,
 				num_update_steps_to_appear_for: 1,
+				chance_of_appearing_when_updating: 0.0007,
 
 				local_hours_24_start: 8,
 				local_hours_24_end: 22,
@@ -351,14 +351,28 @@ pub fn make_dashboard(
 				texture_blend_mode: BlendMode::Add,
 
 				update_rate: Duration::milliseconds(35),
-				chance_of_appearing_when_updating: 0.000003,
 				num_update_steps_to_appear_for: 20,
+				chance_of_appearing_when_updating: 0.000003,
 
 				local_hours_24_start: 0,
 				local_hours_24_end: 5,
 
 				flicker_window: true
-			}
+			},
+
+			SurpriseCreationInfo {
+				texture_path: "assets/horrible.webp",
+				texture_blend_mode: BlendMode::Mul,
+
+				update_rate: Duration::milliseconds(100),
+				num_update_steps_to_appear_for: 9,
+				chance_of_appearing_when_updating: 0.0, // This one can only be triggered artificially
+
+				local_hours_24_start: 0,
+				local_hours_24_end: 23,
+
+				flicker_window: true
+			},
 		],
 
 		update_rate_creator,
