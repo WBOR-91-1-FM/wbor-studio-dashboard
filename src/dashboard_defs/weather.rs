@@ -14,15 +14,15 @@ use crate::{
 	utility_types::{
 		vec2f::Vec2f,
 		generic_result::MaybeError,
-        dynamic_optional::DynamicOptional,
+		dynamic_optional::DynamicOptional,
 		update_rate::{UpdateRateCreator, Seconds}
 	},
 
 	window_tree::{
 		ColorSDL,
-        Window,
-        WindowContents,
-        WindowUpdaterParams
+		Window,
+		WindowContents,
+		WindowUpdaterParams
 	},
 
 	dashboard_defs::shared_window_state::SharedWindowState
