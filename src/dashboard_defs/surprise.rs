@@ -102,7 +102,7 @@ pub fn make_surprise_window(
 
 	// An appearance is considered artificially triggered if it was activated by the `trigger_surprise.bash` script
 	fn appearance_was_artificially_triggered(s: &RefCell<SharedSurpriseInfo>, index: usize) -> bool {
-		let check_and_clear_atomic_bool = |b: &Arc<AtomicBool>| b.swap(false, Ordering::Relaxed);
+		let check_and_clear_atomic_bool = |b: &Arc<AtomicBool>| b.swap(false, Ordering::SeqCst);
 
 		let mut sb = s.borrow();
 
@@ -132,13 +132,16 @@ pub fn make_surprise_window(
 		let surprise_info = params.window.get_state_mut::<SurpriseInfo>();
 		let rand_generator = &mut params.shared_window_state.get_mut::<SharedWindowState>().rand_generator;
 
-		let trigger_appearance_by_chance = appearance_was_randomly_triggered(surprise_info, rand_generator);
-		let trigger_appearance_artificially = appearance_was_artificially_triggered(&surprise_info.shared_info, surprise_info.index);
 		let not_currently_active = surprise_info.curr_num_steps_when_appeared.is_none();
+		let trigger_appearance_by_chance = appearance_was_randomly_triggered(surprise_info, rand_generator);
+
+		// Doing the redundant `&&` here since I want to avoid doing signaled surprise incrementation when a surprise is active
+		let trigger_appearance_artificially = not_currently_active && appearance_was_artificially_triggered(&surprise_info.shared_info, surprise_info.index);
 
 		if (trigger_appearance_by_chance || trigger_appearance_artificially) && not_currently_active {
 			log::info!("Trigger surprise with index {}!", surprise_info.index);
 			surprise_info.curr_num_steps_when_appeared = Some(0);
+			surprise_info.shared_info.borrow_mut().curr_signaled_index = 0; // Reset the index back to 0 for next time
 		}
 
 		if let Some(num_steps_when_appeared) = &mut surprise_info.curr_num_steps_when_appeared {
@@ -147,7 +150,6 @@ pub fn make_surprise_window(
 			let stop_showing = *num_steps_when_appeared == surprise_info.num_update_steps_to_appear_for + 1;
 
 			let should_skip_drawing = if stop_showing {
-				surprise_info.shared_info.borrow_mut().curr_signaled_index = 0; // Reset the index back to 0 for next time
 				surprise_info.curr_num_steps_when_appeared = None;
 				true
 			}
