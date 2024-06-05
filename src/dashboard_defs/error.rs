@@ -41,7 +41,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 			// This means that the error changed (or disappeared)!
 			if curr_error != cached_error {
 				let skip_update = curr_error.is_none();
-				wrapped_individual_state.inner = curr_error.clone();
+				wrapped_individual_state.inner.clone_from(curr_error);
 				updater_params.window.set_draw_skipping(skip_update);
 				skip_update
 			}
