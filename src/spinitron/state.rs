@@ -182,7 +182,8 @@ impl SpinitronStateData {
 
 		/* Step 4: get the current show id (based on what's on the
 		schedule, irrespective of what show was last on).
-		TODO: should I only do this in the branch above? */
+		This is not in the branch above, since the show should
+		change directly on schedule, not when a new playlist is made. */
 		self.show = Show::get(api_key)?;
 
 		Ok(())
