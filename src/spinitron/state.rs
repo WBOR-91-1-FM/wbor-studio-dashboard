@@ -131,7 +131,7 @@ impl SpinitronStateData {
 			and precaching anything from disk in byte form as well. */
 			match info.as_ref() {
 				TextureCreationInfo::Path(path) =>
-					Ok(std::fs::read(&path as &str)?),
+					Ok(std::fs::read(path as &str)?),
 
 				TextureCreationInfo::Url(url) =>
 					Ok(request::get(url)?.as_bytes().to_vec()),
