@@ -183,7 +183,8 @@ impl SpinitronStateData {
 		/* Step 4: get the current show id (based on what's on the
 		schedule, irrespective of what show was last on).
 		This is not in the branch above, since the show should
-		change directly on schedule, not when a new playlist is made. */
+		change directly on schedule, not when a new playlist is made.
+		TODO: only ask on 30-minute intervals (so check the current time for this). */
 		self.show = Show::get(api_key)?;
 
 		Ok(())
