@@ -21,6 +21,7 @@ use crate::{
 /* TODO:
 - For unscheduled playlists with no show photo, make the show image the DJ image
 - And for unscheduled playlists, also show the current show name, rather than what's on the schedule
+- In general, just figure out how to display unscheduled playlists (i.e. ones not strictly associated with a show)
 */
 
 //////////
