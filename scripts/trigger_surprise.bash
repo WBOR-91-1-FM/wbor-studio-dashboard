@@ -1,33 +1,20 @@
 #!/bin/bash
 
-# Script param: surprise index.
-# Note: this script will kill the dashboard if it hasn't been fully launched yet!
-# So, wait for it to fully launch before running it.
+# Script param: surprise name.
 
-##########
-
-# Param: message
 fail() {
-	echo $1
+	echo "$1"
 	exit 1
 }
 
-surprise_index=$1
+path="$1"
 
-unsigned_int_pattern='^[0-9]+$'
-[[ $surprise_index =~ $unsigned_int_pattern ]] || fail "No valid surprise index supplied."
+echo "Note: if the dashboard is not in focus, this script may hang until it becomes so."
 
-##########
+if [[ "$path" == "" ]]; then
+	fail "Please provide a surprise path (in the format of \"assets/<surprise_name>\")!"
+fi
 
-# Param: the signal to send
-try_signal() {
-	# TODO: when not sleeping, why is the amount of signals received by the dashboard not equal to the amount sent?
-	killall -q -$1 wbor-studio-dashboard || fail "Could not send the signal '$1' to the dashboard (check if it's running)!"
-	sleep 0.1
-}
+printf "$path" | nc -U /tmp/surprises_wbor_studio_dashboard.sock || fail "Could not send the path to the dashboard's socket!"
 
-# 1. Send repeated signals to increment surprise index (SIGUSR1)
-for ((i = 0; i < $surprise_index; i++)); do try_signal SIGUSR1; done
-
-# 2. Send signal to trigger surprise and reset surprise index (SIGUSR2)
-try_signal SIGUSR2
+echo ">>> Sent the surprise to the dashboard. Check the dashboard logs to see that the surprise was received."

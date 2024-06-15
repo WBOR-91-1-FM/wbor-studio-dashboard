@@ -330,7 +330,9 @@ pub fn make_dashboard(
 
 	////////// Making a surprise window
 
-	let surprise_window = make_surprise_window(Vec2f::ZERO, Vec2f::ONE,
+	let surprise_window = make_surprise_window(
+		Vec2f::ZERO, Vec2f::ONE, "/tmp/surprises_wbor_studio_dashboard.sock",
+
 		&[
 			SurpriseCreationInfo {
 				texture_path: "assets/nathan.png",

@@ -2,10 +2,20 @@ use std::{
 	rc::Rc,
 	borrow::Cow,
 	cell::RefCell,
-	sync::{Arc, atomic::{AtomicBool, Ordering}}
+	collections::HashSet,
+	io::{BufRead, BufReader}
 };
 
 use chrono::Timelike;
+
+use interprocess::local_socket::{
+	ToFsName,
+	GenericFilePath,
+	ListenerOptions,
+	traits::Listener,
+	ListenerNonblockingMode,
+	prelude::LocalSocketListener
+};
 
 use crate::{
 	window_tree::{
@@ -26,12 +36,7 @@ use crate::{
 };
 
 /* Note: some surprises may take somewhat long to be
-triggered if their update rates are relatively infrequent.
-
-Also, artificial surprise triggering will not work correctly
-if the dashboard window is not in focus (TODO: fix). A temporary
-solution is to set the `maybe_pause_subduration_ms_when_window_unfocused`
-field in `app_config.json` to null. */
+triggered if their update rates are relatively infrequent. */
 
 type NumAppearanceSteps = u16;
 type SurpriseAppearanceChance = f64; // 0 to 1
@@ -50,28 +55,30 @@ pub struct SurpriseCreationInfo<'a> {
 	pub flicker_window: bool
 }
 
-//////////
+// TODO: display DJ tips as surprises
 
-/* TODO: use local sockets (domain sockets under the hood) to send a file path, instead of
-an index (if not, send some part of a file path, or perhaps the inode, with signals) */
+//////////
 
 pub fn make_surprise_window(
 	top_left: Vec2f, size: Vec2f,
+	artificial_triggering_socket_path: &str,
 	surprise_creation_info: &[SurpriseCreationInfo],
 	update_rate_creator: UpdateRateCreator,
 	texture_pool: &mut TexturePool) -> GenericResult<Window> {
 
 	////////// Some internally used types
 
+	type SurprisePath=Rc<String>;
+
 	struct SharedSurpriseInfo {
-		num_surprises: usize,
-		curr_signaled_index: usize,
-		the_trigger_index_was_incremented: Arc<AtomicBool>,
-		one_was_artificially_triggered: Arc<AtomicBool>
+		surprise_path_set: HashSet<SurprisePath>,
+		queued_surprise_paths: Vec<SurprisePath>, // A multiset would be better here...
+		surprise_stream_listener: LocalSocketListener,
+		surprise_stream_path_buffer: String
 	}
 
 	struct SurpriseInfo {
-		index: usize,
+		path: SurprisePath,
 
 		num_update_steps_to_appear_for: NumAppearanceSteps,
 		chance_of_appearing_when_updating: SurpriseAppearanceChance, // 0 to 1
@@ -100,48 +107,52 @@ pub fn make_surprise_window(
 		in_acceptable_hour_range && rand_num < surprise_info.chance_of_appearing_when_updating
 	}
 
-	// An appearance is considered artificially triggered if it was activated by the `trigger_surprise.bash` script
-	fn appearance_was_artificially_triggered(s: &RefCell<SharedSurpriseInfo>, index: usize) -> bool {
-		let check_and_clear_atomic_bool = |b: &Arc<AtomicBool>| b.swap(false, Ordering::SeqCst);
+	////////// The core updater function that runs once every N milliseconds for each surprise
 
-		let mut sb = s.borrow();
-
-		if check_and_clear_atomic_bool(&sb.the_trigger_index_was_incremented) {
-			let num_surprises = sb.num_surprises;
-			drop(sb); // Dropping it manually because otherwise, the `borrow_mut` below will panic
-
-			let curr_index = &mut s.borrow_mut().curr_signaled_index;
-			*curr_index += 1;
-
-			if *curr_index >= num_surprises {
-				log::warn!(
-					"While incrementing the surprise index, you exceeded the maximum! Your index will \
-					be interpreted as `index % num_surprises` (there are {} total surprises).",
-					num_surprises
-				);
-
-				*curr_index = 0;
-			}
-		}
-
-		sb = s.borrow(); // Note that the atomic bool clearing only happens on the right index
-		sb.curr_signaled_index == index && check_and_clear_atomic_bool(&sb.one_was_artificially_triggered)
-	}
+	// TODO: make a separate updater for just getting the artificial triggering going (this will be the socket-polling updater)
 
 	fn updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let surprise_info = params.window.get_state_mut::<SurpriseInfo>();
 		let rand_generator = &mut params.shared_window_state.get_mut::<SharedWindowState>().rand_generator;
 
 		let not_currently_active = surprise_info.curr_num_steps_when_appeared.is_none();
+
+		// The braces are here to keep the borrow checker happy
+		let trigger_appearance_artificially = not_currently_active && {
+			let mut shared_info = surprise_info.shared_info.borrow_mut();
+
+			// TODO: include some error handling here
+			if let Some(Ok(stream)) = shared_info.surprise_stream_listener.next() {
+				let mut reader = BufReader::new(stream);
+				reader.read_line(&mut shared_info.surprise_stream_path_buffer)?;
+
+				if let Some(matching_path) = shared_info.surprise_path_set.get(&shared_info.surprise_stream_path_buffer) {
+					let rc_cloned_matching_path = matching_path.clone();
+					shared_info.queued_surprise_paths.push(rc_cloned_matching_path);
+				}
+				else {
+					log::warn!("Tried to trigger a surprise with a path of '{}', but no surprise has that path!",
+						shared_info.surprise_stream_path_buffer);
+				}
+
+				shared_info.surprise_stream_path_buffer.clear();
+			}
+
+			// This runs if the path of the current surprise (per this updater call) is in the queue
+			if let Some(index_in_queue) = shared_info.queued_surprise_paths.iter().position(|s| s == &surprise_info.path) {
+				shared_info.queued_surprise_paths.remove(index_in_queue);
+				true
+			}
+			else {
+				false
+			}
+		};
+
 		let trigger_appearance_by_chance = appearance_was_randomly_triggered(surprise_info, rand_generator);
 
-		// Doing the redundant `&&` here since I want to avoid doing signaled surprise incrementation when a surprise is active
-		let trigger_appearance_artificially = not_currently_active && appearance_was_artificially_triggered(&surprise_info.shared_info, surprise_info.index);
-
 		if (trigger_appearance_by_chance || trigger_appearance_artificially) && not_currently_active {
-			log::info!("Trigger surprise with index {}!", surprise_info.index);
+			log::info!("Trigger surprise with path '{}'!", surprise_info.path);
 			surprise_info.curr_num_steps_when_appeared = Some(0);
-			surprise_info.shared_info.borrow_mut().curr_signaled_index = 0; // Reset the index back to 0 for next time
 		}
 
 		if let Some(num_steps_when_appeared) = &mut surprise_info.curr_num_steps_when_appeared {
@@ -166,21 +177,29 @@ pub fn make_surprise_window(
 		Ok(())
 	}
 
+	////////// First, checking for duplicate paths, and failing if this is the case
+
+	let surprise_paths: Vec<SurprisePath> = surprise_creation_info.iter().map(|info| info.texture_path.to_string().into()).collect();
+	let surprise_path_set: HashSet<SurprisePath> = surprise_paths.iter().map(Rc::clone).collect();
+
+	if surprise_path_set.len() != surprise_creation_info.len() {
+		return Err("There are duplicate paths in the set of surprises".into());
+	}
+
 	////////// Setting up the shared surprise info that can be triggered via signals
 
-	let make_signal_bool = |signal_value| -> GenericResult<Arc<AtomicBool>> {
-		let the_signal_bool = Arc::new(AtomicBool::new(false));
-		signal_hook::flag::register(signal_value, the_signal_bool.clone())?;
-		Ok(the_signal_bool)
-	};
+	const SURPRISE_STREAM_PATH_BUFFER_INITIAL_SIZE: usize = 64;
 
-	use signal_hook::consts::signal;
+	let options = ListenerOptions::new().name(artificial_triggering_socket_path.to_fs_name::<GenericFilePath>()?);
+
+	let surprise_stream_listener = options.create_sync()?;
+	surprise_stream_listener.set_nonblocking(ListenerNonblockingMode::Both)?;
 
 	let shared_surprise_info = Rc::new(RefCell::new(SharedSurpriseInfo {
-		num_surprises: surprise_creation_info.len(),
-		curr_signaled_index: 0,
-		the_trigger_index_was_incremented: make_signal_bool(signal::SIGUSR1)?,
-		one_was_artificially_triggered: make_signal_bool(signal::SIGUSR2)?
+		surprise_path_set,
+		queued_surprise_paths: Vec::new(),
+		surprise_stream_listener,
+		surprise_stream_path_buffer: String::with_capacity(SURPRISE_STREAM_PATH_BUFFER_INITIAL_SIZE)
 	}));
 
 	////////// Making the surprise windows
@@ -231,7 +250,7 @@ pub fn make_surprise_window(
 				Some((updater_fn, update_rate)),
 
 				DynamicOptional::new(SurpriseInfo {
-					index,
+					path: surprise_paths[index].clone(),
 
 					num_update_steps_to_appear_for: creation_info.num_update_steps_to_appear_for,
 					chance_of_appearing_when_updating: creation_info.chance_of_appearing_when_updating,
