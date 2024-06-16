@@ -125,7 +125,7 @@ pub fn make_surprise_window(
 			about the "resource temporarily unavailable" thing?) */
 			if let Some(Ok(stream)) = shared_info.surprise_stream_listener.next() {
 				let mut reader = BufReader::new(stream);
-				reader.read_line(&mut shared_info.surprise_stream_path_buffer)?;
+				let _ = reader.read_line(&mut shared_info.surprise_stream_path_buffer);
 
 				if let Some(matching_path) = shared_info.surprise_path_set.get(&shared_info.surprise_stream_path_buffer) {
 					let rc_cloned_matching_path = matching_path.clone();
