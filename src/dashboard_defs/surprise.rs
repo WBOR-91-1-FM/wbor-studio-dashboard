@@ -201,7 +201,7 @@ pub fn make_surprise_window(
 				"Could not create a surprise stream listener. \
 				Perhaps the socket at '{artificial_triggering_socket_path}' is already in use, or \
 				maybe it was still around from a crash? \
-				Official error: {err}."
+				Official error: '{err}'."
 			).into());
 		}
 	};
