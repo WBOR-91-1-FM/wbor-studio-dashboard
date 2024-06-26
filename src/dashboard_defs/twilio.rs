@@ -5,9 +5,10 @@ use crate::{
 	request,
 
 	utility_types::{
+		vec2f::Vec2f,
+		generic_result::*,
+		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
-		update_rate::UpdateRate, vec2f::Vec2f,
-		generic_result::{GenericResult, MaybeError},
 		thread_task::{ContinuallyUpdated, Updatable}
 	},
 
@@ -653,7 +654,7 @@ pub fn make_twilio_window(
 
 			assert!(phone_numbers.len() == 1);
 
-			let number = phone_numbers[0]["phone_number"].as_str().ok_or("Expected the phone number to be a string!")?;
+			let number = phone_numbers[0]["phone_number"].as_str().context("Expected the phone number to be a string!")?;
 			let formatted_number = TwilioStateData::format_phone_number(number, "Messages to ", ":", "");
 
 			//////////

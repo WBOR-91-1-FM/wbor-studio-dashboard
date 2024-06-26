@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use crate::utility_types::generic_result::GenericResult;
+use crate::utility_types::generic_result::*;
 
 pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	query_params: &[(&str, Cow<str>)]) -> String {
@@ -37,10 +37,10 @@ pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> G
 		Ok(response)
 	}
 	else {
-		Err(format!(
+		error_msg!(
 			"Response status code for URL '{url}' was not '{EXPECTED_STATUS_CODE}', \
 			but '{}', with this reason: '{}'", response.status_code, response.reason_phrase
-		).into())
+		)
 	}
 }
 
@@ -51,5 +51,5 @@ pub fn get(url: &str) -> GenericResult<minreq::Response> {
 // This function is monadic!
 pub fn as_type<T: for<'de> serde::Deserialize<'de>>(response: GenericResult<minreq::Response>) -> GenericResult<T> {
 	let unpacked_response = response?;
-	Ok(serde_json::from_str(unpacked_response.as_str()?)?)
+	serde_json::from_str(unpacked_response.as_str()?).to_generic()
 }

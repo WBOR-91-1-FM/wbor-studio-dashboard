@@ -3,9 +3,9 @@ use sdl2::{self, rect::Rect};
 use crate::{
 	utility_types::{
 		vec2f::Vec2f,
+		generic_result::*,
 		dynamic_optional::DynamicOptional,
-		update_rate::{UpdateRate, FrameCounter},
-		generic_result::{GenericResult, MaybeError}
+		update_rate::{UpdateRate, FrameCounter}
 	},
 
 	texture::{TexturePool, TextureHandle, TextureCreationInfo}
@@ -234,7 +234,7 @@ impl Window {
 	////////// These are the window rendering functions (both public and private)
 
 	pub fn render(&mut self, rendering_params: &mut PerFrameConstantRenderingParams) -> MaybeError {
-		let output_size = rendering_params.sdl_canvas.output_size()?;
+		let output_size = rendering_params.sdl_canvas.output_size().to_generic()?;
 		let sdl_window_bounds = FRect {x: 0.0, y: 0.0, width: output_size.0 as f32, height: output_size.1 as f32};
 		self.inner_render(rendering_params, sdl_window_bounds)
 	}
@@ -307,7 +307,7 @@ impl Window {
 
 		if let Some(border_color) = &self.maybe_border_color {
 			possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
-				|canvas| Ok(canvas.draw_rect(uncorrected_screen_dest.into())?))?;
+				|canvas| canvas.draw_rect(uncorrected_screen_dest.into()).to_generic())?;
 		}
 
 		return Ok(());
@@ -331,7 +331,7 @@ impl Window {
 
 				WindowContents::Color(color) => possibly_draw_with_transparency(
 					color, sdl_canvas, |canvas|
-						Ok(canvas.fill_rect::<Rect>(uncorrected_screen_dest.into())?)
+						canvas.fill_rect::<Rect>(uncorrected_screen_dest.into()).to_generic()
 					)?,
 
 				WindowContents::Lines(line_series) => {
@@ -343,10 +343,9 @@ impl Window {
 							PointSDL::new(xy.0 as i32, xy.1 as i32)
 						}).collect();
 
-						possibly_draw_with_transparency(&series.0, sdl_canvas, |canvas| {
-							canvas.draw_lines(&*converted_series)?;
-							Ok(())
-						})?;
+						possibly_draw_with_transparency(&series.0, sdl_canvas, |canvas|
+							canvas.draw_lines(&*converted_series).to_generic()
+						)?;
 					}
 				},
 

@@ -13,13 +13,8 @@ use sdl2::{
 
 use crate::{
 	request,
-
 	window_tree::{CanvasSDL, ColorSDL},
-
-	utility_types::{
-		vec2f::assert_in_unit_interval,
-		generic_result::{GenericResult, MaybeError}
-	}
+	utility_types::{generic_result::*, vec2f::assert_in_unit_interval}
 };
 
 //////////
@@ -302,13 +297,12 @@ impl<'a> TexturePool<'a> {
 		let possible_text_metadata = self.text_metadata.get(handle);
 
 		if possible_text_metadata.is_none() {
-			canvas.copy(texture, None, screen_dest)?;
-			return Ok(());
+			return canvas.copy(texture, None, screen_dest).to_generic();
 		}
 
 		//////////
 
-		let text_metadata = possible_text_metadata.ok_or("Expected text metadata")?;
+		let text_metadata = possible_text_metadata.context("Expected text metadata")?;
 		let texture_size = text_metadata.size;
 
 		// TODO: compute the time since the unix epoch outside this fn, somehow (or, use the SDL timer)
@@ -337,8 +331,7 @@ impl<'a> TexturePool<'a> {
 		);
 
 		if !should_wrap {
-			canvas.copy(texture, texture_src, screen_dest)?;
-			return Ok(());
+			return canvas.copy(texture, texture_src, screen_dest).to_generic();
 		}
 
 		//////////
@@ -347,10 +340,10 @@ impl<'a> TexturePool<'a> {
 			texture_src, screen_dest, texture_size, &text_metadata.text
 		);
 
-		canvas.copy(texture, texture_src, right_screen_dest)?;
+		canvas.copy(texture, texture_src, right_screen_dest).to_generic()?;
 
 		if let Some((left_texture_src, left_screen_dest)) = possible_left_rects {
-			canvas.copy(texture, left_texture_src, left_screen_dest)?;
+			canvas.copy(texture, left_texture_src, left_screen_dest).to_generic()?;
 		}
 
 		Ok(())
@@ -610,15 +603,15 @@ impl<'a> TexturePool<'a> {
 		let mut joined_surface = Surface::new(
 			total_surface_width.max(text_display_info.pixel_area.0),
 			pixel_height, subsurfaces[0].pixel_format_enum()
-		)?;
+		).to_generic()?;
 
 		let mut dest_rect = Rect::new(0, 0, 1, 1);
 
 		for mut subsurface in subsurfaces {
-			subsurface.set_blend_mode(render::BlendMode::None)?;
+			subsurface.set_blend_mode(render::BlendMode::None).to_generic()?;
 
 			(dest_rect.w, dest_rect.h) = (subsurface.width() as i32, subsurface.height() as i32);
-			subsurface.blit(None, &mut joined_surface, dest_rect)?;
+			subsurface.blit(None, &mut joined_surface, dest_rect).to_generic()?;
 			dest_rect.x += dest_rect.w;
 		}
 
@@ -660,9 +653,9 @@ impl<'a> TexturePool<'a> {
 			let mut blank_surface = font_pair.0.render(Self::BLANK_TEXT_DEFAULT).blended(text_display_info.color)?;
 
 			Ok(if blank_surface.width() < max_width || blank_surface.height() != needed_height {
-				let mut corrected = Surface::new(max_width, needed_height, blank_surface.pixel_format_enum())?;
-				blank_surface.set_blend_mode(render::BlendMode::None)?;
-				blank_surface.blit(None, &mut corrected, None)?;
+				let mut corrected = Surface::new(max_width, needed_height, blank_surface.pixel_format_enum()).to_generic()?;
+				blank_surface.set_blend_mode(render::BlendMode::None).to_generic()?;
+				blank_surface.blit(None, &mut corrected, None).to_generic()?;
 				corrected
 			}
 			else {
@@ -677,7 +670,7 @@ impl<'a> TexturePool<'a> {
 	//////////
 
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
-		Ok(match creation_info {
+		match creation_info {
 			// Use this whenever possible (whenever you can preload data into byte form)!
 			TextureCreationInfo::RawBytes(bytes) =>
 				self.texture_creator.load_texture_bytes(bytes),
@@ -698,6 +691,6 @@ impl<'a> TexturePool<'a> {
 
 				Ok(self.texture_creator.create_texture_from_surface(surface)?)
 			}
-		}?)
+		}.to_generic()
 	}
 }

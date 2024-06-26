@@ -7,7 +7,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::{
 	texture::TextureCreationInfo,
-	utility_types::generic_result::GenericResult,
+	utility_types::generic_result::*,
 
 	spinitron::{
 		wrapper_types::*,

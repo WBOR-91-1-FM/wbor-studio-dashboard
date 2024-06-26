@@ -1,7 +1,7 @@
 use std::thread;
 use std::sync::mpsc;
 
-use crate::utility_types::generic_result::{GenericResult, MaybeError};
+use crate::utility_types::generic_result::*;
 
 //////////
 
@@ -16,7 +16,7 @@ in short bursts when you call `update` (or work with coroutines somehow)?
 */
 
 pub trait Updatable: Clone + Send {
-	type Param: Clone + Send; // TODO: remove this param type idea here
+	type Param: Clone + Send + Sync;
 	fn update(&mut self, param: &Self::Param) -> MaybeError;
 }
 
@@ -77,7 +77,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 
 	// This unblocks the param receiver and starts a new update iteration with a new param
 	fn run_new_update_itetation(&self, param: &T::Param) -> MaybeError {
-		Ok(self.param_sender.send(param.clone())?)
+		self.param_sender.send(param.clone()).to_generic()
 	}
 
 	// This returns false if a thread failed to complete its operation.

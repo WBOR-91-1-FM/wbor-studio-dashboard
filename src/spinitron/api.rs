@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
 	request,
-	utility_types::generic_result::GenericResult,
+	utility_types::generic_result::*,
 
 	spinitron::{
 		wrapper_types::MaybeSpinitronModelId,
@@ -24,11 +24,11 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	////////// Getting the API endpoint
 
 	let full_typename = std::any::type_name::<T>();
-	let last_colon_ind = full_typename.rfind(':').ok_or("Expected a colon in the model typename")?;
+	let last_colon_ind = full_typename.rfind(':').context("Expected a colon in the model typename")?;
 	let typename = &full_typename[last_colon_ind + 1..];
 
 	let mut typename_chars = typename.chars();
-	let first_char = typename_chars.next().ok_or("The typename has no chars in it, which is impossible")?;
+	let first_char = typename_chars.next().context("The typename has no chars in it, which is impossible")?;
 	let api_endpoint = format!("{}{}s", first_char.to_lowercase(), &typename[1..]);
 
 	////////// Checking endpoint validity
@@ -36,7 +36,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	const VALID_ENDPOINTS: [&str; NUM_SPINITRON_MODEL_TYPES] = ["spins", "playlists", "personas", "shows"];
 
 	if !VALID_ENDPOINTS.contains(&api_endpoint.as_str()) {
-		return Err(format!("Invalid Spinitron API endpoint '{api_endpoint}'").into());
+		return error_msg!("Invalid Spinitron API endpoint '{api_endpoint}'");
 	}
 
 	////////// Limiting the requested fields by what exists within the given model type
@@ -44,7 +44,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	let default_model_as_serde_value = serde_json::to_value(T::default())?;
 
 	let default_model_as_serde_obj = default_model_as_serde_value.as_object()
-		.ok_or("Expected JSON to be an object for the default Spinitron model")?;
+		.context("Expected JSON to be an object for the default Spinitron model")?;
 
 	// TODO: stop the `collect` allocation below
 	let fields: Vec<&str> = default_model_as_serde_obj.iter().map(|(key, _)| key.as_str()).collect();
@@ -77,8 +77,8 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 }
 
 fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Value) -> GenericResult<Vec<T>> {
-	let parsed_json_as_object = json.as_object().ok_or("Expected JSON to be an object")?;
-	Ok(serde_json::from_value(parsed_json_as_object["items"].clone())?)
+	let parsed_json_as_object = json.as_object().context("Expected JSON to be an object")?;
+	serde_json::from_value(parsed_json_as_object["items"].clone()).to_generic()
 }
 
 // This is a singular request
@@ -87,7 +87,7 @@ fn do_request<T: SpinitronModelWithProps>(api_key: &str, possible_model_id: Mayb
 
 	if possible_model_id.is_some() {
 		// If requesting a via model id, just a raw item will be returned
-		Ok(serde_json::from_value(response_json)?)
+		serde_json::from_value(response_json).to_generic()
 	}
 
 	else {

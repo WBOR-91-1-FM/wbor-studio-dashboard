@@ -19,6 +19,7 @@ rand = "0.8.5"
 regex = "1.10.3"
 base64 = "0.21.7"
 chrono = "0.4.35"
+anyhow = {version = "1.0", features = ["backtrace"]}
 
 # To make life easier:
 lazy_static = "1.4.0"

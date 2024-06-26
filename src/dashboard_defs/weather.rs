@@ -13,7 +13,7 @@ use crate::{
 
 	utility_types::{
 		vec2f::Vec2f,
-		generic_result::MaybeError,
+		generic_result::*,
 		dynamic_optional::DynamicOptional,
 		update_rate::{UpdateRateCreator, Seconds}
 	},

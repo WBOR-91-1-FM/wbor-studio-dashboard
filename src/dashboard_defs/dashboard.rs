@@ -10,8 +10,8 @@ use crate::{
 	utility_types::{
 		json_utils,
 		vec2f::Vec2f,
+		generic_result::*,
 		dynamic_optional::DynamicOptional,
-		generic_result::{GenericResult, MaybeError},
 		update_rate::{UpdateRate, UpdateRateCreator}
 	},
 

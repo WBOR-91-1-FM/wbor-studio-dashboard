@@ -7,7 +7,7 @@ use crate::{
 	texture::TextureCreationInfo,
 
 	utility_types::{
-		generic_result::{GenericResult, MaybeError},
+		generic_result::*,
 		thread_task::{Updatable, ContinuallyUpdated}
 	},
 
@@ -135,7 +135,7 @@ impl SpinitronStateData {
 			and precaching anything from disk in byte form as well. */
 			match info.as_ref() {
 				TextureCreationInfo::Path(path) =>
-					Ok(std::fs::read(path as &str)?),
+					std::fs::read(path as &str).to_generic(),
 
 				TextureCreationInfo::Url(url) =>
 					Ok(request::get(url)?.as_bytes().to_vec()),

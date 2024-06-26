@@ -55,6 +55,7 @@ Or with logging:
   - Investigate the occasionally high CPU usage on the Pi (like 300%!)
   - Could multiple update rates per window be useful?
   - CD to Pi?
+  - Format all debug types with `<varname>:?` when possible
 
 - Fun ideas:
   - Run the dashboard on a PVM, or an original iMac, eventually?

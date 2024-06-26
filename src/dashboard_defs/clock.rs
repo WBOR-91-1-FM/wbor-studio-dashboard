@@ -11,9 +11,9 @@ use crate::{
 
 	utility_types::{
 		vec2f::Vec2f,
+		generic_result::*,
 		update_rate::UpdateRate,
-		dynamic_optional::DynamicOptional,
-		generic_result::{GenericResult, MaybeError}
+		dynamic_optional::DynamicOptional
 	},
 
 	dashboard_defs::shared_window_state::SharedWindowState

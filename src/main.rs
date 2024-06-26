@@ -72,9 +72,11 @@ fn main() -> utility_types::generic_result::MaybeError {
 
 	//////////
 
-	let sdl_context = sdl2::init()?;
-	let sdl_video_subsystem = sdl_context.video()?;
-	let mut sdl_event_pump = sdl_context.event_pump()?;
+	use crate::utility_types::generic_result::ToGenericError;
+
+	let sdl_context = sdl2::init().to_generic()?;
+	let sdl_video_subsystem = sdl_context.video().to_generic()?;
+	let mut sdl_event_pump = sdl_context.event_pump().to_generic()?;
 
 	use sdl2::video::WindowBuilder;
 
@@ -94,7 +96,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 		),
 
 		ScreenOption::Fullscreen => {
-			let mode = sdl_video_subsystem.display_mode(0, 0)?;
+			let mode = sdl_video_subsystem.display_mode(0, 0).to_generic()?;
 
 			build_window(
 				mode.w as u32, mode.h as u32,
@@ -113,7 +115,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 	}
 
 	use sdl2::image::LoadSurface;
-	sdl_window.set_icon(sdl2::surface::Surface::from_file(app_config.icon_path)?);
+	sdl_window.set_icon(sdl2::surface::Surface::from_file(app_config.icon_path).to_generic()?);
 
 	//////////
 
@@ -141,13 +143,13 @@ fn main() -> utility_types::generic_result::MaybeError {
 
 	//////////
 
-	let mut sdl_timer = sdl_context.timer()?;
+	let mut sdl_timer = sdl_context.timer().to_generic()?;
 	let sdl_performance_frequency = sdl_timer.performance_frequency();
 	let sdl_ttf_context = sdl2::ttf::init()?;
 
 	let texture_creator = sdl_canvas.texture_creator();
 
-	let fps = sdl_video_subsystem.current_display_mode(0)?.refresh_rate as u32;
+	let fps = sdl_video_subsystem.current_display_mode(0).to_generic()?.refresh_rate as u32;
 
 	let sdl_renderer_info = sdl_canvas.info();
 	let max_texture_size = (sdl_renderer_info.max_texture_width, sdl_renderer_info.max_texture_height);
@@ -179,7 +181,8 @@ fn main() -> utility_types::generic_result::MaybeError {
 	let mut pausing_window = false;
 	// let mut initial_num_textures_in_pool = None;
 
-	log::info!("Finished setting up window. Canvas size: {:?}. Renderer info: {:?}.", rendering_params.sdl_canvas.output_size()?, sdl_renderer_info);
+	log::info!("Finished setting up window. Canvas size: {:?}. Renderer info: {:?}.",
+		rendering_params.sdl_canvas.output_size().to_generic()?, sdl_renderer_info);
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {

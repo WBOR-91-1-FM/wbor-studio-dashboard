@@ -1,2 +1,24 @@
-pub type MaybeError = GenericResult<()>; // TODO: try to add line number info to the error
-pub type GenericResult<T> = Result<T, Box<dyn std::error::Error>>;
+pub use anyhow::Context; // For `.context`
+
+pub type MaybeError = GenericResult<()>;
+pub type GenericResult<T> = anyhow::Result<T>;
+
+macro_rules! error_msg {
+	($fmt:expr $(, $($arg:tt)*)?) => {
+		Err(anyhow::anyhow!($fmt $(, $($arg)*)?))
+	};
+}
+
+pub(crate) use error_msg;
+
+pub trait ToGenericError<T, E> {
+	fn to_generic(self) -> GenericResult<T>;
+}
+
+impl<T, E> ToGenericError<T, E> for Result<T, E>
+where E: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
+
+	fn to_generic(self) -> anyhow::Result<T> {
+		self.map_err(anyhow::Error::msg)
+	}
+}

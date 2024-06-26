@@ -25,10 +25,10 @@ use crate::{
 	},
 
 	utility_types::{
+		generic_result::*,
 		dynamic_optional::DynamicOptional,
 		vec2f::{Vec2f, assert_in_unit_interval},
-		update_rate::{UpdateRateCreator, Seconds},
-		generic_result::{GenericResult, MaybeError}
+		update_rate::{Seconds, UpdateRateCreator}
 	},
 
 	texture::{TexturePool, TextureCreationInfo},
@@ -36,7 +36,9 @@ use crate::{
 };
 
 /* Note: some surprises may take somewhat long to be
-triggered if their update rates are relatively infrequent. */
+triggered if their update rates are relatively infrequent.
+TODO: make a separate updater for just getting the artificial
+triggering going (this will be the socket-polling updater). */
 
 type NumAppearanceSteps = u16;
 type SurpriseAppearanceChance = f64; // 0 to 1
@@ -108,8 +110,6 @@ pub fn make_surprise_window(
 	}
 
 	////////// The core updater function that runs once every N milliseconds for each surprise
-
-	// TODO: make a separate updater for just getting the artificial triggering going (this will be the socket-polling updater)
 
 	fn updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let surprise_info = params.window.get_state_mut::<SurpriseInfo>();
@@ -184,7 +184,7 @@ pub fn make_surprise_window(
 	let surprise_path_set: HashSet<SurprisePath> = surprise_paths.iter().map(Rc::clone).collect();
 
 	if surprise_path_set.len() != surprise_creation_info.len() {
-		return Err("There are duplicate paths in the set of surprises".into());
+		return error_msg!("There are duplicate paths in the set of surprises");
 	}
 
 	////////// Setting up the shared surprise info that can be triggered via signals
@@ -197,12 +197,12 @@ pub fn make_surprise_window(
 		Ok(listener) => listener,
 
 		Err(err) => {
-			return Err(format!(
+			return error_msg!(
 				"Could not create a surprise stream listener. \
 				Perhaps the socket at '{artificial_triggering_socket_path}' is already in use, or \
 				maybe it was still around from a crash? \
 				Official error: '{err}'."
-			).into());
+			);
 		}
 	};
 

@@ -18,8 +18,8 @@ use crate::{
 
 	utility_types::{
 		vec2f::Vec2f,
+		generic_result::*,
 		update_rate::UpdateRate,
-		generic_result::MaybeError,
 		dynamic_optional::DynamicOptional
 	},
 
