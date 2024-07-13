@@ -4,7 +4,7 @@ use crate::utility_types::generic_result::*;
 pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	query_params: &[(&str, Cow<str>)]) -> String {
 
-	let mut url = base_url.to_string();
+	let mut url = base_url.to_owned();
 
 	for path_param in path_params {
 		url += "/";

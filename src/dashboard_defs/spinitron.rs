@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::{
 	dashboard_defs::shared_window_state::SharedWindowState,
 
-	spinitron::model::{Spin, SpinitronModelName, NUM_SPINITRON_MODEL_TYPES},
+	spinitron::model::{SpinitronModelName, NUM_SPINITRON_MODEL_TYPES},
 
 	texture::{
 		DisplayText,
@@ -66,7 +66,10 @@ pub fn make_spinitron_windows(
 
 		//////////
 
+		let model_just_expired = spinitron_state.model_just_expired(model_name);
+
 		let should_update_texture =
+			model_just_expired ||
 			spinitron_state.model_was_updated(model_name) ||
 			matches!(params.window.get_contents(), WindowContents::Nothing);
 
@@ -75,18 +78,14 @@ pub fn make_spinitron_windows(
 		//////////
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
-			let text = if spinitron_state.is_spin_and_just_expired(model_name) {
-				Cow::Borrowed(Spin::to_string_when_spin_is_expired())
-			}
-			else {
-				Cow::Owned(spinitron_state.get_model_by_name(model_name).to_string())
-			};
+			let model = spinitron_state.get_model_by_name(model_name);
+			let model_text = model.to_string(model_just_expired);
 
 			TextureCreationInfo::Text((
 				Cow::Borrowed(inner_shared_state.font_info),
 
 				TextDisplayInfo {
-					text: DisplayText::new(&text),
+					text: DisplayText::new(&model_text),
 					color: text_color,
 					pixel_area: window_size_pixels, // TODO: why does cutting the max pixel width in half still work?
 

@@ -22,7 +22,7 @@ lazy_static::lazy_static!(
 	static ref SPIN_IMAGE_REGEXP: Regex = Regex::new(r#"^https:\/\/.+\d+x\d+bb.+$"#).unwrap();
 	static ref DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP: Regex = Regex::new(r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#).unwrap();
 
-	static ref SHOW_CATEGORY_EMOJIS_MAPPING: HashMap<&'static str, &'static str> = HashMap::from([
+	static ref PLAYLIST_CATEGORY_EMOJIS_MAPPING: HashMap<&'static str, &'static str> = HashMap::from([
 		("Automation", "🤖"),
 		("Ambient", "🌌"),
 		("Blues", "🎺"),
@@ -52,8 +52,17 @@ pub type MaybeTextureCreationInfo<'a> = Option<TextureCreationInfo<'a>>;
 
 pub trait SpinitronModel {
 	fn get_id(&self) -> SpinitronModelId;
-	fn to_string(&self) -> String;
+	fn get_end_time(&self) -> GenericResult<chrono::DateTime<chrono::Utc>>;
+
+	fn to_string(&self, expired: bool) -> Cow<str>;
 	fn get_texture_creation_info(&self, texture_size: (u32, u32)) -> MaybeTextureCreationInfo;
+	fn get_texture_creation_info_when_expired(&self) -> TextureCreationInfo;
+
+	fn parse_time(time: &str) -> GenericResult<chrono::DateTime<chrono::Utc>> where Self: Sized {
+		let mut amended_end = time.to_owned();
+		amended_end.insert(amended_end.len() - 2, ':');
+		Ok(chrono::DateTime::parse_from_rfc3339(&amended_end)?.into())
+	}
 
 	fn evaluate_model_image_url<'a>(
 		maybe_url: &'a Option<String>,
@@ -132,9 +141,17 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 
 impl SpinitronModel for Spin {
 	fn get_id(&self) -> SpinitronModelId {self.id}
+	fn get_end_time(&self) -> GenericResult<chrono::DateTime<chrono::Utc>> {Self::parse_time(&self.end)}
 
 	// TODO: for this, can I split it up into multiple lines, and then render multiline text somehow?
-	fn to_string(&self) -> String {format!("{} (from {}), by {}", self.song, self.release, self.artist)}
+	fn to_string(&self, expired: bool) -> Cow<str> {
+		if expired {
+			Cow::Borrowed("No 😰 recent 😬 spins 😟❗")
+		}
+		else {
+			Cow::Owned(format!("{} (from {}), by {}", self.song, self.release, self.artist))
+		}
+	}
 
 	fn get_texture_creation_info(&self, (texture_width, texture_height): (u32, u32)) -> MaybeTextureCreationInfo {
 		Self::evaluate_model_image_url_with_regexp(&self.image,
@@ -152,70 +169,106 @@ impl SpinitronModel for Spin {
 			}
 		)
 	}
+
+	fn get_texture_creation_info_when_expired(&self) -> TextureCreationInfo {
+		TextureCreationInfo::Path(Cow::Borrowed("assets/polar_headphones_logo.png"))
+	}
 }
 
 impl SpinitronModel for Playlist {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn to_string(&self) -> String {format!("Playlist: {}", self.title)}
+	fn get_end_time(&self) -> GenericResult<chrono::DateTime<chrono::Utc>> {Self::parse_time(&self.end)}
+
+	fn to_string(&self, expired: bool) -> Cow<str> {
+		if expired {
+			Cow::Borrowed("Get ready, the next show is coming soon...")
+		}
+		else {
+			let (mut show_emojis, mut spacing) = ("", "");
+
+			// If there's no category, it's probably an automation playlist
+			if let Some(category) = &self.category {
+				if let Some(emojis) = PLAYLIST_CATEGORY_EMOJIS_MAPPING.get(category.as_str()) {
+					show_emojis = emojis;
+					spacing = " ";
+				}
+				else {
+					log::warn!("Unrecognized genre '{category}' for playlist with name '{}'", self.title);
+				}
+			}
+
+			Cow::Owned(format!("{show_emojis}{spacing}This is '{}'{spacing}{show_emojis}", self.title))
+		}
+	}
 
 	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
 		Self::evaluate_model_image_url(&self.image, |url| Some(TextureCreationInfo::Url(Cow::Borrowed(url))), || None)
 	}
+
+	// This function is not used at the moment
+	fn get_texture_creation_info_when_expired(&self) -> TextureCreationInfo {
+		TextureCreationInfo::Path(Cow::Borrowed("assets/after_show_image.png"))
+	}
+
 }
 
 impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn to_string(&self) -> String {format!("Welcome, {}!", self.name)}
+	fn get_end_time(&self) -> GenericResult<chrono::DateTime<chrono::Utc>> {Ok(chrono::DateTime::<chrono::Utc>::MAX_UTC)}
+
+	fn to_string(&self, expired: bool) -> Cow<str> {
+		if expired {
+			Cow::Borrowed("You have reached the end of time!")
+		}
+		else {
+			Cow::Owned(format!("Welcome, {}!", self.name))
+		}
+	}
 
 	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
 		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_persona_image.png")
+	}
+
+	// This is not ever called at the moment
+	fn get_texture_creation_info_when_expired(&self) -> TextureCreationInfo {
+		TextureCreationInfo::Path(Cow::Borrowed("assets/polar_headphones_logo.png"))
 	}
 }
 
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
+    fn get_end_time(&self) -> GenericResult<chrono::DateTime<chrono::Utc>> {Self::parse_time(&self.end)}
 
-	fn to_string(&self) -> String {
-		let (mut show_emojis, mut spacing) = ("", "");
-
-		if let Some(category) = &self.category {
-			if let Some(emojis) = SHOW_CATEGORY_EMOJIS_MAPPING.get(category.as_str()) {
-				show_emojis = emojis;
-				spacing = " ";
-			}
-			else {
-				log::warn!("Unrecognized genre '{category}' for show with name '{}'", self.title);
-			}
-		}
-		else {
-			log::warn!("No genre for show with name '{}'", self.title);
-		}
-
-		format!("{show_emojis}{spacing}This is '{}'{spacing}{show_emojis}", self.title)
+	fn to_string(&self, expired: bool) -> Cow<str> {
+		let tense = if expired {"was"} else {"is"};
+		Cow::Owned(format!("This {tense} '{}'", self.title))
 	}
 
+	/* TODO: will this update on time after pre-show no-show-images?
+	And are playlist images the same as show images; and if so,
+	can I just use them instead? And could it happen that this sometimes
+	shows past shows too?  It might be nice to generalize this with some
+	type of `ModelAgeState` enum. */
 	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
-		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png")
+		let no_show_image_path = "assets/no_show_image.png";
+
+		// This logic is here to avoid displaying show images before their start times
+		if chrono::Utc::now() < Self::parse_time(&self.start).unwrap() { // TODO: don't unwrap
+			return Some(TextureCreationInfo::Path(Cow::Borrowed(no_show_image_path)))
+		}
+		else {
+			Self::evaluate_model_image_url_for_persona_or_show(&self.image, no_show_image_path)
+		}
+	}
+
+	fn get_texture_creation_info_when_expired(&self) -> TextureCreationInfo {
+		TextureCreationInfo::Path(Cow::Borrowed("assets/after_show_image.jpg"))
 	}
 }
 
 impl Spin {
 	// TODO: can I reduce the repetition on the `get`s?
 	pub fn get(api_key: &str) -> GenericResult<Self> {get_model_from_id(api_key, None)}
-
-	pub fn get_end_time(&self) -> GenericResult<chrono::DateTime<chrono::Utc>> {
-		let mut amended_end = self.end.to_string();
-		amended_end.insert(amended_end.len() - 2, ':');
-		Ok(chrono::DateTime::parse_from_rfc3339(&amended_end)?.into())
-	}
-
-	pub const fn to_string_when_spin_is_expired() -> &'static str {
-		"No 😰 recent 😬 spins 😟❗"
-	}
-
-	pub const fn get_texture_creation_info_when_spin_is_expired() -> TextureCreationInfo<'static> {
-		TextureCreationInfo::Path(Cow::Borrowed("assets/polar_headphones_logo.png"))
-	}
 }
 
 impl Playlist {
@@ -229,7 +282,11 @@ impl Persona {
 }
 
 impl Show {
-	pub fn get(api_key: &str) -> GenericResult<Self> {get_model_from_id(api_key, None)}
+	pub fn get(api_key: &str) -> GenericResult<Self> {
+		/* I could make an optimization that only checks this on 0-minute and 30-minute marks,
+		but playlists may be made a few minutes after a start time, so this would not cover those. */
+		get_model_from_id(api_key, None)
+	}
 }
 
 impl SpinitronModelWithProps for Spin {}
@@ -290,6 +347,7 @@ pub struct Playlist {
 	id: SpinitronModelId,
 	persona_id: SpinitronModelId, // TODO: why are all the persona ids the same?
 
+	start: String,
 	end: String,
 	duration: Uint,
 	timezone: String,
@@ -327,17 +385,18 @@ pub struct Persona {
 derive_spinitron_model_props!(
 #[allow(dead_code)] // TODO: remove
 pub struct Show {
-	id: SpinitronModelId,
+	id: SpinitronModelId, // Note: some shows will have the same IDS, but different times (e.g. WBOR's Commodore 64)
 
+	start: String,
 	end: String,
 	duration: Uint,
 	timezone: String,
 
 	one_off: Bool,
 
-	category: MaybeString,
-	title: String,
-	description: String,
+	category: MaybeString, // This will always be set, in practice (why did I make it `MaybeString`?)
+	title: String, // The titles will generally never be empty
+	description: String, // This will sometimes be empty (HTML-formatted)
 
 	since: MaybeUint,
 	url: String,

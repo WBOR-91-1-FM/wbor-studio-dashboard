@@ -41,7 +41,7 @@ impl TextureSubpoolManager {
 		if self.subpool.len() == self.max_size {
 			for (texture, is_used) in &mut self.subpool {
 				if !*is_used {
-					// println!("(request) doing re-request, and setting {:?} to used", texture);
+					// println!("(request) doing re-request, and setting {texture:?} to used");
 					*is_used = true;
 					texture_pool.remake_texture(texture_creation_info, texture)?;
 					return Ok(texture.clone());
@@ -57,7 +57,7 @@ impl TextureSubpoolManager {
 				panic!("This texture was already allocated in the subpool!");
 			}
 
-			// println!("(request) setting {:?} to used", texture);
+			// println!("(request) setting {texture:?} to used");
 
 			Ok(texture)
 		}
@@ -69,9 +69,9 @@ impl TextureSubpoolManager {
 		texture_pool: &mut TexturePool) -> MaybeError {
 
 		if let Some(is_used) = self.subpool.get(incoming_texture) {
-			// println!("(re-request) checking {:?} for being used before", incoming_texture);
+			// println!("(re-request) checking {incoming_texture:?} for being used before");
 			assert!(is_used);
-			// println!("(re-request) doing re-request for {:?}", incoming_texture);
+			// println!("(re-request) doing re-request for {incoming_texture:?}");
 			texture_pool.remake_texture(texture_creation_info, incoming_texture)
 		}
 		else {
@@ -82,9 +82,9 @@ impl TextureSubpoolManager {
 	// TODO: would making the incoming texture `mut` stop further usage of it?
 	fn give_back_slot(&mut self, incoming_texture: &TextureHandle) {
 		if let Some(is_used) = self.subpool.get_mut(incoming_texture) {
-			// println!("(give back) checking {:?} for being used before", incoming_texture);
+			// println!("(give back) checking {incoming_texture:?} for being used before");
 			assert!(*is_used);
-			// println!("(give back) setting {:?} to unused", incoming_texture);
+			// println!("(give back) setting {incoming_texture:?} to unused");
 			*is_used = false;
 		}
 		else {
@@ -226,8 +226,8 @@ impl TwilioStateData {
 
 		Self {
 			immutable: Arc::new(ImmutableTwilioStateData {
-				account_sid: account_sid.to_string(),
-				request_auth: "Basic ".to_string() + &request_auth_base64,
+				account_sid: account_sid.to_owned(),
+				request_auth: "Basic ".to_owned() + &request_auth_base64,
 				max_num_messages_in_history,
 				message_history_duration,
 				reveal_texter_identities
@@ -413,7 +413,7 @@ impl Updatable for TwilioStateData {
 						let time_sent = (*wrongly_typed_time_sent).into();
 						let age_data = Self::get_message_age_data(curr_time, time_sent);
 
-						let boxed_maybe_from = maybe_from.map(|from| from.to_string());
+						let boxed_maybe_from = maybe_from.map(|from| from.to_owned());
 
 						return Ok(Some(MessageInfo {
 							age_data,

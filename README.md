@@ -26,6 +26,11 @@ Or with logging:
 
 - `RUST_LOG=wbor-studio-dashboard cargo run --release`
 
+## Scripts
+
+- To delete recent Twilio messages, use `delete_twilio_msgs.sh`. Change the number of messages to delete in the script, and it'll delete that number of messages one-by-one.
+- To send surprises to the dashboard (images that appear for a certain amount of time, with certain chances of appearing at any second), use `trigger_surprise.sh`. Just pass it the name of a surprise that you've set up in `dashboard.rs`, and it'll send it over a local socket which the dashboard reads from.
+
 ## TODO
 
 - Features:
@@ -39,7 +44,6 @@ Or with logging:
   - When an error happens, make it print a message on screen that says that they should reach out to the tech director, `wbor@bowdoin.edu` (make a log of the error on disk too)
   - Crop all Spinitron photos 1:1 square
   - Maybe put the bounding box definition one layer out (with the parent)
-  - Abstract the main loop out, so that just some data and fns are passed into it
   - Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
   - Maybe draw rounded rectangles with `sdl_gfx` later on
   - Render a text drop shadow
@@ -47,18 +51,18 @@ Or with logging:
   - Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
   - For logging, write the current spin to a file once it updates
   - Make a little script on the Pi to clear the message history every 2 weeks - or maybe do it from within the dashboard - checking the date via modulus?
-  - Use the max durations of Spinitron spins to reduce the number of API calls
   - Maybe make a custom OpenGL renderer (may be more performant). Tricky parts would be text rendering, and keping everything safe. Perhaps Vulkan instead? Or something more general?
-  - Make some functions const
-  - Use SDL3 bindings
-  - Make a small window that shows the dashboard uptime (don't use `chrono::Duration`, since that will limit the uptime to some number of weeks)
   - Investigate the occasionally high CPU usage on the Pi (like 300%!)
   - Could multiple update rates per window be useful?
-  - CD to Pi?
+  - CI/CD to Pi?
+  - Use SDL3 bindings
+  - Make some functions const
   - Format all debug types with `<varname>:?` when possible
+  - Use the max durations of Spinitron spins to reduce the number of API calls
+  - Make a small window that shows the dashboard uptime (`chrono::Duration` should work for a long, long time)
 
 - Fun ideas:
-  - Run the dashboard on a PVM, or an original iMac, eventually?
+  - Run the dashboard on a PVM/BVM (less burn-in), or an original iMac, eventually?
   - Maybe give a retro theme to everything
   - Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
   - Different themes per each dashboard setup: wooden, garden, neon retro, frutiger aero, etc.
@@ -66,12 +70,11 @@ Or with logging:
     - Summer: shining run rays
     - Spring: occasional rain with sun
     - Winter: snow
-  - Make Nathan Fielder pop up sometimes (at a random time, for a random amount of time, saying something random, e.g. "Hey. I'm proud of you"). Same with the scary face (make that one window which picks one of those at random times).
   - Avoid screen burn-in somehow on non-dynamic parts of the screen (ideas below):
     - Shut off at night (or just for a few hours)
     - Screensavers
     - Layout swap (move screen elements around with a rapid or smooth animation) (do once every 15 minutes or so?)
     - Theme swap (instant or gradual) (based on things like weather, season, time of day, holiday, simple dark/light mode for day/night)
-    - Use a PVM/BVM (they have less burn-in)
+  - Separate from the dashboard - Artist querying experiment with Twilio (maybe)
 
 ## Troubleshooting

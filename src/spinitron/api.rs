@@ -55,7 +55,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	let mut path_params: Vec<Cow<str>> = vec![Cow::Owned(api_endpoint)];
 
 	let mut query_params: Vec<(&str, Cow<str>)> = vec![
-		("access-token", Cow::Owned(api_key.to_string())),
+		("access-token", Cow::Owned(api_key.to_owned())),
 		("fields", Cow::Borrowed(&joined_fields))
 	];
 

@@ -85,7 +85,7 @@ impl<'a> DisplayText<'a> {
 		////////// Replacing all replacable whitespace chars with a single space
 
 		// TODO: can I do this more efficiently (e.g. with regexps)?
-		let mut adjusted = trimmed_text.to_string();
+		let mut adjusted = trimmed_text.to_owned();
 
 		for (from, to) in WHITESPACE_REPLACEMENT_PAIRS {
 			if adjusted.contains(from) {
@@ -253,8 +253,8 @@ impl<'a> TexturePool<'a> {
 
 		if how_much_wider_the_texture_is_than_its_screen_dest < 0 {
 			panic!("The texture was not wider than its screen dest, which will yield incorrect results.\n\
-				Difference = {how_much_wider_the_texture_is_than_its_screen_dest}. Texture src = {:?}, \
-				screen dest = {:?}. The text was '{text}'.", texture_src, screen_dest);
+				Difference = {how_much_wider_the_texture_is_than_its_screen_dest}. Texture src = {texture_src:?}, \
+				screen dest = {screen_dest:?}. The text was '{text}'.");
 		}
 
 		/* If the texture can be cropped so that it ends up fully

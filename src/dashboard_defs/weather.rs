@@ -134,7 +134,7 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 
 	let mut weather_string = String::new();
 	maybe_add(&mut weather_string, w.main.feels_like, |t| format!("It feels like {t}"));
-	println!("ws = {:?}", weather_string);
+	println!("ws = {weather_string:?}");
 	*/
 
 	/*
@@ -182,7 +182,7 @@ pub fn make_weather_window(
 
 	Window::new(
 		Some((weather_updater_fn, weather_update_rate)),
-		DynamicOptional::new(WeatherWindowState {api_key: api_key.to_string(), location}),
+		DynamicOptional::new(WeatherWindowState {api_key: api_key.to_owned(), location}),
 		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
 		Some(ColorSDL::RED),
 		top_left,
