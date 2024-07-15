@@ -335,8 +335,6 @@ impl Updatable for TwilioStateData {
 			]
 		)?;
 
-		// println!("{json}");
-
 		////////// Creating a map of incoming messages
 
 		// This will always be in the range of 0 <= num_messages <= self.num_messages_in_history
