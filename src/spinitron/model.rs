@@ -216,7 +216,7 @@ impl SpinitronModel for Playlist {
 			ModelAgeState::AfterIt => Cow::Borrowed("Make a playlist, if you're there!"),
 
 			// Note: the custom expiry duration is expected to be negative here
-			ModelAgeState::AfterItFromCustomExpiryDuration => Cow::Borrowed("Pack up, the next show is starting soon!")
+			ModelAgeState::AfterItFromCustomExpiryDuration => Cow::Borrowed("Pack up, and log out of Spinitron! The next show is starting soon.")
 		}
 	}
 
