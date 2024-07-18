@@ -20,42 +20,66 @@ use crate::{
 
 //////////
 
-#[derive(Clone)]
-struct ExpiryData {
-	expiry_duration: chrono::Duration,
-	end_time: chrono::DateTime<chrono::Utc>,
-	marked_as_expired: bool,
-	just_expired: bool
+#[derive(Clone, PartialEq)]
+pub enum ModelAgeState {
+	BeforeIt,
+	CurrentlyActive,
+	AfterIt,
+	AfterItFromCustomExpiryDuration
 }
 
-impl ExpiryData {
-	fn new(expiry_duration: chrono::Duration, model: &dyn SpinitronModel) -> GenericResult<Self> {
+#[derive(Clone)]
+struct ModelAgeData {
+	custom_expiry_duration: chrono::Duration,
+	curr_age_state: ModelAgeState,
+	just_updated_state: bool
+}
+
+impl ModelAgeData {
+	fn new(custom_expiry_duration: chrono::Duration, model: &dyn SpinitronModel) -> GenericResult<Self> {
 		let data = Self {
-			expiry_duration,
-			end_time: chrono::DateTime::<chrono::Utc>::MIN_UTC,
-			marked_as_expired: false,
-			just_expired: false
+			custom_expiry_duration,
+			curr_age_state: ModelAgeState::CurrentlyActive,
+			just_updated_state: false
 		};
 
-		data.mark_expiration(model)
+		data.update(model)
 	}
 
-	// This returns the new expiry state
-	fn mark_expiration(mut self, model: &dyn SpinitronModel) -> GenericResult<ExpiryData> {
-		self.end_time = model.get_end_time()?;
+	// This returns the new model age data
+	fn update(mut self, model: &dyn SpinitronModel) -> GenericResult<ModelAgeData> {
+		if let Some((start_time, end_time)) = model.maybe_get_time_range()? {
+			let curr_time = chrono::Utc::now();
 
-		let curr_time = chrono::Utc::now();
-		let time_after_end = curr_time.signed_duration_since(self.end_time);
+			let time_after_start = curr_time.signed_duration_since(start_time);
+			let time_after_end = curr_time.signed_duration_since(end_time);
 
-		/*
-		if time_after_end.num_microseconds() < Some(0) {
-			println!("This model is currently ongoing/in-progress!");
+			let zero = chrono::Duration::zero();
+
+			// The custom end may be before or after the actual end
+			let (is_after_start, is_after_end, is_after_custom_end) = (
+				time_after_start > zero,
+				time_after_end > zero,
+				time_after_end > self.custom_expiry_duration
+			);
+
+			let new_age_state = if is_after_start {
+				if is_after_custom_end {
+					/* The first branch is for when the custom expiry is before the
+					actual end time; so then, give priority to the actual end */
+					if is_after_end && self.custom_expiry_duration < zero {ModelAgeState::AfterIt}
+					else {ModelAgeState::AfterItFromCustomExpiryDuration}
+				}
+				else if is_after_end {ModelAgeState::AfterIt}
+				else {ModelAgeState::CurrentlyActive}
+			}
+			else {
+				ModelAgeState::BeforeIt
+			};
+
+			self.just_updated_state = self.curr_age_state != new_age_state;
+			self.curr_age_state = new_age_state;
 		}
-		*/
-
-		let marked_before = self.marked_as_expired;
-		self.marked_as_expired = time_after_end > self.expiry_duration;
-		self.just_expired = !marked_before && self.marked_as_expired;
 
 		Ok(self)
 	}
@@ -73,7 +97,7 @@ struct SpinitronStateData {
 	persona: Persona,
 	show: Show,
 
-	expiry_data: [ExpiryData; NUM_SPINITRON_MODEL_TYPES],
+	age_data: [ModelAgeData; NUM_SPINITRON_MODEL_TYPES],
 	precached_texture_bytes: [Vec<u8>; NUM_SPINITRON_MODEL_TYPES],
 
 	/* The boolean at index `i` is true if the model at index `i` was recently
@@ -82,13 +106,12 @@ struct SpinitronStateData {
 }
 
 type WindowSize = (u32, u32);
-type SpinitronModels<'a> = [&'a dyn SpinitronModel; NUM_SPINITRON_MODEL_TYPES];
 
 // The third param is the fallback texture creation info, and the fourth one is the spin window size
 type SpinitronStateDataParams<'a> = (
 	&'a str, // API key
 	&'static TextureCreationInfo<'static>, // Fallback texture creation info
-	[chrono::Duration; NUM_SPINITRON_MODEL_TYPES], // Model expiry durations
+	[chrono::Duration; NUM_SPINITRON_MODEL_TYPES], // Custom model expiry durations
 	WindowSize
 );
 
@@ -96,7 +119,7 @@ type SpinitronStateDataParams<'a> = (
 
 impl SpinitronStateData {
 	fn new((api_key, fallback_texture_creation_info,
-		model_expiry_durations, spin_window_size):
+		custom_model_expiry_durations, spin_window_size):
 		SpinitronStateDataParams) -> GenericResult<Self> {
 
 		let spin = Spin::get(api_key)?;
@@ -108,17 +131,17 @@ impl SpinitronStateData {
 		let show = Show::get(api_key)?;
 
 		// TODO: once `zip` is implemented for arrays, rewrite this ugly bit
-		let models_with_expiry_durations: [(&dyn SpinitronModel, chrono::Duration); NUM_SPINITRON_MODEL_TYPES] = [
-			(&spin, model_expiry_durations[0]),
-			(&playlist, model_expiry_durations[1]),
-			(&persona, model_expiry_durations[2]),
-			(&show, model_expiry_durations[3])
+		let models_with_custom_expiry_durations: [(&dyn SpinitronModel, chrono::Duration); NUM_SPINITRON_MODEL_TYPES] = [
+			(&spin, custom_model_expiry_durations[0]),
+			(&playlist, custom_model_expiry_durations[1]),
+			(&persona, custom_model_expiry_durations[2]),
+			(&show, custom_model_expiry_durations[3])
 		];
 
 		// TODO: don't unwrap once `try_map` becomes stable
-		let expiry_data = models_with_expiry_durations
-			.map(|(model, expiry_duration)|
-				ExpiryData::new(expiry_duration, model).unwrap()
+		let age_data = models_with_custom_expiry_durations
+			.map(|(model, custom_expiry_duration)|
+				ModelAgeData::new(custom_expiry_duration, model).unwrap()
 			);
 
 		const INITIAL_PRECACHED: Vec<u8> = Vec::new();
@@ -129,19 +152,19 @@ impl SpinitronStateData {
 
 			spin, playlist, persona, show,
 
-			expiry_data,
+			age_data,
 			precached_texture_bytes: [INITIAL_PRECACHED; NUM_SPINITRON_MODEL_TYPES],
 			update_statuses: [false; NUM_SPINITRON_MODEL_TYPES]
 		};
 
-		data.precached_texture_bytes = data.get_models().map( // TODO: don't unwrap once `try_map` becomes stable
-			|model| data.get_model_texture_bytes(model, spin_window_size).unwrap()
+		data.precached_texture_bytes = data.get_model_names().map( // TODO: don't unwrap once `try_map` becomes stable
+			|model_name| data.get_model_texture_bytes(model_name, spin_window_size).unwrap()
 		);
 
 		Ok(data)
 	}
 
-	fn get_model_texture_bytes(&self, model: &dyn SpinitronModel, size_pixels: WindowSize) -> GenericResult<Vec<u8>> {
+	fn get_model_texture_bytes(&self, model_name: SpinitronModelName, size_pixels: WindowSize) -> GenericResult<Vec<u8>> {
 		fn load_for_info(info: Cow<TextureCreationInfo>) -> GenericResult<Vec<u8>> {
 			/* I am doing this to speed up the loading of textures on the main
 			thread, by doing the image URL requesting on this thread instead,
@@ -161,7 +184,10 @@ impl SpinitronStateData {
 			}
 		}
 
-		let info = match model.get_texture_creation_info(size_pixels) {
+		let age_state = self.age_data[model_name as usize].curr_age_state.clone();
+		let model = self.get_model_by_name(model_name);
+
+		let info = match model.get_texture_creation_info(age_state, size_pixels) {
 			Some(texture_creation_info) => Cow::Owned(texture_creation_info),
 			None => Cow::Borrowed(self.fallback_texture_creation_info)
 		};
@@ -172,8 +198,21 @@ impl SpinitronStateData {
 		})
 	}
 
-	const fn get_models(&self) -> SpinitronModels {
+	const fn get_models(&self) ->  [&dyn SpinitronModel; NUM_SPINITRON_MODEL_TYPES] {
 		[&self.spin, &self.playlist, &self.persona, &self.show]
+	}
+
+	const fn get_model_names(&self) -> [SpinitronModelName; NUM_SPINITRON_MODEL_TYPES] {
+		[SpinitronModelName::Spin, SpinitronModelName::Playlist, SpinitronModelName::Persona, SpinitronModelName::Show]
+	}
+
+	pub const fn get_model_by_name(&self, model_name: SpinitronModelName) -> &dyn SpinitronModel {
+		match model_name {
+			SpinitronModelName::Spin => &self.spin,
+			SpinitronModelName::Playlist => &self.playlist,
+			SpinitronModelName::Persona => &self.persona,
+			SpinitronModelName::Show => &self.show
+		}
 	}
 
 	fn sync_models(&mut self) -> MaybeError {
@@ -232,14 +271,14 @@ impl Updatable for SpinitronStateData {
 		////////// Update the model textures
 
 		// TODO: how to do this without all the indexing?
-		for i in 0..NUM_SPINITRON_MODEL_TYPES {
-			self.expiry_data[i] = self.expiry_data[i].clone().mark_expiration(self.get_models()[i])?;
+		for model_name in self.get_model_names() {
+			let i = model_name as usize;
+			self.age_data[i] = self.age_data[i].clone().update(self.get_model_by_name(model_name))?;
 
-			let updated = original_ids[i] != new_ids[i];
+			let updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
 
 			if updated {
-				let model = self.get_models()[i];
-				self.precached_texture_bytes[i] = self.get_model_texture_bytes(model, *param)?;
+				self.precached_texture_bytes[i] = self.get_model_texture_bytes(model_name, *param)?;
 			}
 
 			self.update_statuses[i] = updated;
@@ -268,20 +307,13 @@ impl SpinitronState {
 		})
 	}
 
-	// TODO: should I use the `get_models` function here, perhaps?
-	pub const fn get_model_by_name(&self, name: SpinitronModelName) -> &dyn SpinitronModel {
-		let data = self.continually_updated.get_data();
-
-		match name {
-			SpinitronModelName::Spin => &data.spin,
-			SpinitronModelName::Playlist => &data.playlist,
-			SpinitronModelName::Persona => &data.persona,
-			SpinitronModelName::Show => &data.show
-		}
+	pub fn get_model_age_info(&self, model_name: SpinitronModelName) -> (bool, ModelAgeState) {
+		let age_data = &self.continually_updated.get_data().age_data[model_name as usize];
+		(age_data.just_updated_state, age_data.curr_age_state.clone())
 	}
 
-	pub const fn model_just_expired(&self, model_name: SpinitronModelName) -> bool {
-		self.continually_updated.get_data().expiry_data[model_name as usize].just_expired
+	pub fn get_model_by_name(&self, model_name: SpinitronModelName) -> &dyn SpinitronModel {
+		self.continually_updated.get_data().get_model_by_name(model_name)
 	}
 
 	pub const fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {
@@ -297,13 +329,8 @@ impl SpinitronState {
 
 	// Note: this is not for text textures.
 	pub fn get_cached_texture_creation_info(&self, model_name: SpinitronModelName) -> TextureCreationInfo {
-		if self.model_just_expired(model_name) { // TODO: cache this info too
-			self.get_model_by_name(model_name).get_texture_creation_info_when_expired()
-		}
-		else {
-			let bytes = &self.continually_updated.get_data().precached_texture_bytes[model_name as usize];
-			TextureCreationInfo::RawBytes(bytes)
-		}
+		let bytes = &self.continually_updated.get_data().precached_texture_bytes[model_name as usize];
+		TextureCreationInfo::RawBytes(bytes)
 	}
 
 	pub fn update(&mut self) -> GenericResult<bool> {

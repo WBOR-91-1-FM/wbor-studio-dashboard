@@ -66,10 +66,7 @@ pub fn make_spinitron_windows(
 
 		//////////
 
-		let model_just_expired = spinitron_state.model_just_expired(model_name);
-
 		let should_update_texture =
-			model_just_expired ||
 			spinitron_state.model_was_updated(model_name) ||
 			matches!(params.window.get_contents(), WindowContents::Nothing);
 
@@ -79,7 +76,8 @@ pub fn make_spinitron_windows(
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
 			let model = spinitron_state.get_model_by_name(model_name);
-			let model_text = model.to_string(model_just_expired);
+			let age_state = spinitron_state.get_model_age_info(model_name).1;
+			let model_text = model.to_string(age_state);
 
 			TextureCreationInfo::Text((
 				Cow::Borrowed(inner_shared_state.font_info),

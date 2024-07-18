@@ -97,8 +97,9 @@ pub fn make_dashboard(
 	let playlist_text_tl = Vec2f::translate(&(spin_tl + spin_size), 0.03, -0.2);
 	let playlist_text_size = Vec2f::new(0.37, 0.05);
 
-	let show_tl = Vec2f::new(persona_tl.x() + persona_size.x() + main_windows_gap_size, spin_tl.y());
-	let show_size = Vec2f::new_scalar(1.0 - show_tl.x() - main_windows_gap_size);
+	// Most times, this is just the show image
+	let playlist_tl = Vec2f::new(persona_tl.x() + persona_size.x() + main_windows_gap_size, spin_tl.y());
+	let playlist_size = Vec2f::new_scalar(1.0 - playlist_tl.x() - main_windows_gap_size);
 
 	// TODO: make a type for the top-left/size combo (and add useful utility functions from there)
 
@@ -125,7 +126,12 @@ pub fn make_dashboard(
 		SpinitronModelWindowsInfo {
 			model_name: SpinitronModelName::Playlist,
 			text_color: theme_color_1,
-			texture_window: None,
+
+			texture_window: Some(SpinitronModelWindowInfo {
+				tl: playlist_tl,
+				size: playlist_size,
+				border_color: Some(theme_color_1)
+			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
 				tl: playlist_text_tl,
@@ -134,18 +140,11 @@ pub fn make_dashboard(
 			})
 		},
 
-		// Putting show before persona here so that the persona text is drawn over
+		// Putting show before persona here so that the persona text is drawn over (not used at the moment though)
 		SpinitronModelWindowsInfo {
 			model_name: SpinitronModelName::Show,
 			text_color: theme_color_1,
-
-			// TODO: don't show for future/past shows (i.e. if the image belongs to a show at another time)
-			texture_window: Some(SpinitronModelWindowInfo {
-				tl: show_tl,
-				size: show_size,
-				border_color: Some(theme_color_1)
-			}),
-
+			texture_window: None,
 			text_window: None
 		},
 
@@ -405,18 +404,18 @@ pub fn make_dashboard(
 	const FALLBACK_TEXTURE_CREATION_INFO: TextureCreationInfo<'static> =
 		TextureCreationInfo::Path(Cow::Borrowed("assets/no_texture_available.png"));
 
-	let initial_spin_window_size_guess = (1000, 1000);
+	let initial_spin_window_size_guess = (1024, 1024);
 
-	let model_expiry_durations = [
+	let custom_model_expiry_durations = [
 		Duration::minutes(10), // 10 minutes after a spin, it's expired
 		Duration::minutes(-5), // 5 minutes before a playlist ends, let the DJ know that they should pack up
 		Duration::minutes(0), // Personas don't expire (their end time is the max UTC time)
-		Duration::minutes(2) // 2 minutes after a show, it's expired (should ideally never happen)
+		Duration::minutes(0) // 0 minutes after a show, it's expired (this is not used in practice)
 	];
 
 	let spinitron_state = SpinitronState::new(
 		(&api_keys.spinitron, &FALLBACK_TEXTURE_CREATION_INFO,
-		model_expiry_durations, initial_spin_window_size_guess)
+		custom_model_expiry_durations, initial_spin_window_size_guess)
 	)?;
 
 	let boxed_shared_state = DynamicOptional::new(
