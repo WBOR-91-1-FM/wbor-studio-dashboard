@@ -320,17 +320,12 @@ impl Updatable for TwilioStateData {
 		- When messages are sent with very small time gaps between each other, they can end up out of order - how to resolve? And is this a synchronization issue?
 		*/
 
-		/* This is very much a magic number! It's set in our cloud console.
-		For every text sent, it's forwarded this many times to different management numbers. */
-		const NUM_NUMBERS_FORWARDED_TO: usize = 2;
-
 		let max_messages = self.immutable.max_num_messages_in_history;
-		let amt_messages_to_actually_get = max_messages * (NUM_NUMBERS_FORWARDED_TO + 1);
 
 		// TODO: the page size is limiting what I need here (every inbound gets 2 outbound)
 		let json = self.do_twilio_request("Messages", &[],
 			&[
-				("PageSize", Cow::Borrowed(&amt_messages_to_actually_get.to_string())),
+				("PageSize", Cow::Borrowed(&max_messages.to_string())),
 				("DateSent%3E", Cow::Borrowed(&history_cutoff_day.to_string())) // Note: the '%3E' is a URL-encoded '>'
 			]
 		)?;
@@ -343,12 +338,6 @@ impl Updatable for TwilioStateData {
 		let incoming_message_map = HashMap::from_iter(
 			json_messages.iter().filter_map(|message| {
 				let message_field = |name| message[name].as_str().unwrap();
-
-				/* Filtering the outbound messages out (some inbound messages
-				are forwarded to other numbers, making them outbound) */
-				if message_field("direction") != "inbound" {
-					return None;
-				}
 
 				// Using the date created instead, since it is never null at the beginning (unlike the date sent)
 				let unparsed_time_sent = message_field("date_created");
