@@ -146,7 +146,7 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 - Make a comparator instead that compares the ids
 - Test these expiry operations more extensively:
 	1. Spin: text post, text custom post, texture post, texture custom post
-	2. Playlist: text post, texture pre (impossible?) texture post, texture custom post
+	2. Playlist: texture pre (impossible?)
 */
 
 impl SpinitronModel for Spin {
