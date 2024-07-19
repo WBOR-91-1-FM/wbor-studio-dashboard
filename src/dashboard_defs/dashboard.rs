@@ -95,12 +95,12 @@ pub fn make_dashboard(
 	let persona_text_height = 0.05;
 	*/
 
-	let show_tl = Vec2f::new(persona_tl.x() + persona_size.x() + main_windows_gap_size, spin_tl.y());
-	let show_size = persona_size;
+	let playlist_tl = Vec2f::new(persona_tl.x() + persona_size.x() + main_windows_gap_size, spin_tl.y());
+	let playlist_size = persona_size;
 
 	let text_scalar = Vec2f::new_scalar(0.55);
-	let show_text_tl = Vec2f::translate(&(spin_tl + text_scalar), 0.03, -0.24);
-	let show_text_size = Vec2f::new(0.37, 0.05);
+	let playlist_text_tl = Vec2f::translate(&(spin_tl + text_scalar), 0.03, -0.24);
+	let playlist_text_size = Vec2f::new(0.37, 0.05);
 
 	// TODO: make a type for the top-left/size combo (and add useful utility functions from there)
 
@@ -127,26 +127,26 @@ pub fn make_dashboard(
 		SpinitronModelWindowsInfo {
 			model_name: SpinitronModelName::Playlist,
 			text_color: theme_color_1,
-			texture_window: None,
-			text_window: None
-		},
-
-		// Putting show before persona here so that the persona text is drawn over
-		SpinitronModelWindowsInfo {
-			model_name: SpinitronModelName::Show,
-			text_color: theme_color_1,
 
 			texture_window: Some(SpinitronModelWindowInfo {
-				tl: show_tl,
-				size: show_size,
+				tl: playlist_tl,
+				size: playlist_size,
 				border_color: Some(theme_color_1)
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
-				tl: show_text_tl,
-				size: show_text_size,
+				tl: playlist_text_tl,
+				size: playlist_text_size,
 				border_color: Some(theme_color_1)
 			})
+		},
+
+		// Putting show before persona here so that the persona text is drawn over (not used at the moment though)
+		SpinitronModelWindowsInfo {
+			model_name: SpinitronModelName::Show,
+			text_color: theme_color_1,
+			texture_window: None,
+			text_window: None
 		},
 
 		SpinitronModelWindowsInfo {
@@ -388,12 +388,18 @@ pub fn make_dashboard(
 	const FALLBACK_TEXTURE_CREATION_INFO: TextureCreationInfo<'static> =
 		TextureCreationInfo::Path(Cow::Borrowed("assets/no_texture_available.png"));
 
-	let initial_spin_window_size_guess = (1000, 1000);
-	let spin_expiry_duration = Duration::minutes(20);
+	let initial_spin_window_size_guess = (1024, 1024);
+
+	let custom_model_expiry_durations = [
+		Duration::minutes(10), // 10 minutes after a spin, it's expired
+		Duration::minutes(-5), // 5 minutes before a playlist ends, let the DJ know that they should pack up
+		Duration::minutes(0), // Personas don't expire (their end time is the max UTC time)
+		Duration::minutes(0) // 0 minutes after a show, it's expired (this is not used in practice)
+	];
 
 	let spinitron_state = SpinitronState::new(
-		(&api_keys.spinitron, spin_expiry_duration,
-		&FALLBACK_TEXTURE_CREATION_INFO, initial_spin_window_size_guess)
+		(&api_keys.spinitron, &FALLBACK_TEXTURE_CREATION_INFO,
+		custom_model_expiry_durations, initial_spin_window_size_guess)
 	)?;
 
 	let boxed_shared_state = DynamicOptional::new(

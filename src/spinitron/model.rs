@@ -11,6 +11,7 @@ use crate::{
 
 	spinitron::{
 		wrapper_types::*,
+		state::ModelAgeState,
 		api::get_model_from_id
 	}
 };
@@ -22,7 +23,7 @@ lazy_static::lazy_static!(
 	static ref SPIN_IMAGE_REGEXP: Regex = Regex::new(r#"^https:\/\/.+\d+x\d+bb.+$"#).unwrap();
 	static ref DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP: Regex = Regex::new(r#"^https:\/\/farm\d.staticflickr\.com\/\d+\/.+\..+$"#).unwrap();
 
-	static ref SHOW_CATEGORY_EMOJIS_MAPPING: HashMap<&'static str, &'static str> = HashMap::from([
+	static ref PLAYLIST_CATEGORY_EMOJIS_MAPPING: HashMap<&'static str, &'static str> = HashMap::from([
 		("Automation", "🤖"),
 		("Ambient", "🌌"),
 		("Blues", "🎺"),
@@ -52,8 +53,23 @@ pub type MaybeTextureCreationInfo<'a> = Option<TextureCreationInfo<'a>>;
 
 pub trait SpinitronModel {
 	fn get_id(&self) -> SpinitronModelId;
-	fn to_string(&self) -> String;
-	fn get_texture_creation_info(&self, texture_size: (u32, u32)) -> MaybeTextureCreationInfo;
+	fn extract_raw_time_range(&self) -> Option<(&str, &str)>;
+
+	fn to_string(&self, age_state: ModelAgeState) -> Cow<str>;
+	fn get_texture_creation_info(&self, age_state: ModelAgeState, texture_size: (u32, u32)) -> MaybeTextureCreationInfo;
+
+	fn maybe_get_time_range(&self) -> GenericResult<Option<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>> {
+		fn parse_time(time: &str) -> GenericResult<chrono::DateTime<chrono::Utc>> {
+			let mut amended_end = time.to_owned();
+			amended_end.insert(amended_end.len() - 2, ':');
+			Ok(chrono::DateTime::parse_from_rfc3339(&amended_end)?.into())
+		}
+
+		// TODO: don't unwrap here
+		Ok(self.extract_raw_time_range().map(|(start, end)|
+			(parse_time(start).unwrap(), parse_time(end).unwrap())
+		))
+	}
 
 	fn evaluate_model_image_url<'a>(
 		maybe_url: &'a Option<String>,
@@ -128,98 +144,133 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 /* TODO:
 - Make these `impl`s less repetitive (use a macro?)
 - Make a comparator instead that compares the ids
+- Test these expiry operations more extensively:
+	1. Spin: text post, text custom post, texture post, texture custom post
+	2. Playlist: texture pre (impossible?)
 */
 
 impl SpinitronModel for Spin {
 	fn get_id(&self) -> SpinitronModelId {self.id}
+	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {Some((&self.start, &self.end))}
 
-	// TODO: for this, can I split it up into multiple lines, and then render multiline text somehow?
-	fn to_string(&self) -> String {format!("{} (from {}), by {}", self.song, self.release, self.artist)}
+	// TODO: for this, can I split the outut string into multiple lines, and then render multiline text somehow?
+	fn to_string(&self, age_state: ModelAgeState) -> Cow<str> {
+		match age_state {
+			ModelAgeState::BeforeIt =>
+				Cow::Borrowed("Are you a time traveler or something???"),
+			ModelAgeState::CurrentlyActive | ModelAgeState::AfterIt =>
+				Cow::Owned(format!("{} (from {}), by {}", self.song, self.release, self.artist)),
+			ModelAgeState::AfterItFromCustomExpiryDuration =>
+				Cow::Borrowed("No 😰 recent 😬 spins 😟❗")
+		}
+	}
 
-	fn get_texture_creation_info(&self, (texture_width, texture_height): (u32, u32)) -> MaybeTextureCreationInfo {
-		Self::evaluate_model_image_url_with_regexp(&self.image,
-			|| None,
-			&SPIN_IMAGE_REGEXP,
+	fn get_texture_creation_info(&self, age_state: ModelAgeState, (texture_width, texture_height): (u32, u32)) -> MaybeTextureCreationInfo {
+		if age_state == ModelAgeState::AfterItFromCustomExpiryDuration {
+			Some(TextureCreationInfo::Path(Cow::Borrowed("assets/polar_headphones_logo.png")))
+		}
+		else {
+			Self::evaluate_model_image_url_with_regexp(&self.image,
+				|| None,
+				&SPIN_IMAGE_REGEXP,
 
-			|url| {
-				let with_size = SPIN_IMAGE_SIZE_REGEXP.replace(url, format!("{texture_width}x{texture_height}bb"));
-				TextureCreationInfo::Url(with_size)
-			},
+				|url| {
+					let with_size = SPIN_IMAGE_SIZE_REGEXP.replace(url, format!("{texture_width}x{texture_height}bb"));
+					TextureCreationInfo::Url(with_size)
+				},
 
-			|url| {
-				log::error!("The core structure of the spin image URL has changed. Failing URL: '{url}'. Unclear how to modify spin image size now.");
-				TextureCreationInfo::Url(Cow::Borrowed(url))
-			}
-		)
+				|url| {
+					log::error!("The core structure of the spin image URL has changed. Failing URL: '{url}'. Unclear how to modify spin image size now.");
+					TextureCreationInfo::Url(Cow::Borrowed(url))
+				}
+			)
+		}
 	}
 }
 
 impl SpinitronModel for Playlist {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn to_string(&self) -> String {format!("Playlist: {}", self.title)}
+	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {Some((&self.start, &self.end))}
 
-	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
-		Self::evaluate_model_image_url(&self.image, |url| Some(TextureCreationInfo::Url(Cow::Borrowed(url))), || None)
+	fn to_string(&self, age_state: ModelAgeState) -> Cow<str> {
+		match age_state {
+			ModelAgeState::BeforeIt => Cow::Borrowed("How are you before a playlist that hasn't even started yet?"),
+
+			ModelAgeState::CurrentlyActive => {
+				let (mut show_emojis, mut spacing) = ("", "");
+
+				// If there's no category, it's probably an automation playlist
+				if let Some(category) = &self.category {
+					if let Some(emojis) = PLAYLIST_CATEGORY_EMOJIS_MAPPING.get(category.as_str()) {
+						show_emojis = emojis;
+						spacing = " ";
+					}
+					else {
+						log::warn!("Unrecognized genre '{category}' for playlist with name '{}'", self.title);
+					}
+				}
+
+				Cow::Owned(format!("{show_emojis}{spacing}This is '{}'{spacing}{show_emojis}", self.title))
+			}
+
+			ModelAgeState::AfterIt => Cow::Borrowed("Make a playlist, if you're there!"),
+
+			// Note: the custom expiry duration is expected to be negative here
+			ModelAgeState::AfterItFromCustomExpiryDuration => Cow::Borrowed("Pack up, and log out of Spinitron! The next show is starting soon.")
+		}
+	}
+
+	fn get_texture_creation_info(&self, age_state: ModelAgeState, _: (u32, u32)) -> MaybeTextureCreationInfo {
+		match age_state {
+			ModelAgeState::BeforeIt =>
+				Some(TextureCreationInfo::Path(Cow::Borrowed("assets/before_show_image.jpg"))),
+
+			ModelAgeState::CurrentlyActive | ModelAgeState::AfterItFromCustomExpiryDuration =>
+				Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png"),
+
+			ModelAgeState::AfterIt =>
+				Some(TextureCreationInfo::Path(Cow::Borrowed("assets/after_show_image.jpg")))
+		}
 	}
 }
 
 impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn to_string(&self) -> String {format!("Welcome, {}!", self.name)}
+	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {None}
 
-	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
+	fn to_string(&self, _: ModelAgeState) -> Cow<str> {
+		Cow::Owned(format!("Welcome, {}!", self.name))
+	}
+
+	fn get_texture_creation_info(&self, _: ModelAgeState, _: (u32, u32)) -> MaybeTextureCreationInfo {
 		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_persona_image.png")
 	}
 }
 
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
+	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {Some((&self.start, &self.end))}
 
-	fn to_string(&self) -> String {
-		let (mut show_emojis, mut spacing) = ("", "");
-
-		if let Some(category) = &self.category {
-			if let Some(emojis) = SHOW_CATEGORY_EMOJIS_MAPPING.get(category.as_str()) {
-				show_emojis = emojis;
-				spacing = " ";
-			}
-			else {
-				log::warn!("Unrecognized genre '{category}' for show with name '{}'", self.title);
-			}
-		}
-		else {
-			log::warn!("No genre for show with name '{}'", self.title);
-		}
-
-		format!("{show_emojis}{spacing}This is '{}'{spacing}{show_emojis}", self.title)
+	// This function is not used at the moment
+	fn to_string(&self, _: ModelAgeState) -> Cow<str> {
+		Cow::Borrowed("")
 	}
 
-	fn get_texture_creation_info(&self, _: (u32, u32)) -> MaybeTextureCreationInfo {
-		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png")
+	// This function is not used at the moment
+	fn get_texture_creation_info(&self, _: ModelAgeState, _: (u32, u32)) -> MaybeTextureCreationInfo {
+		None
 	}
 }
 
 impl Spin {
 	// TODO: can I reduce the repetition on the `get`s?
 	pub fn get(api_key: &str) -> GenericResult<Self> {get_model_from_id(api_key, None)}
-
-	pub fn get_end_time(&self) -> GenericResult<chrono::DateTime<chrono::Utc>> {
-		let mut amended_end = self.end.to_string();
-		amended_end.insert(amended_end.len() - 2, ':');
-		Ok(chrono::DateTime::parse_from_rfc3339(&amended_end)?.into())
-	}
-
-	pub const fn to_string_when_spin_is_expired() -> &'static str {
-		"No 😰 recent 😬 spins 😟❗"
-	}
-
-	pub const fn get_texture_creation_info_when_spin_is_expired() -> TextureCreationInfo<'static> {
-		TextureCreationInfo::Path(Cow::Borrowed("assets/polar_headphones_logo.png"))
-	}
 }
 
 impl Playlist {
-	pub fn get(api_key: &str) -> GenericResult<Self> {get_model_from_id(api_key, None)}
+	pub fn get(api_key: &str) -> GenericResult<Self> {
+		get_model_from_id(api_key, None)
+	}
 }
 
 impl Persona {
@@ -229,7 +280,9 @@ impl Persona {
 }
 
 impl Show {
-	pub fn get(api_key: &str) -> GenericResult<Self> {get_model_from_id(api_key, None)}
+	pub fn get(api_key: &str) -> GenericResult<Self> {
+		get_model_from_id(api_key, None)
+	}
 }
 
 impl SpinitronModelWithProps for Spin {}
@@ -260,6 +313,7 @@ pub struct Spin {
 	// TODO: why is `time` not there?
 
 	duration: Uint,
+	start: String,
 	end: String,
 
 	request: MaybeBool,
@@ -272,14 +326,6 @@ pub struct Spin {
 	medium: MaybeString, // This should just be `String`, but it isn't here, for some reason
 	released: MaybeUint,
 
-	////////// These are other fields
-
-	/*
-	- Ignoring "_links" for now.
-	- Also not  keeping the playlist ID here, since if someone doesn't come to their show, then the playlist ID will be invalid.
-	- TODO: add start, end, and label later (given the start, can I figure out where I am in the song?)
-	*/
-
 	id: SpinitronModelId,
 	image: MaybeString // If there's no image, it will be `None` or `Some("")`
 });
@@ -290,6 +336,7 @@ pub struct Playlist {
 	id: SpinitronModelId,
 	persona_id: SpinitronModelId, // TODO: why are all the persona ids the same?
 
+	start: String,
 	end: String,
 	duration: Uint,
 	timezone: String,
@@ -327,17 +374,18 @@ pub struct Persona {
 derive_spinitron_model_props!(
 #[allow(dead_code)] // TODO: remove
 pub struct Show {
-	id: SpinitronModelId,
+	id: SpinitronModelId, // Note: some shows will have the same IDS, but different times (e.g. WBOR's Commodore 64)
 
+	start: String,
 	end: String,
 	duration: Uint,
 	timezone: String,
 
 	one_off: Bool,
 
-	category: MaybeString,
-	title: String,
-	description: String,
+	category: MaybeString, // This will always be set, in practice (why did I make it `MaybeString`?)
+	title: String, // The titles will generally never be empty
+	description: String, // This will sometimes be empty (HTML-formatted)
 
 	since: MaybeUint,
 	url: String,

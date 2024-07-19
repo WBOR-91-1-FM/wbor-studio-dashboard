@@ -41,7 +41,7 @@ impl TextureSubpoolManager {
 		if self.subpool.len() == self.max_size {
 			for (texture, is_used) in &mut self.subpool {
 				if !*is_used {
-					// println!("(request) doing re-request, and setting {:?} to used", texture);
+					// println!("(request) doing re-request, and setting {texture:?} to used");
 					*is_used = true;
 					texture_pool.remake_texture(texture_creation_info, texture)?;
 					return Ok(texture.clone());
@@ -57,7 +57,7 @@ impl TextureSubpoolManager {
 				panic!("This texture was already allocated in the subpool!");
 			}
 
-			// println!("(request) setting {:?} to used", texture);
+			// println!("(request) setting {texture:?} to used");
 
 			Ok(texture)
 		}
@@ -69,9 +69,9 @@ impl TextureSubpoolManager {
 		texture_pool: &mut TexturePool) -> MaybeError {
 
 		if let Some(is_used) = self.subpool.get(incoming_texture) {
-			// println!("(re-request) checking {:?} for being used before", incoming_texture);
+			// println!("(re-request) checking {incoming_texture:?} for being used before");
 			assert!(is_used);
-			// println!("(re-request) doing re-request for {:?}", incoming_texture);
+			// println!("(re-request) doing re-request for {incoming_texture:?}");
 			texture_pool.remake_texture(texture_creation_info, incoming_texture)
 		}
 		else {
@@ -82,9 +82,9 @@ impl TextureSubpoolManager {
 	// TODO: would making the incoming texture `mut` stop further usage of it?
 	fn give_back_slot(&mut self, incoming_texture: &TextureHandle) {
 		if let Some(is_used) = self.subpool.get_mut(incoming_texture) {
-			// println!("(give back) checking {:?} for being used before", incoming_texture);
+			// println!("(give back) checking {incoming_texture:?} for being used before");
 			assert!(*is_used);
-			// println!("(give back) setting {:?} to unused", incoming_texture);
+			// println!("(give back) setting {incoming_texture:?} to unused");
 			*is_used = false;
 		}
 		else {
@@ -226,8 +226,8 @@ impl TwilioStateData {
 
 		Self {
 			immutable: Arc::new(ImmutableTwilioStateData {
-				account_sid: account_sid.to_string(),
-				request_auth: "Basic ".to_string() + &request_auth_base64,
+				account_sid: account_sid.to_owned(),
+				request_auth: "Basic ".to_owned() + &request_auth_base64,
 				max_num_messages_in_history,
 				message_history_duration,
 				reveal_texter_identities
@@ -320,22 +320,15 @@ impl Updatable for TwilioStateData {
 		- When messages are sent with very small time gaps between each other, they can end up out of order - how to resolve? And is this a synchronization issue?
 		*/
 
-		/* This is very much a magic number! It's set in our cloud console.
-		For every text sent, it's forwarded this many times to different management numbers. */
-		const NUM_NUMBERS_FORWARDED_TO: usize = 2;
-
 		let max_messages = self.immutable.max_num_messages_in_history;
-		let amt_messages_to_actually_get = max_messages * (NUM_NUMBERS_FORWARDED_TO + 1);
 
 		// TODO: the page size is limiting what I need here (every inbound gets 2 outbound)
 		let json = self.do_twilio_request("Messages", &[],
 			&[
-				("PageSize", Cow::Borrowed(&amt_messages_to_actually_get.to_string())),
+				("PageSize", Cow::Borrowed(&max_messages.to_string())),
 				("DateSent%3E", Cow::Borrowed(&history_cutoff_day.to_string())) // Note: the '%3E' is a URL-encoded '>'
 			]
 		)?;
-
-		// println!("{json}");
 
 		////////// Creating a map of incoming messages
 
@@ -345,12 +338,6 @@ impl Updatable for TwilioStateData {
 		let incoming_message_map = HashMap::from_iter(
 			json_messages.iter().filter_map(|message| {
 				let message_field = |name| message[name].as_str().unwrap();
-
-				/* Filtering the outbound messages out (some inbound messages
-				are forwarded to other numbers, making them outbound) */
-				if message_field("direction") != "inbound" {
-					return None;
-				}
 
 				// Using the date created instead, since it is never null at the beginning (unlike the date sent)
 				let unparsed_time_sent = message_field("date_created");
@@ -413,7 +400,7 @@ impl Updatable for TwilioStateData {
 						let time_sent = (*wrongly_typed_time_sent).into();
 						let age_data = Self::get_message_age_data(curr_time, time_sent);
 
-						let boxed_maybe_from = maybe_from.map(|from| from.to_string());
+						let boxed_maybe_from = maybe_from.map(|from| from.to_owned());
 
 						return Ok(Some(MessageInfo {
 							age_data,

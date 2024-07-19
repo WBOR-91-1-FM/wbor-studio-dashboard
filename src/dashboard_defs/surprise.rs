@@ -180,7 +180,7 @@ pub fn make_surprise_window(
 
 	////////// First, checking for duplicate paths, and failing if this is the case
 
-	let surprise_paths: Vec<SurprisePath> = surprise_creation_info.iter().map(|info| info.texture_path.to_string().into()).collect();
+	let surprise_paths: Vec<SurprisePath> = surprise_creation_info.iter().map(|info| info.texture_path.to_owned().into()).collect();
 	let surprise_path_set: HashSet<SurprisePath> = surprise_paths.iter().map(Rc::clone).collect();
 
 	if surprise_path_set.len() != surprise_creation_info.len() {
@@ -247,7 +247,7 @@ pub fn make_surprise_window(
 				if creation_info.flicker_window {"flicker"} else {"persist"},
 				update_rate_secs * creation_info.num_update_steps_to_appear_for as Seconds,
 
-				if creation_info.flicker_window {Cow::Owned(format!(", with {}-second off-cycles", update_rate_secs))}
+				if creation_info.flicker_window {Cow::Owned(format!(", with {update_rate_secs}-second off-cycles"))}
 				else {Cow::Borrowed("")}
 			);
 
