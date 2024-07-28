@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use chrono::Duration;
 use sdl2::{render::BlendMode, ttf::{FontStyle, Hinting}};
@@ -33,6 +34,33 @@ use crate::{
 		spinitron::{make_spinitron_windows, SpinitronModelWindowInfo, SpinitronModelWindowsInfo}
 	}
 };
+
+//////////
+
+static FALLBACK_TEXTURE_CREATION_INFO_PATH_INDEX: AtomicUsize = AtomicUsize::new(0);
+
+lazy_static::lazy_static!(
+	static ref FALLBACK_TEXTURE_PATHS: Vec<String> =
+		std::fs::read_dir("assets/fallback_textures").unwrap()
+		.map(|maybe_dir_entry| maybe_dir_entry.map(|dir_entry| {
+			let path = dir_entry.path();
+			assert!(path.is_file());
+			path.to_str().unwrap().to_owned()
+		}))
+	   .collect::<Result<Vec<_>, _>>().unwrap();
+);
+
+fn get_fallback_texture_creation_info() -> TextureCreationInfo<'static> {
+	let ordering = Ordering::SeqCst;
+	let mut index = FALLBACK_TEXTURE_CREATION_INFO_PATH_INDEX.fetch_add(1, ordering);
+
+	if index >= FALLBACK_TEXTURE_PATHS.len() {
+		index = 0;
+		FALLBACK_TEXTURE_CREATION_INFO_PATH_INDEX.store(0, ordering);
+	}
+
+	TextureCreationInfo::Path(Cow::Borrowed(&FALLBACK_TEXTURE_PATHS[index]))
+}
 
 ////////// TODO: maybe split `make_dashboard` into some smaller sub-functions
 
@@ -400,10 +428,6 @@ pub fn make_dashboard(
 
 	////////// Defining the shared state
 
-	// TODO: make it possible to get different variants of this texture (randomly chosen)
-	const FALLBACK_TEXTURE_CREATION_INFO: TextureCreationInfo<'static> =
-		TextureCreationInfo::Path(Cow::Borrowed("assets/no_texture_available.png"));
-
 	let initial_spin_window_size_guess = (1024, 1024);
 
 	let custom_model_expiry_durations = [
@@ -414,7 +438,7 @@ pub fn make_dashboard(
 	];
 
 	let spinitron_state = SpinitronState::new(
-		(&api_keys.spinitron, &FALLBACK_TEXTURE_CREATION_INFO,
+		(&api_keys.spinitron, get_fallback_texture_creation_info,
 		custom_model_expiry_durations, initial_spin_window_size_guess)
 	)?;
 
@@ -424,7 +448,7 @@ pub fn make_dashboard(
 			spinitron_state,
 			twilio_state,
 			font_info: &FONT_INFO,
-			fallback_texture_creation_info: &FALLBACK_TEXTURE_CREATION_INFO,
+			get_fallback_texture_creation_info,
 			curr_dashboard_error: None,
 			rand_generator: rand::thread_rng()
 		}

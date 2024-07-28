@@ -94,7 +94,7 @@ impl WindowContents {
 		should_remake: bool,
 		texture_pool: &mut TexturePool,
 		texture_creation_info: &TextureCreationInfo,
-		fallback_texture_creation_info: &TextureCreationInfo) -> MaybeError {
+		get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>) -> MaybeError {
 
 		/* This is a macro for making or remaking a texture. If making or
 		remaking fails, a fallback texture is put into that texture's slot. */
@@ -105,7 +105,7 @@ impl WindowContents {
 						log::warn!("Unexpectedly failed while trying to {} texture, and reverting to a fallback \
 							texture. Reason: '{failure_reason}'.", $make_or_remake_description);
 
-						$make_or_remake(fallback_texture_creation_info, $($extra_args),*)
+						$make_or_remake(&get_fallback_texture_creation_info(), $($extra_args),*)
 					}
 				)
 			}};

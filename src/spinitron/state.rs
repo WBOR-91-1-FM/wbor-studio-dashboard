@@ -90,7 +90,7 @@ impl ModelAgeData {
 #[derive(Clone)]
 struct SpinitronStateData {
 	api_key: String,
-	fallback_texture_creation_info: &'static TextureCreationInfo<'static>,
+	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>,
 
 	spin: Spin,
 	playlist: Playlist,
@@ -110,7 +110,7 @@ type WindowSize = (u32, u32);
 // The third param is the fallback texture creation info, and the fourth one is the spin window size
 type SpinitronStateDataParams<'a> = (
 	&'a str, // API key
-	&'static TextureCreationInfo<'static>, // Fallback texture creation info
+	fn() -> TextureCreationInfo<'static>, // Fallback texture creation info getter
 	[chrono::Duration; NUM_SPINITRON_MODEL_TYPES], // Custom model expiry durations
 	WindowSize
 );
@@ -118,7 +118,7 @@ type SpinitronStateDataParams<'a> = (
 //////////
 
 impl SpinitronStateData {
-	fn new((api_key, fallback_texture_creation_info,
+	fn new((api_key, get_fallback_texture_creation_info,
 		custom_model_expiry_durations, spin_window_size):
 		SpinitronStateDataParams) -> GenericResult<Self> {
 
@@ -148,7 +148,7 @@ impl SpinitronStateData {
 
 		let mut data = Self {
 			api_key: api_key.to_owned(),
-			fallback_texture_creation_info,
+			get_fallback_texture_creation_info,
 
 			spin, playlist, persona, show,
 
@@ -186,15 +186,16 @@ impl SpinitronStateData {
 
 		let age_state = self.age_data[model_name as usize].curr_age_state.clone();
 		let model = self.get_model_by_name(model_name);
+		let get_fallback = || Cow::Owned((self.get_fallback_texture_creation_info)());
 
 		let info = match model.get_texture_creation_info(age_state, size_pixels) {
 			Some(texture_creation_info) => Cow::Owned(texture_creation_info),
-			None => Cow::Borrowed(self.fallback_texture_creation_info)
+			None => get_fallback()
 		};
 
 		load_for_info(info).or_else(|error| {
 			log::warn!("Reverting to fallback texture for Spinitron model. Error: '{error}'");
-			load_for_info(Cow::Borrowed(self.fallback_texture_creation_info))
+			load_for_info(get_fallback())
 		})
 	}
 
