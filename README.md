@@ -82,6 +82,7 @@ RUST_LOG=wbor_studio_dashboard cargo run --release
   - Format all debug types with `<varname>:?` when possible
   - Use the max durations of Spinitron spins to reduce the number of API calls
   - Make a small window that shows the dashboard uptime (`chrono::Duration` should work for a long, long time)
+  - Merge app_config.json and api_keys.json
 
 - Fun ideas:
   - Run the dashboard on a PVM/BVM (less burn-in), or an original iMac, eventually?

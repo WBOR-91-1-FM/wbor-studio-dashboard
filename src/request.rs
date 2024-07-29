@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 use crate::utility_types::generic_result::*;
 
+type Response = GenericResult<minreq::Response>;
+
 pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	query_params: &[(&str, Cow<str>)]) -> String {
 
@@ -21,7 +23,7 @@ pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 
 /* TODO: in order to effectively do request stuff, maybe eliminate this wrapper
 code altogether? Or just keep this wrapper layer as request submitting code? */
-pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> GenericResult<minreq::Response> {
+pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
 	const EXPECTED_STATUS_CODE: i32 = 200;
 	const DEFAULT_TIMEOUT_SECONDS: u64 = 20;
 
@@ -44,12 +46,12 @@ pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> G
 	}
 }
 
-pub fn get(url: &str) -> GenericResult<minreq::Response> {
+pub fn get(url: &str) -> Response {
 	get_with_maybe_header(url, None)
 }
 
 // This function is monadic!
-pub fn as_type<T: for<'de> serde::Deserialize<'de>>(response: GenericResult<minreq::Response>) -> GenericResult<T> {
+pub fn as_type<T: for<'de> serde::Deserialize<'de>>(response: Response) -> GenericResult<T> {
 	let unpacked_response = response?;
 	serde_json::from_str(unpacked_response.as_str()?).to_generic()
 }

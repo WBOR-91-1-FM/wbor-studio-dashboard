@@ -111,7 +111,7 @@ pub fn make_spinitron_windows(
 			true,
 			params.texture_pool,
 			&texture_creation_info,
-			inner_shared_state.fallback_texture_creation_info
+			inner_shared_state.get_fallback_texture_creation_info
 		)
 	}
 
