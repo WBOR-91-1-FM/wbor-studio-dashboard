@@ -75,9 +75,7 @@ pub fn make_spinitron_windows(
 		//////////
 
 		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
-			let model = spinitron_state.get_model_by_name(model_name);
-			let age_state = spinitron_state.get_model_age_info(model_name).1;
-			let model_text = model.to_string(age_state);
+			let model_text = spinitron_state.model_to_string(model_name);
 
 			TextureCreationInfo::Text((
 				Cow::Borrowed(inner_shared_state.font_info),
