@@ -308,17 +308,17 @@ impl SpinitronState {
 		})
 	}
 
+	const fn get(&self) -> &SpinitronStateData {
+		self.continually_updated.get_data()
+	}
+
 	pub fn get_model_age_info(&self, model_name: SpinitronModelName) -> (bool, ModelAgeState) {
-		let age_data = &self.continually_updated.get_data().age_data[model_name as usize];
+		let age_data = &self.get().age_data[model_name as usize];
 		(age_data.just_updated_state, age_data.curr_age_state.clone())
 	}
 
-	pub fn get_model_by_name(&self, model_name: SpinitronModelName) -> &dyn SpinitronModel {
-		self.continually_updated.get_data().get_model_by_name(model_name)
-	}
-
 	pub const fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {
-		self.continually_updated.get_data().update_statuses[model_name as usize]
+		self.get().update_statuses[model_name as usize]
 	}
 
 	/* This is meant to be called by a spin texture window, so that the
@@ -328,9 +328,14 @@ impl SpinitronState {
 		self.saved_continually_updated_param = size;
 	}
 
+	pub fn model_to_string(&self, model_name: SpinitronModelName) -> Cow<str> {
+		let age_state = self.get_model_age_info(model_name).1;
+		self.get().get_model_by_name(model_name).to_string(age_state)
+	}
+
 	// Note: this is not for text textures.
 	pub fn get_cached_texture_creation_info(&self, model_name: SpinitronModelName) -> TextureCreationInfo {
-		let bytes = &self.continually_updated.get_data().precached_texture_bytes[model_name as usize];
+		let bytes = &self.get().precached_texture_bytes[model_name as usize];
 		TextureCreationInfo::RawBytes(bytes)
 	}
 
