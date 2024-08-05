@@ -8,19 +8,19 @@
 
 ## Dependencies
 
-- `homebrew` (for MacOS):
+- `homebrew` (macOS):
 
 ```sh
 brew install rust sdl2 sdl2_image sdl2_ttf
 ```
 
-- `dnf` (tested on Fedora):
+- `dnf` (Fedora):
 
 ```sh
 sudo dnf install rust cargo SDL2-devel SDL2_image-devel SDL2_ttf-devel
 ```
 
-- `apt-get` (tested on Raspbian):
+- `apt-get` (Raspbian):
 
 ```sh
 # Doing this just because `apt-get` only has an outdated version of the toolchain:
@@ -33,7 +33,7 @@ sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
 
 ## Build and Run
 
-Assuming you've cloned the project and installed the required [dependencies](#dependencies), run:
+Assuming you've cloned the project and installed the required [dependencies](#dependencies), run the following from the project's root folder:
 
 ```sh
 cargo run --release
@@ -54,48 +54,4 @@ RUST_LOG=wbor_studio_dashboard cargo run --release
 
 ---
 
-## TODO
-
-- Features:
-  - DJ tips popping up now and then (like a video game loading screen)
-  - Display streaming server online status (determined by whether it pings?)
-
-- Technical:
-  - Resolve slow startup times
-  - Continuous deployment
-  - When an error happens, make it print a message on screen that says that they should reach out to the tech director, `wbor@bowdoin.edu` (make a log of the error on disk too)
-  - Crop all Spinitron photos 1:1 square
-  - Maybe put the bounding box definition one layer out (with the parent)
-  - Eventually, avoid all possibilities of panics (so all assertions and unwraps should be gone)
-  - Maybe draw rounded rectangles with `sdl_gfx` later on
-  - Render a text drop shadow
-  - Set more rendering hints later on, if needed (beyond just the scale quality)
-  - Figure out how to do pixel-size-independent-rendering (use `sdl_canvas.set_scale` for that?)
-  - For logging, write the current spin to a file once it updates
-  - Clear Twilio message history every 2 weeks - or maybe do it from within the dashboard - checking the date via modulus? Ideally through our server.
-  - Reduce the number of API calls to Spinitron - down the road have our campus messenging server talk with the Pi?
-  - Maybe make a custom OpenGL renderer (may be more performant). Tricky parts would be text rendering, and keping everything safe. Perhaps Vulkan instead? Or something more general?
-  - Make some functions const
-  - Use SDL3 bindings
-  - Investigate the occasionally high CPU usage on the Pi (like 300%!)
-  - Could multiple update rates per window be useful?
-  - Format all debug types with `<varname>:?` when possible
-  - Use the max durations of Spinitron spins to reduce the number of API calls
-  - Make a small window that shows the dashboard uptime (`chrono::Duration` should work for a long, long time)
-  - Merge app_config.json and api_keys.json
-
-- Fun ideas:
-  - Run the dashboard on a PVM/BVM (less burn-in), or an original iMac, eventually?
-  - Maybe give a retro theme to everything
-  - Some little Mario-type character running around the edges of the screen (like 'That Editor' by Bisqwit)
-  - Different themes per each dashboard setup: wooden, garden, neon retro, frutiger aero, etc.
-    - Fall: leaves + drifting clouds over the screen
-    - Summer: shining run rays
-    - Spring: occasional rain with sun
-    - Winter: snow
-  - Avoid screen burn-in somehow on non-dynamic parts of the screen (ideas below):
-    - Shut off at night (or just for a few hours)
-    - Screensavers
-    - Layout swap (move screen elements around with a rapid or smooth animation) (do once every 15 minutes or so?)
-    - Theme swap (instant or gradual) (based on things like weather, season, time of day, holiday, simple dark/light mode for day/night)
-  - Separate from the dashboard - Artist querying experiment with Twilio (maybe)
+## [TODO](https://github.com/orgs/WBOR-91-1-FM/projects/3/views/1)
