@@ -225,8 +225,14 @@ impl SpinitronModel for Playlist {
 			ModelAgeState::BeforeIt =>
 				Some(TextureCreationInfo::Path(Cow::Borrowed("assets/before_show_image.jpg"))),
 
-			ModelAgeState::CurrentlyActive | ModelAgeState::AfterItFromCustomExpiryDuration =>
-				Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png"),
+			ModelAgeState::CurrentlyActive | ModelAgeState::AfterItFromCustomExpiryDuration => {
+				if self.automation == Some(1) {
+					Some(TextureCreationInfo::Path(Cow::Borrowed("assets/automation_playlist.png")))
+				}
+				else {
+					Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png")
+				}
+			}
 
 			ModelAgeState::AfterIt =>
 				Some(TextureCreationInfo::Path(Cow::Borrowed("assets/after_show_image.jpg")))
