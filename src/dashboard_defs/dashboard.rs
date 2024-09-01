@@ -68,7 +68,7 @@ fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
 		.output()?;
 
 	if !output.status.success() {
-		error_msg!("This command failed: {command} {}", args.join(" "))
+		error_msg!("This command failed: '{command} {}'", args.join(" "))
 	}
 	else {
 		String::from_utf8(output.stdout).to_generic().and_then(|s| Ok(s.trim().to_owned()))
