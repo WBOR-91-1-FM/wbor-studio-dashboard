@@ -48,7 +48,7 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
 	let fields = updatable_text_pattern::UpdatableTextWindowFields {
 		inner: text,
 		text_color,
-		scroll_fn: |seed, _| ((seed * 5.0).sin() * 0.5 + 0.5, false),
+		scroll_fn: |seed, _| ((seed * 2.0).sin() * 0.5 + 0.5, false),
 		update_rate: UpdateRate::ALMOST_NEVER,
 		maybe_border_color: Some(border_color)
 	};

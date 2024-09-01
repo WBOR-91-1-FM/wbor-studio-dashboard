@@ -256,8 +256,8 @@ pub fn make_dashboard(
 	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'");
 
 	let credit_window = make_credit_window(
-		Vec2f::new(0.8, 0.98),
-		Vec2f::new(0.2, 0.02),
+		Vec2f::new(0.8, 0.97),
+		Vec2f::new(0.2, 0.03),
 		ColorSDL::RED,
 		ColorSDL::RGB(210, 180, 140),
 		credit_message
