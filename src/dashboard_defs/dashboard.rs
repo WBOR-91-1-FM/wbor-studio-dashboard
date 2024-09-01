@@ -62,6 +62,19 @@ fn get_fallback_texture_creation_info() -> TextureCreationInfo<'static> {
 	TextureCreationInfo::Path(Cow::Borrowed(&FALLBACK_TEXTURE_PATHS[index]))
 }
 
+fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
+	let output = std::process::Command::new(command)
+		.args(args)
+		.output()?;
+
+	if !output.status.success() {
+		error_msg!("This command failed: {command} {}", args.join(" "))
+	}
+	else {
+		String::from_utf8(output.stdout).to_generic().and_then(|s| Ok(s.trim().to_owned()))
+	}
+}
+
 ////////// TODO: maybe split `make_dashboard` into some smaller sub-functions
 
 /* TODO:
@@ -238,12 +251,16 @@ pub fn make_dashboard(
 
 	////////// Making a credit window
 
+	let num_commits = run_command("git", &["rev-list", "--count", "HEAD"])?;
+	let branch_name = run_command("git", &["rev-parse", "--abbrev-ref", "HEAD"])?;
+	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'");
+
 	let credit_window = make_credit_window(
-		Vec2f::new(0.85, 0.97),
-		Vec2f::new(0.15, 0.03),
+		Vec2f::new(0.8, 0.98),
+		Vec2f::new(0.2, 0.02),
 		ColorSDL::RED,
 		ColorSDL::RGB(210, 180, 140),
-		"By: Caspian Ahlberg"
+		credit_message
 	);
 
 	////////// Making a clock window

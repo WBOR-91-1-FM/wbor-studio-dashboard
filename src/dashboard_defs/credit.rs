@@ -20,9 +20,9 @@ use crate::{
 };
 
 pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
-	border_color: ColorSDL, text_color: ColorSDL, text: &'static str) -> Window {
+	border_color: ColorSDL, text_color: ColorSDL, text: String) -> Window {
 
-	type CreditWindowState = &'static str;
+	type CreditWindowState = String;
 
 	impl updatable_text_pattern::UpdatableTextWindowMethods for CreditWindowState {
 		fn should_skip_update(updater_params: &mut WindowUpdaterParams) -> bool {
