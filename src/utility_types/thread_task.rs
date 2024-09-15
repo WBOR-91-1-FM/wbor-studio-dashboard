@@ -68,7 +68,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 			data_receiver, name
 		};
 
-		if let Err(err) = continually_updated.run_new_update_itetation(initial_param) {
+		if let Err(err) = continually_updated.run_new_update_iteration(initial_param) {
 			panic!("Could not pass an initial param to the continual updater: {err}");
 		}
 
@@ -76,7 +76,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 	}
 
 	// This unblocks the param receiver and starts a new update iteration with a new param
-	fn run_new_update_itetation(&self, param: &T::Param) -> MaybeError {
+	fn run_new_update_iteration(&self, param: &T::Param) -> MaybeError {
 		self.param_sender.send(param.clone()).to_generic()
 	}
 
@@ -87,7 +87,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		match self.data_receiver.try_recv() {
 			Ok(Ok(new_data)) => {
 				self.curr_data = new_data;
-				self.run_new_update_itetation(param)?;
+				self.run_new_update_iteration(param)?;
 			}
 
 			Ok(Err(err)) => error = Some(err),
@@ -100,7 +100,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 
 		if let Some(err) = error {
 			log::error!("Updating the {} data on this iteration failed. Error: '{err}'.", self.name);
-			self.run_new_update_itetation(param)?;
+			self.run_new_update_iteration(param)?;
 			return Ok(false);
 		}
 
