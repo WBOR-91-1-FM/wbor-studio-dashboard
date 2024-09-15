@@ -71,7 +71,7 @@ fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
 		error_msg!("This command failed: '{command} {}'", args.join(" "))
 	}
 	else {
-		String::from_utf8(output.stdout).to_generic().and_then(|s| Ok(s.trim().to_owned()))
+		String::from_utf8(output.stdout).to_generic().map(|s| s.trim().to_owned())
 	}
 }
 
@@ -85,7 +85,7 @@ fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
 #[derive(serde::Deserialize)]
 struct ApiKeys {
 	spinitron: String,
-	openweathermap: String,
+	tomorrow_io: String,
 	twilio_account_sid: String,
 	twilio_auth_token: String
 }
@@ -291,7 +291,7 @@ pub fn make_dashboard(
 		Vec2f::ZERO,
 		Vec2f::new(0.4, 0.3),
 		update_rate_creator,
-		&api_keys.openweathermap,
+		&api_keys.tomorrow_io,
 		"Brunswick",
 		"ME",
 		"US"

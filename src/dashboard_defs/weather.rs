@@ -1,13 +1,7 @@
-/* TODO:
-- Actually implement this
-- Make the general structure of the text updater fns less repetitive
-- Consider using an alternative API
-*/
-
-use std::borrow::Cow;
+use std::{collections::HashMap, borrow::Cow};
 
 use crate::{
-	// request,
+	request,
 
 	texture::{DisplayText, TextDisplayInfo, TextureCreationInfo},
 
@@ -15,7 +9,8 @@ use crate::{
 		vec2f::Vec2f,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
-		update_rate::{UpdateRateCreator, Seconds}
+		update_rate::{UpdateRateCreator, Seconds},
+		thread_task::{ContinuallyUpdated, Updatable}
 	},
 
 	window_tree::{
@@ -28,128 +23,102 @@ use crate::{
 	dashboard_defs::shared_window_state::SharedWindowState
 };
 
-// TODO: fill this with stuff
-struct WeatherWindowState {
-	api_key: String,
-	location: String
+#[derive(Clone)]
+struct WeatherStateData {
+	request_url: String,
+	weather_changed: bool,
+
+	// Rounded temperature, weather code descriptor, and associated emoji
+	curr_weather_info: Option<(i16, &'static str, &'static str)>
 }
 
-pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
-	let weather_changed = true;
-	let weather_string = "Rain (32f). So cold.";
-	let weather_text_color = ColorSDL::BLACK;
+impl Updatable for WeatherStateData {
+	type Param = ();
 
-	/*
-	- 1000 API calls free every day
-	- That's 1000 per 24 hrs
-	- Our 41.666 per hour, or around once per 1.444 minutes
-	- To make stuff easy, do once every 2 minutes
-	- TODO: do it once every 10 minutes (that's how frequently the data updates: https://openweathermap.org/appid)
-	*/
+	fn update(&mut self, _: &Self::Param) -> MaybeError {
+		let response = request::get(&self.request_url)?;
+		let all_info_json: serde_json::Value = serde_json::from_str(response.as_str()?)?;
 
-	// let individual_window_state = window.get_state::<WeatherWindowState>();
-	let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
+		// the `minutely` field is for all of the weather 1 hour forward, in in minute increments
+		let weather_per_minute_for_next_hour_json = &all_info_json["timelines"]["minutely"];
+		let current_weather_json = &weather_per_minute_for_next_hour_json[0]["values"];
 
-	/*
-	// TODO: perhaps don't build request urls, just build request objects directly
-	let url = request::build_url("https://api.openweathermap.org/data/2.5/weather",
-		&[],
+		let associated_code = current_weather_json["weatherCode"].as_i64().unwrap() as u16;
+		let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code)).unwrap();
 
-		&[
-			("q", Cow::Borrowed(&individual_window_state.location)),
-			("appid", Cow::Borrowed(&individual_window_state.api_key)),
-			("units", Cow::Borrowed("metric"))
-		]
-	);
+		let rounded_temperature = current_weather_json["temperature"].as_f64().unwrap().round() as i16;
 
-	//////////
+		let new_info = Some((rounded_temperature, weather_code_descriptor as &str, associated_emoji as &str));
+		self.weather_changed = new_info != self.curr_weather_info;
 
-	// TODO: why are all the damn fields optional?
-
-	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
-	struct WeatherDesc1 {
-		feels_like: Option<f32>,
-		temp: Option<f32>,
-		pressure: Option<i32>,
-		humidity: Option<i32>,
-		temp_min: Option<f32>,
-		temp_max: Option<f32>
-	}
-
-	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
-	struct WeatherDesc2 {
-		description: Option<String>,
-		icon: Option<String>,
-		id: Option<i32>,
-		main: Option<String>
-		// visibility: Option<i32>
-	}
-
-	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
-	struct WindDesc {
-		deg: Option<i32>,
-		gust: Option<f32>,
-		speed: Option<f32>
-	}
-
-	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
-	struct CloudsDesc {
-		all: Option<i32>
-	}
-
-	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
-	struct RainDesc {
-		// all: i32
-
-		#[serde(rename = "1h")]
-		one_hour: Option<f32>
-	}
-
-	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
-	struct SnowDesc {
-		all: Option<i32>
-	}
-
-	#[derive(serde::Deserialize, Debug)] // TODO: remove `Debug`
-	struct WeatherInfo {
-		main: WeatherDesc1,
-		weather: [WeatherDesc2; 1],
-
-		wind: Option<WindDesc>,
-		clouds: Option<CloudsDesc>,
-		rain: Option<RainDesc>,
-		snow: Option<SnowDesc>
-	}
-
-	//////////
-
-	let json = request::as_type(request::get(&url))?;
-	let w: WeatherInfo = serde_json::from_value(json)?;
-
-	fn maybe_add<T: std::fmt::Display>(string: &mut String, field: Option<T>, formatter: fn(T) -> String) {
-		if let Some(inner) = field {
-			*string += &(formatter(inner) + ". ");
+		if self.weather_changed {
+			self.curr_weather_info = new_info;
 		}
+
+		Ok(())
+	}
+}
+
+lazy_static::lazy_static!(
+	// Based on the weather codes from here: https://docs.tomorrow.io/reference/weather-data-layers
+	static ref WEATHER_CODE_MAPPING: HashMap<u16, (&'static str, &'static str)> = HashMap::from([
+		(0, ("unknown", "❓")),
+		(1000, ("clear", "☀️")),
+		(1001, ("cloudy", "☁️")),
+		(1100, ("mostly clear", "🌤️")),
+		(1101, ("partly cloudy", "⛅")),
+		(1102, ("mostly cloudy", "🌥️")),
+
+		(2000, ("foggy", "🌫️🌫️")),
+		(2100, ("just a little bit of fog", "🌫️")),
+
+		(3000, ("a little bit of wind", "🍃")),
+		(3001, ("some wind", "💨")),
+		(3002, ("quite windy", "🌬️")),
+
+		(4000, ("a bit of a drizzle", "🌦️")),
+		(4001, ("rainy", "🌧️")),
+		(4200, ("just a little bit of rain", "🌦️🌦️")),
+		(4201, ("very very rainy", "🌧️🌧️")),
+
+		(5000, ("snowy", "❄️")),
+		(5001, ("some flurries", "🌨️")),
+		(5100, ("a little bit of snow", "🌨️❄️")),
+		(5101, ("quite a lot of snow", "🌨️️❄❄️")),
+
+		(6000, ("freezing drizzle", "🌧️❄️")),
+		(6001, ("freezing rain", "🌧️🌧️🌧️❄")),
+		(6200, ("light freezing rain", "🌧️🌧️❄️")),
+		(6201, ("heavy freezing rain", "🌧️🌧️🌧️🌧️❄️")),
+
+		(7000, ("ice pellets - watch your head", "🧊🧊")),
+		(7101, ("heavy ice pellets - dangerous!", "🧊🧊🧊")),
+		(7102, ("light ice pellets - you'll be okay", "🧊")),
+		(8000, ("thunderstorm - beware!", "⛈️"))
+	]);
+);
+
+pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
+	let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
+	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<WeatherStateData>>();
+
+	individual_window_state.update(&())?;
+	let inner_state = individual_window_state.get_data();
+
+	if !inner_state.weather_changed || inner_state.curr_weather_info.is_none() {
+		return Ok(());
 	}
 
-	let mut weather_string = String::new();
-	maybe_add(&mut weather_string, w.main.feels_like, |t| format!("It feels like {t}"));
-	println!("ws = {weather_string:?}");
-	*/
+	let (rounded_temperature, weather_code_descriptor, associated_emoji) = inner_state.curr_weather_info.unwrap();
+	let weather_string = format!("Weather: {rounded_temperature}° and {weather_code_descriptor} {associated_emoji}");
 
-	/*
-	Deciding what data to show (I don't want to go overboard):
-	1. (MOST IMPORTANT) An emoji for the given icon (I have this data)
-	2. (SECOND-MOST IMPORTANT) What temperature it feels like
-	3. (MID-LATER) If there's high pressure or humidity, say "It's a scorcher!" Or "It's a hot one today!".
-	4. (LATER) If it's windy, show the wind gust and speed (same for rain, snow, etc.)
-	*/
+	let weather_text_color = ColorSDL::BLACK;
 
 	let texture_creation_info = TextureCreationInfo::Text((
 		Cow::Borrowed(inner_shared_state.font_info),
 
 		TextDisplayInfo {
-			text: DisplayText::new(weather_string),
+			text: DisplayText::new(&weather_string),
 			color: weather_text_color,
 			pixel_area: params.area_drawn_to_screen,
 
@@ -162,27 +131,45 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	));
 
 	params.window.get_contents_mut().update_as_texture(
-		weather_changed,
+		true,
 		params.texture_pool,
 		&texture_creation_info,
 		inner_shared_state.get_fallback_texture_creation_info
 	)
 }
 
-// Note: the state code can be empty here!
 pub fn make_weather_window(
 	top_left: Vec2f, size: Vec2f,
 	update_rate_creator: UpdateRateCreator, api_key: &str,
 	city_name: &str, state_code: &str, country_code: &str) -> Window {
 
-	const UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes (this is how frequent the weather data is)
+	const UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes
 
 	let weather_update_rate = update_rate_creator.new_instance(UPDATE_RATE_SECS);
 	let location = [city_name, state_code, country_code].join(",");
 
+	let request_url = request::build_url("https://api.tomorrow.io/v4/weather/forecast",
+		&[],
+
+		// TODO: limit the retreived fields somehow
+		&[
+			("apikey", Cow::Borrowed(api_key)),
+			("location", Cow::Borrowed(&location)),
+			("units", Cow::Borrowed("imperial"))
+		]
+	);
+
+	let data = WeatherStateData {
+		request_url,
+		weather_changed: false,
+		curr_weather_info: None
+	};
+
+	let continually_updated = ContinuallyUpdated::new(&data, &(), "Weather");
+
 	Window::new(
 		Some((weather_updater_fn, weather_update_rate)),
-		DynamicOptional::new(WeatherWindowState {api_key: api_key.to_owned(), location}),
+		DynamicOptional::new(continually_updated),
 		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
 		Some(ColorSDL::RED),
 		top_left,
