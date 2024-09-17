@@ -2,7 +2,7 @@ use std::thread;
 use std::sync::mpsc;
 use crate::utility_types::generic_result::*;
 
-const STACK_SIZE: usize = 65536;
+const STACK_SIZE: usize = 131072;
 
 //////////
 
