@@ -139,21 +139,23 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 pub fn make_weather_window(
 	top_left: Vec2f, size: Vec2f,
 	update_rate_creator: UpdateRateCreator, api_key: &str,
-	city_name_and_state_code_and_country_code: [&str; 3],
 	background_contents: WindowContents,
-	text_color: ColorSDL, border_color: ColorSDL) -> Window {
+	text_color: ColorSDL, border_color: ColorSDL) -> GenericResult<Window> {
+
+	let curr_location_response = request::get("https://ipinfo.io/json")?;
+	let curr_location_json: serde_json::Value = serde_json::from_str(curr_location_response.as_str()?)?;
+	let location = &curr_location_json["loc"].as_str().context("No location field available!")?;
 
 	const UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes
 
 	let weather_update_rate = update_rate_creator.new_instance(UPDATE_RATE_SECS);
-	let location = city_name_and_state_code_and_country_code.join(",");
 
 	let request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
 		&[],
 
 		&[
 			("apikey", Cow::Borrowed(api_key)),
-			("location", Cow::Borrowed(&location)),
+			("location", Cow::Borrowed(location)),
 			("timesteps", Cow::Borrowed("1m")),
 			("units", Cow::Borrowed("imperial")),
 			("fields", Cow::Borrowed("temperature,weatherCode"))
@@ -169,7 +171,7 @@ pub fn make_weather_window(
 
 	let continually_updated = ContinuallyUpdated::new(&data, &(), "Weather");
 
-	Window::new(
+	Ok(Window::new(
 		Some((weather_updater_fn, weather_update_rate)),
 		DynamicOptional::new(continually_updated),
 		background_contents,
@@ -177,5 +179,5 @@ pub fn make_weather_window(
 		top_left,
 		size,
 		None
-	)
+	))
 }
