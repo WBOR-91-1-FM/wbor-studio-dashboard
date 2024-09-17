@@ -100,7 +100,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		}
 
 		if let Some(err) = error {
-			log::error!("Updating the {} data on this iteration failed. Error: '{err}'.", self.name);
+			log::error!("Updating the '{}' data on this iteration failed. Error: '{err}'.", self.name);
 			self.run_new_update_iteration(param)?;
 			return Ok(false);
 		}
