@@ -41,9 +41,7 @@ impl Updatable for WeatherStateData {
 		let response = request::get(&self.request_url)?;
 		let all_info_json: serde_json::Value = serde_json::from_str(response.as_str()?)?;
 
-		// the `minutely` field is for all of the weather 1 hour forward, in in minute increments
-		let weather_per_minute_for_next_hour_json = &all_info_json["timelines"]["minutely"];
-		let current_weather_json = &weather_per_minute_for_next_hour_json[0]["values"];
+		let current_weather_json = &all_info_json["data"]["timelines"][0]["intervals"][0]["values"];
 
 		let associated_code = current_weather_json["weatherCode"].as_i64().unwrap() as u16;
 		let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code)).unwrap();
@@ -150,14 +148,15 @@ pub fn make_weather_window(
 	let weather_update_rate = update_rate_creator.new_instance(UPDATE_RATE_SECS);
 	let location = city_name_and_state_code_and_country_code.join(",");
 
-	let request_url = request::build_url("https://api.tomorrow.io/v4/weather/forecast",
+	let request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
 		&[],
 
-		// TODO: limit the retreived fields somehow
 		&[
 			("apikey", Cow::Borrowed(api_key)),
 			("location", Cow::Borrowed(&location)),
-			("units", Cow::Borrowed("imperial"))
+			("timesteps", Cow::Borrowed("1m")),
+			("units", Cow::Borrowed("imperial")),
+			("fields", Cow::Borrowed("temperature,weatherCode"))
 		]
 	);
 
