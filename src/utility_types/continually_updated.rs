@@ -12,7 +12,6 @@ in short bursts when you call `update` (or work with coroutines somehow)?
 - I can maybe use the `park_timeout`, `sleep`, `yield_now`, or `sleep_until` functions for that...
 
 - Allow for thread joining (or just finishing one iteration, rather;) (would be useful for Twilio) (but this is assuming that I don't do the thread-always-alive idea)
-- Give the thread the name string, rather than keeping the string around
 */
 
 pub trait Updatable: Clone + Send {
