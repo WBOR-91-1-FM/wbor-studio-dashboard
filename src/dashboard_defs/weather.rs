@@ -25,6 +25,8 @@ use crate::{
 
 #[derive(Clone)]
 struct WeatherStateData {
+	text_color: ColorSDL,
+
 	request_url: String,
 	weather_changed: bool,
 
@@ -103,23 +105,21 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<WeatherStateData>>();
 
 	individual_window_state.update(&())?;
-	let inner_state = individual_window_state.get_data();
+	let inner = individual_window_state.get_data();
 
-	if !inner_state.weather_changed || inner_state.curr_weather_info.is_none() {
+	if !inner.weather_changed || inner.curr_weather_info.is_none() {
 		return Ok(());
 	}
 
-	let (rounded_temperature, weather_code_descriptor, associated_emoji) = inner_state.curr_weather_info.unwrap();
+	let (rounded_temperature, weather_code_descriptor, associated_emoji) = inner.curr_weather_info.unwrap();
 	let weather_string = format!("Weather: {rounded_temperature}° and {weather_code_descriptor} {associated_emoji}");
-
-	let weather_text_color = ColorSDL::BLACK;
 
 	let texture_creation_info = TextureCreationInfo::Text((
 		Cow::Borrowed(inner_shared_state.font_info),
 
 		TextDisplayInfo {
 			text: DisplayText::new(&weather_string),
-			color: weather_text_color,
+			color: inner.text_color,
 			pixel_area: params.area_drawn_to_screen,
 
 			scroll_fn: |seed, _| {
@@ -141,12 +141,14 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 pub fn make_weather_window(
 	top_left: Vec2f, size: Vec2f,
 	update_rate_creator: UpdateRateCreator, api_key: &str,
-	city_name: &str, state_code: &str, country_code: &str) -> Window {
+	city_name_and_state_code_and_country_code: [&str; 3],
+	background_contents: WindowContents,
+	text_color: ColorSDL, border_color: ColorSDL) -> Window {
 
 	const UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes
 
 	let weather_update_rate = update_rate_creator.new_instance(UPDATE_RATE_SECS);
-	let location = [city_name, state_code, country_code].join(",");
+	let location = city_name_and_state_code_and_country_code.join(",");
 
 	let request_url = request::build_url("https://api.tomorrow.io/v4/weather/forecast",
 		&[],
@@ -160,6 +162,7 @@ pub fn make_weather_window(
 	);
 
 	let data = WeatherStateData {
+		text_color,
 		request_url,
 		weather_changed: false,
 		curr_weather_info: None
@@ -170,8 +173,8 @@ pub fn make_weather_window(
 	Window::new(
 		Some((weather_updater_fn, weather_update_rate)),
 		DynamicOptional::new(continually_updated),
-		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
-		Some(ColorSDL::RED),
+		background_contents,
+		Some(border_color),
 		top_left,
 		size,
 		None

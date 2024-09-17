@@ -292,9 +292,10 @@ pub fn make_dashboard(
 		Vec2f::new(0.4, 0.3),
 		update_rate_creator,
 		&api_keys.tomorrow_io,
-		"Brunswick",
-		"ME",
-		"US"
+		["Brunswick", "ME", "US"],
+		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
+		theme_color_1,
+		theme_color_1
 	);
 
 	////////// Making some static texture windows
