@@ -1,7 +1,8 @@
 use std::thread;
 use std::sync::mpsc;
-
 use crate::utility_types::generic_result::*;
+
+const STACK_SIZE: usize = 65536;
 
 //////////
 
@@ -26,6 +27,8 @@ pub struct ContinuallyUpdated<T: Updatable> {
 	name: &'static str
 }
 
+//////////
+
 impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 	pub fn new(data: &T, initial_param: &T::Param, name: &'static str) -> Self {
 		let (data_sender, data_receiver) = mpsc::sync_channel(1); // This can be async if needed
@@ -33,7 +36,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 
 		let mut cloned_data = data.clone();
 
-		thread::spawn(move || {
+		thread::Builder::new().name(name.to_string()).stack_size(STACK_SIZE).spawn(move || {
 			loop {
 				fn handle_channel_error<Error: std::fmt::Display>(err: Error, name: &str, transfer_description: &str) {
 					log::warn!("Problem from {name} with {transfer_description} main thread (probably harmless, at program shutdown): {err}");
@@ -60,7 +63,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 					return;
 				}
 			}
-		});
+		}).expect("Failed to spawn thread");
 
 		let continually_updated = Self {
 			curr_data: data.clone(), param_sender,
