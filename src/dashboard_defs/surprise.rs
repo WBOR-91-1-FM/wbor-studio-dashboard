@@ -191,18 +191,16 @@ pub fn make_surprise_window(
 
 	const SURPRISE_STREAM_PATH_BUFFER_INITIAL_SIZE: usize = 64;
 
-	let options = ListenerOptions::new().name(artificial_triggering_socket_path.to_fs_name::<GenericFilePath>()?);
+	let socket_path_fs_name = artificial_triggering_socket_path.to_fs_name::<GenericFilePath>()?;
+	let make_listener = || ListenerOptions::new().name(socket_path_fs_name.clone()).create_sync();
 
-	let surprise_stream_listener = match options.create_sync() {
+	let surprise_stream_listener = match make_listener() {
 		Ok(listener) => listener,
 
 		Err(err) => {
-			return error_msg!(
-				"Could not create a surprise stream listener. \
-				Perhaps the socket at '{artificial_triggering_socket_path}' is already in use, or \
-				maybe it was still around from a crash? \
-				Official error: '{err}'."
-			);
+			log::warn!("A previous surprise stream socket path was still around after a previous crash; removing it and making a new one.");
+			std::fs::remove_file(artificial_triggering_socket_path)?;
+			make_listener().expect(&format!("Could not create a surprise stream listener: '{err}'."))
 		}
 	};
 
