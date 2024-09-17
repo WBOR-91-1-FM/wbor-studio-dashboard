@@ -98,6 +98,7 @@ lazy_static::lazy_static!(
 	]);
 );
 
+// TODO: use the updatable text pattern here
 pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
 	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<WeatherStateData>>();
@@ -116,14 +117,14 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		Cow::Borrowed(inner_shared_state.font_info),
 
 		TextDisplayInfo {
-			text: DisplayText::new(&weather_string),
+			text: DisplayText::new(&weather_string).with_padding("", " "),
 			color: inner.text_color,
 			pixel_area: params.area_drawn_to_screen,
 
 			scroll_fn: |seed, _| {
 				let repeat_rate_secs = 3.0;
 				let base_scroll = (seed % repeat_rate_secs) / repeat_rate_secs;
-				(1.0 - base_scroll, true)
+				(base_scroll, true)
 			}
 		}
 	));
