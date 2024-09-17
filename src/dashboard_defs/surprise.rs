@@ -200,7 +200,7 @@ pub fn make_surprise_window(
 		Err(err) => {
 			log::warn!("A previous surprise stream socket path was still around after a previous crash; removing it and making a new one.");
 			std::fs::remove_file(artificial_triggering_socket_path)?;
-			make_listener().expect(&format!("Could not create a surprise stream listener: '{err}'."))
+			make_listener().unwrap_or_else(|_| panic!("Could not create a surprise stream listener: '{err}'."))
 		}
 	};
 
