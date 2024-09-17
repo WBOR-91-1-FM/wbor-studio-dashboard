@@ -12,7 +12,6 @@ in short bursts when you call `update` (or work with coroutines somehow)?
 
 - Allow for thread joining (or just finishing one iteration, rather;) (would be useful for Twilio) (but this is assuming that I don't do the thread-always-alive idea)
 - Give the thread the name string, rather than keeping the string around
-- Rename this file to `continually_updated.rs`
 */
 
 pub trait Updatable: Clone + Send {

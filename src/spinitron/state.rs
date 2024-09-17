@@ -8,7 +8,7 @@ use crate::{
 
 	utility_types::{
 		generic_result::*,
-		thread_task::{Updatable, ContinuallyUpdated}
+		continually_updated::{Updatable, ContinuallyUpdated}
 	},
 
 	spinitron::model::{

@@ -9,7 +9,7 @@ use crate::{
 		generic_result::*,
 		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
-		thread_task::{ContinuallyUpdated, Updatable}
+		continually_updated::{ContinuallyUpdated, Updatable}
 	},
 
 	dashboard_defs::shared_window_state::SharedWindowState,

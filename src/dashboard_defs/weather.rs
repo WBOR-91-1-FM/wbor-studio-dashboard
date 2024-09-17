@@ -10,7 +10,7 @@ use crate::{
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
 		update_rate::{UpdateRateCreator, Seconds},
-		thread_task::{ContinuallyUpdated, Updatable}
+		continually_updated::{ContinuallyUpdated, Updatable}
 	},
 
 	window_tree::{

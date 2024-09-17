@@ -18,7 +18,7 @@ pub trait ToGenericError<T, E> {
 impl<T, E> ToGenericError<T, E> for Result<T, E>
 where E: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
 
-	fn to_generic(self) -> anyhow::Result<T> {
+	fn to_generic(self) -> GenericResult<T> {
 		self.map_err(anyhow::Error::msg)
 	}
 }
