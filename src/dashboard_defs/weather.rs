@@ -149,6 +149,7 @@ pub fn make_weather_window(
 
 	const UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes
 
+	// TODO: put the weather changes into the shared state, for proper on-screen error reporting; or remove all of the shared state somehow
 	let weather_update_rate = update_rate_creator.new_instance(UPDATE_RATE_SECS);
 
 	let request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
