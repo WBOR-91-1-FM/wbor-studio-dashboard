@@ -1,6 +1,6 @@
 {
-	"spinitron": "",
-	"openweathermap": "",
-	"twilio_account_sid": "",
-	"twilio_auth_token": ""
+	"spinitron": "SPINITRON API KEY HERE",
+	"twilio_account_sid": "TWILIO ACCOUNT SID HERE",
+	"twilio_auth_token": "TWILIO AUTH TOKEN HERE",
+	"tomorrow_io": " TOMORROW.IO API KEY HERE"
 }
