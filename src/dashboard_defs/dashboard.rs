@@ -311,9 +311,7 @@ pub fn make_dashboard(
 		("assets/dashboard_foreground.png", Vec2f::ZERO, Vec2f::ONE, true)
 	];
 
-	let background_static_texture_info = [
-		// "assets/dashboard_background.png"
-	];
+	let background_static_texture_info = [];
 
 	let add_static_texture_set =
 		|set: &mut Vec<Window>, all_info: &[(&'static str, Vec2f, Vec2f, bool)], texture_pool: &mut TexturePool| {
