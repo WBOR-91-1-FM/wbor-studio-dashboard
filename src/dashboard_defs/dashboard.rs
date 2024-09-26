@@ -228,7 +228,8 @@ pub fn make_dashboard(
 		// This is how often the history windows check for new messages (this is low so that it'll be fast in the beginning)
 		update_rate_creator.new_instance(0.25),
 
-		Vec2f::new(0.58, 0.45), Vec2f::new(0.4, 0.27),
+		Vec2f::new(0.58, 0.45),
+		Vec2f::new(0.4, 0.27),
 
 		0.025,
 		WindowContents::Color(ColorSDL::RGB(0, 200, 0)),
