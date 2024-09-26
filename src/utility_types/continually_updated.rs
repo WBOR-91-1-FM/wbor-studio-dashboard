@@ -38,7 +38,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		thread::Builder::new().name(name.to_string()).stack_size(STACK_SIZE).spawn(move || {
 			loop {
 				fn handle_channel_error<Error: std::fmt::Display>(err: Error, name: &str, transfer_description: &str) {
-					log::warn!("Problem from {name} with {transfer_description} main thread (probably harmless, at program shutdown): {err}");
+					log::warn!("Problem from '{name}' with {transfer_description} main thread (probably harmless, at program shutdown): '{err}'");
 				}
 
 				/* `recv` will block until it receives the parameter! The parameters will
@@ -46,8 +46,9 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 				let param = match param_receiver.recv() {
 					Ok(inner_param) => inner_param,
 
-					Err(err) => {
-						handle_channel_error(err, name, "receiving parameter from");
+					Err(_err) => {
+						// This happens almost every time, so just silencing this (it's harmless)
+						// handle_channel_error(_err, name, "receiving parameter from");
 						return;
 					}
 				};
@@ -70,7 +71,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		};
 
 		if let Err(err) = continually_updated.run_new_update_iteration(initial_param) {
-			panic!("Could not pass an initial param to the continual updater: {err}");
+			panic!("Could not pass an initial param to the continual updater: '{err}'");
 		}
 
 		continually_updated
@@ -100,7 +101,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		}
 
 		if let Some(err) = error {
-			log::error!("Updating the '{}' data on this iteration failed. Error: '{err}'.", self.name);
+			log::error!("Updating the '{}' data on this iteration failed. Error: '{err}'", self.name);
 			self.run_new_update_iteration(param)?;
 			return Ok(false);
 		}
