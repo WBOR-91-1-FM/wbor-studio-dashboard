@@ -33,7 +33,8 @@ pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> R
 		request = request.with_header(header.0, header.1);
 	}
 
-	let response = request.with_timeout(DEFAULT_TIMEOUT_SECONDS).send()?;
+	let response = request.with_timeout(DEFAULT_TIMEOUT_SECONDS).send()
+		.map_err(|err| format!("Error with request for URL '{url}': {err}")).to_generic()?;
 
 	if response.status_code == EXPECTED_STATUS_CODE {
 		Ok(response)
