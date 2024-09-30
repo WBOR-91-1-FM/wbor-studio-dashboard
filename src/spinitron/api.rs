@@ -16,7 +16,7 @@ use crate::{
 - Fix the mysterious Serde-Spinitron-API error (that arose from a portion of the logs on the studio dashboard)
 */
 
-fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
+async fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	api_key: &str, possible_model_id: MaybeSpinitronModelId,
 	possible_item_count: Option<u16>
 ) -> GenericResult<serde_json::Value> {
@@ -73,7 +73,7 @@ fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	Actually, don't do that, build the URL, and then cache the request itself (it will then be resent other times). */
 	let url = request::build_url("https://spinitron.com/api", &path_params, &query_params);
 
-	request::as_type(request::get(&url))
+	request::as_type(request::get(&url)).await
 }
 
 fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Value) -> GenericResult<Vec<T>> {
@@ -82,8 +82,8 @@ fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Va
 }
 
 // This is a singular request
-fn do_request<T: SpinitronModelWithProps>(api_key: &str, possible_model_id: MaybeSpinitronModelId) -> GenericResult<T> {
-	let response_json = get_json_from_spinitron_request::<T>(api_key, possible_model_id, Some(1))?;
+async fn do_request<T: SpinitronModelWithProps>(api_key: &str, possible_model_id: MaybeSpinitronModelId) -> GenericResult<T> {
+	let response_json = get_json_from_spinitron_request::<T>(api_key, possible_model_id, Some(1)).await?;
 
 	if possible_model_id.is_some() {
 		// If requesting a via model id, just a raw item will be returned
@@ -108,6 +108,6 @@ fn do_plural_request<T: SpinitronModelWithProps>(api_key: &str, possible_item_co
 //////////
 
 // TODO: can I make `id` non-optional?
-pub fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: MaybeSpinitronModelId) -> GenericResult<T> {
-	do_request(api_key, id) // TODO: stop using this as a wrapper?
+pub async fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: MaybeSpinitronModelId) -> GenericResult<T> {
+	do_request(api_key, id).await // TODO: stop using this as a wrapper?
 }

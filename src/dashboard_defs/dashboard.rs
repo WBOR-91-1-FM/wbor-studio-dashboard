@@ -93,8 +93,8 @@ struct ApiKeys {
 //////////
 
 // This returns a top-level window, shared window state, and a shared window state updater
-pub fn make_dashboard(
-	texture_pool: &mut TexturePool,
+pub async fn make_dashboard(
+	texture_pool: &mut TexturePool<'_>,
 	update_rate_creator: UpdateRateCreator)
 	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
 
@@ -119,7 +119,7 @@ pub fn make_dashboard(
 
 	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
 	let shared_update_rate = update_rate_creator.new_instance(15.0);
-	let api_keys: ApiKeys = json_utils::load_from_file("assets/api_keys.json")?;
+	let api_keys: ApiKeys = json_utils::load_from_file("assets/api_keys.json").await?;
 
 	////////// Defining the Spinitron window extents
 
@@ -220,7 +220,7 @@ pub fn make_dashboard(
 		6,
 		Duration::days(5),
 		false
-	);
+	).await;
 
 	let twilio_window = make_twilio_window(
 		&twilio_state,
@@ -296,7 +296,7 @@ pub fn make_dashboard(
 		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
 		theme_color_1,
 		theme_color_1
-	)?;
+	).await?;
 
 	////////// Making some static texture windows
 
@@ -424,7 +424,7 @@ pub fn make_dashboard(
 
 		update_rate_creator,
 		texture_pool
-	)?;
+	).await?;
 
 	////////// Making the highest-level window
 
@@ -456,7 +456,7 @@ pub fn make_dashboard(
 	let spinitron_state = SpinitronState::new(
 		(&api_keys.spinitron, get_fallback_texture_creation_info,
 		custom_model_expiry_durations, initial_spin_window_size_guess)
-	)?;
+	).await?;
 
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {
@@ -470,7 +470,11 @@ pub fn make_dashboard(
 		}
 	);
 
-	fn shared_window_state_updater(state: &mut DynamicOptional, texture_pool: &mut TexturePool) -> MaybeError {
+	/* TODO:
+	- Allow for error reporting via the individual window updaters (make a new updater there, an invisible window)
+	- At some point, maybe figure out how to make this function async (no task spawn needed then)
+	*/
+	fn shared_window_state_updater(state: &mut DynamicOptional, texture_pool: &mut TexturePool<'_>) -> MaybeError {
 		let state = state.get_mut::<SharedWindowState>();
 
 		let mut error = None;

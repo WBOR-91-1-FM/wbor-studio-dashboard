@@ -7,8 +7,12 @@ edition = "2021"
 
 [dependencies]
 interprocess = "2.1.1"
-minreq = {version = "2.10.0", features = ["https"]}
 sdl2 = {version = "0.35.2", features = ["image", "ttf"]}
+
+# Async stuff:
+isahc = "1.7.2"
+futures = "0.3.30"
+async-std = {version = "1.13", features = ["attributes"]}
 
 # Working with JSON:
 serde_json = "1.0"

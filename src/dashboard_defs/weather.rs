@@ -23,42 +23,6 @@ use crate::{
 	dashboard_defs::shared_window_state::SharedWindowState
 };
 
-#[derive(Clone)]
-struct WeatherStateData {
-	text_color: ColorSDL,
-
-	request_url: String,
-	weather_changed: bool,
-
-	// Rounded temperature, weather code descriptor, and associated emoji
-	curr_weather_info: Option<(i16, &'static str, &'static str)>
-}
-
-impl Updatable for WeatherStateData {
-	type Param = ();
-
-	fn update(&mut self, _: &Self::Param) -> MaybeError {
-		let response = request::get(&self.request_url)?;
-		let all_info_json: serde_json::Value = serde_json::from_str(response.as_str()?)?;
-
-		let current_weather_json = &all_info_json["data"]["timelines"][0]["intervals"][0]["values"];
-
-		let associated_code = current_weather_json["weatherCode"].as_i64().unwrap() as u16;
-		let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code)).unwrap();
-
-		let rounded_temperature = current_weather_json["temperature"].as_f64().unwrap().round() as i16;
-
-		let new_info = Some((rounded_temperature, weather_code_descriptor as &str, associated_emoji as &str));
-		self.weather_changed = new_info != self.curr_weather_info;
-
-		if self.weather_changed {
-			self.curr_weather_info = new_info;
-		}
-
-		Ok(())
-	}
-}
-
 lazy_static::lazy_static!(
 	// Based on the weather codes from here: https://docs.tomorrow.io/reference/weather-data-layers
 	static ref WEATHER_CODE_MAPPING: HashMap<u16, (&'static str, &'static str)> = HashMap::from([
@@ -97,6 +61,45 @@ lazy_static::lazy_static!(
 		(8000, ("thunderstorm - beware!", "⛈️"))
 	]);
 );
+
+//////////
+
+#[derive(Clone)]
+struct WeatherStateData {
+	text_color: ColorSDL,
+
+	request_url: String,
+	weather_changed: bool,
+
+	// Rounded temperature, weather code descriptor, and associated emoji
+	curr_weather_info: Option<(i16, &'static str, &'static str)>
+}
+
+impl Updatable for WeatherStateData {
+	type Param = ();
+
+	async fn update(&mut self, _: &Self::Param) -> MaybeError {
+		let all_info_json: serde_json::Value = request::as_type(request::get(&self.request_url)).await?;
+
+		let current_weather_json = &all_info_json["data"]["timelines"][0]["intervals"][0]["values"];
+
+		let associated_code = current_weather_json["weatherCode"].as_i64().unwrap() as u16;
+		let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code)).unwrap();
+
+		let rounded_temperature = current_weather_json["temperature"].as_f64().unwrap().round() as i16;
+
+		let new_info = Some((rounded_temperature, weather_code_descriptor as &str, associated_emoji as &str));
+		self.weather_changed = new_info != self.curr_weather_info;
+
+		if self.weather_changed {
+			self.curr_weather_info = new_info;
+		}
+
+		Ok(())
+	}
+}
+
+//////////
 
 // TODO: use the updatable text pattern here
 pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
@@ -137,14 +140,14 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	)
 }
 
-pub fn make_weather_window(
+pub async fn make_weather_window(
 	top_left: Vec2f, size: Vec2f,
 	update_rate_creator: UpdateRateCreator, api_key: &str,
 	background_contents: WindowContents,
 	text_color: ColorSDL, border_color: ColorSDL) -> GenericResult<Window> {
 
-	let curr_location_response = request::get("https://ipinfo.io/json")?;
-	let curr_location_json: serde_json::Value = serde_json::from_str(curr_location_response.as_str()?)?;
+	let curr_location_json: serde_json::Value = request::as_type(request::get("https://ipinfo.io/json")).await?;
+
 	let location = &curr_location_json["loc"].as_str().context("No location field available!")?;
 
 	const UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes

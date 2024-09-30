@@ -61,12 +61,12 @@ pub struct SurpriseCreationInfo<'a> {
 
 //////////
 
-pub fn make_surprise_window(
+pub async fn make_surprise_window(
 	top_left: Vec2f, size: Vec2f,
 	artificial_triggering_socket_path: &str,
-	surprise_creation_info: &[SurpriseCreationInfo],
+	surprise_creation_info: &[SurpriseCreationInfo<'_>],
 	update_rate_creator: UpdateRateCreator,
-	texture_pool: &mut TexturePool) -> GenericResult<Window> {
+	texture_pool: &mut TexturePool<'_>) -> GenericResult<Window> {
 
 	////////// Some internally used types
 
@@ -199,7 +199,7 @@ pub fn make_surprise_window(
 
 		Err(err) => {
 			log::warn!("A previous surprise stream socket path was still around after a previous crash; removing it and making a new one.");
-			std::fs::remove_file(artificial_triggering_socket_path)?;
+			async_std::fs::remove_file(artificial_triggering_socket_path).await?;
 			make_listener().unwrap_or_else(|_| panic!("Could not create a surprise stream listener: '{err}'."))
 		}
 	};

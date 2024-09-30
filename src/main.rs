@@ -62,12 +62,13 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 }
 */
 
-fn main() -> utility_types::generic_result::MaybeError {
+#[async_std::main]
+async fn main() -> utility_types::generic_result::MaybeError {
 	env_logger::init();
 
 	log::info!("App launched!");
 
-	let app_config: AppConfig = utility_types::json_utils::load_from_file("assets/app_config.json")?;
+	let app_config: AppConfig = utility_types::json_utils::load_from_file("assets/app_config.json").await?;
 	let top_level_window_creator = dashboard_defs::dashboard::make_dashboard;
 
 	//////////
@@ -165,7 +166,7 @@ fn main() -> utility_types::generic_result::MaybeError {
 
 	let core_init_info = (top_level_window_creator)(
 		&mut rendering_params.texture_pool, utility_types::update_rate::UpdateRateCreator::new(fps)
-	);
+	).await;
 
 	let (mut top_level_window, shared_window_state, shared_window_state_updater) =
 		match core_init_info {

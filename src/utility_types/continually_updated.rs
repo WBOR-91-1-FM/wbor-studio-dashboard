@@ -1,8 +1,5 @@
-use std::thread;
 use std::sync::mpsc;
 use crate::utility_types::generic_result::*;
-
-const STACK_SIZE: usize = 131072;
 
 //////////
 
@@ -16,7 +13,7 @@ in short bursts when you call `update` (or work with coroutines somehow)?
 
 pub trait Updatable: Clone + Send {
 	type Param: Clone + Send + Sync;
-	fn update(&mut self, param: &Self::Param) -> MaybeError;
+	fn update(&mut self, param: &Self::Param) -> impl std::future::Future<Output = MaybeError> + Send;
 }
 
 pub struct ContinuallyUpdated<T: Updatable> {
@@ -35,12 +32,12 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 
 		let mut cloned_data = data.clone();
 
-		thread::Builder::new().name(name.to_string()).stack_size(STACK_SIZE).spawn(move || {
-			loop {
-				fn handle_channel_error<Error: std::fmt::Display>(err: Error, name: &str, transfer_description: &str) {
-					log::warn!("Problem from '{name}' with {transfer_description} main thread (probably harmless, at program shutdown): '{err}'");
-				}
+		fn handle_channel_error<Error: std::fmt::Display>(err: Error, name: &str, transfer_description: &str) {
+			log::warn!("Problem from '{name}' with {transfer_description} main thread (probably harmless, at program shutdown): '{err}'");
+		}
 
+		async_std::task::spawn(async move {
+			loop {
 				/* `recv` will block until it receives the parameter! The parameters will
 				only be passed once the data has been received on the main thread. */
 				let param = match param_receiver.recv() {
@@ -53,7 +50,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 					}
 				};
 
-				let result = match cloned_data.update(&param) {
+				let result = match cloned_data.update(&param).await {
 					Ok(_) => Ok(cloned_data.clone()),
 					Err(err) => Err(err.to_string())
 				};
@@ -63,7 +60,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 					return;
 				}
 			}
-		}).expect("Failed to spawn thread");
+		});
 
 		let continually_updated = Self {
 			curr_data: data.clone(), param_sender,

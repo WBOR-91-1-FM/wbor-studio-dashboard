@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use chrono::Timelike;
+use isahc::AsyncReadResponseExt;
 
 use crate::{
 	request,
@@ -118,17 +119,17 @@ type SpinitronStateDataParams<'a> = (
 //////////
 
 impl SpinitronStateData {
-	fn new((api_key, get_fallback_texture_creation_info,
+	async fn new((api_key, get_fallback_texture_creation_info,
 		custom_model_expiry_durations, spin_window_size):
-		SpinitronStateDataParams) -> GenericResult<Self> {
+		SpinitronStateDataParams<'_>) -> GenericResult<Self> {
 
-		let spin = Spin::get(api_key)?;
-		let playlist = Playlist::get(api_key)?;
-		let persona = Persona::get(api_key, &playlist)?;
+		////////// Getting the models
 
-		/* Note: if no show is scheduled during the current time,
-		this just gives you the next scheduled show. */
-		let show = Show::get(api_key)?;
+		let most_models = futures::join!(Spin::get(api_key), Playlist::get(api_key), Show::get(api_key));
+		let (spin, playlist, show) = (most_models.0?, most_models.1?, most_models.2?);
+		let persona = Persona::get(api_key, &playlist).await?;
+
+		////////// Setting up their age data
 
 		// TODO: once `zip` is implemented for arrays, rewrite this ugly bit
 		let models_with_custom_expiry_durations: [(&dyn SpinitronModel, chrono::Duration); NUM_SPINITRON_MODEL_TYPES] = [
@@ -157,24 +158,38 @@ impl SpinitronStateData {
 			update_statuses: [false; NUM_SPINITRON_MODEL_TYPES]
 		};
 
-		data.precached_texture_bytes = data.get_model_names().map( // TODO: don't unwrap once `try_map` becomes stable
-			|model_name| data.get_model_texture_bytes(model_name, spin_window_size).unwrap()
+		////////// Getting the precached texture bytes
+
+		let model_names = data.get_model_names();
+
+		let model_texture_byte_futures = model_names.iter().map(
+			|model_name| data.get_model_texture_bytes(*model_name, spin_window_size)
 		);
+
+		let model_texture_bytes = futures::future::join_all(model_texture_byte_futures).await;
+
+		for (i, texture_bytes) in model_texture_bytes.iter().enumerate() {
+			data.precached_texture_bytes[i] = texture_bytes.as_ref().unwrap().clone(); // TODO: don't unwrap
+		}
+
+		//////////
 
 		Ok(data)
 	}
 
-	fn get_model_texture_bytes(&self, model_name: SpinitronModelName, size_pixels: WindowSize) -> GenericResult<Vec<u8>> {
-		fn load_for_info(info: Cow<TextureCreationInfo>) -> GenericResult<Vec<u8>> {
+	async fn get_model_texture_bytes(&self, model_name: SpinitronModelName, size_pixels: WindowSize) -> GenericResult<Vec<u8>> {
+		async fn load_for_info(info: Cow<'_, TextureCreationInfo<'_>>) -> GenericResult<Vec<u8>> {
 			/* I am doing this to speed up the loading of textures on the main
 			thread, by doing the image URL requesting on this thread instead,
 			and precaching anything from disk in byte form as well. */
 			match info.as_ref() {
 				TextureCreationInfo::Path(path) =>
-					std::fs::read(path as &str).to_generic(),
+					async_std::fs::read(path as &str).await.to_generic(),
 
-				TextureCreationInfo::Url(url) =>
-					Ok(request::get(url)?.as_bytes().to_vec()),
+				TextureCreationInfo::Url(url) => {
+					let mut response = request::get(url).await?;
+					Ok(response.bytes().await?)
+				}
 
 				TextureCreationInfo::RawBytes(_) =>
 					panic!("Spinitron model textures should not be returning raw bytes!"),
@@ -193,10 +208,14 @@ impl SpinitronStateData {
 			None => get_fallback()
 		};
 
-		load_for_info(info).or_else(|error| {
-			log::warn!("Reverting to fallback texture for Spinitron model. Error: '{error}'");
-			load_for_info(get_fallback())
-		})
+		match load_for_info(info).await {
+			Ok(info) => Ok(info),
+
+			Err(err) => {
+				log::warn!("Reverting to fallback texture for Spinitron model. Error: '{err}'");
+				load_for_info(get_fallback()).await
+			}
+		}
 	}
 
 	const fn get_models(&self) ->  [&dyn SpinitronModel; NUM_SPINITRON_MODEL_TYPES] {
@@ -216,11 +235,11 @@ impl SpinitronStateData {
 		}
 	}
 
-	fn sync_models(&mut self) -> MaybeError {
+	async fn sync_models(&mut self) -> MaybeError {
 		let api_key = &self.api_key;
 
 		// Step 1: get the current spin.
-		let maybe_new_spin = Spin::get(api_key)?;
+		let maybe_new_spin = Spin::get(api_key).await?;
 
 		if maybe_new_spin.get_id() != self.spin.get_id() {
 			self.spin = maybe_new_spin;
@@ -230,12 +249,12 @@ impl SpinitronStateData {
 
 		/* Step 2: get a maybe new playlist (don't base it on a spin ID,
 		since the spin may not belong to a playlist under automation). */
-		let maybe_new_playlist = Playlist::get(api_key)?;
+		let maybe_new_playlist = Playlist::get(api_key).await?;
 
 		if maybe_new_playlist.get_id() != self.playlist.get_id() {
 			/* Step 3: get the persona id based on the playlist id (since otherwise, you'll
 			just get some persona that's first in Spinitron's internal list of personas. */
-			self.persona = Persona::get(api_key, &maybe_new_playlist)?;
+			self.persona = Persona::get(api_key, &maybe_new_playlist).await?;
 			self.playlist = maybe_new_playlist;
 		}
 
@@ -249,7 +268,7 @@ impl SpinitronStateData {
 			schedule, irrespective of what show was last on).
 			This is not in the branch above, since the show should
 			change directly on schedule, not when a new playlist is made. */
-			self.show = Show::get(api_key)?;
+			self.show = Show::get(api_key).await?;
 		}
 
 		Ok(())
@@ -259,14 +278,14 @@ impl SpinitronStateData {
 impl Updatable for SpinitronStateData {
 	type Param = WindowSize;
 
-	fn update(&mut self, param: &Self::Param) -> MaybeError {
+	async fn update(&mut self, param: &Self::Param) -> MaybeError {
 		////////// Update the models
 
 		let get_model_ids = |data: &Self|
 			data.get_models().map(|model| model.get_id());
 
 		let original_ids = get_model_ids(self);
-		self.sync_models()?;
+		self.sync_models().await?;
 		let new_ids = get_model_ids(self);
 
 		////////// Update the model textures
@@ -279,7 +298,7 @@ impl Updatable for SpinitronStateData {
 			let updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
 
 			if updated {
-				self.precached_texture_bytes[i] = self.get_model_texture_bytes(model_name, *param)?;
+				self.precached_texture_bytes[i] = self.get_model_texture_bytes(model_name, *param).await?;
 			}
 
 			self.update_statuses[i] = updated;
@@ -297,8 +316,8 @@ pub struct SpinitronState {
 }
 
 impl SpinitronState {
-	pub fn new(params: SpinitronStateDataParams) -> GenericResult<Self> {
-		let data = SpinitronStateData::new(params)?;
+	pub async fn new(params: SpinitronStateDataParams<'_>) -> GenericResult<Self> {
+		let data = SpinitronStateData::new(params).await?;
 
 		let initial_spin_window_size_guess = params.3;
 

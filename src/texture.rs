@@ -679,8 +679,13 @@ impl<'a> TexturePool<'a> {
 				self.texture_creator.load_texture(path as &str),
 
 			TextureCreationInfo::Url(url) => {
-				let response = request::get(url)?;
-				self.texture_creator.load_texture_bytes(response.as_bytes())
+				use isahc::AsyncReadResponseExt;
+				use async_std::task::block_on;
+
+				let mut response = block_on(request::get(url))?;
+				let bytes = block_on(response.bytes())?;
+
+				self.texture_creator.load_texture_bytes(&bytes)
 			}
 
 			TextureCreationInfo::Text((font_info, text_display_info)) => {

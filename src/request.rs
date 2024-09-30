@@ -1,7 +1,11 @@
 use std::borrow::Cow;
+use isahc::{config::Configurable, AsyncReadResponseExt};
+
 use crate::utility_types::generic_result::*;
 
-type Response = GenericResult<minreq::Response>;
+//////////
+
+type Response = GenericResult<isahc::Response<isahc::AsyncBody>>;
 
 pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	query_params: &[(&str, Cow<str>)]) -> String {
@@ -23,36 +27,41 @@ pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 
 /* TODO: in order to effectively do request stuff, maybe eliminate this wrapper
 code altogether? Or just keep this wrapper layer as request submitting code? */
-pub fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
-	const EXPECTED_STATUS_CODE: i32 = 200;
-	const DEFAULT_TIMEOUT_SECONDS: u64 = 20;
+pub async fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
+	const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
-	let mut request = minreq::get(url);
+	let mut request_builder = isahc::Request::get(url).timeout(DEFAULT_TIMEOUT);
 
 	if let Some(header) = maybe_header {
-		request = request.with_header(header.0, header.1);
+		request_builder = request_builder.header(header.0, header.1);
 	}
 
-	let response = request.with_timeout(DEFAULT_TIMEOUT_SECONDS).send()
-		.map_err(|err| format!("Error with request for URL '{url}': {err}")).to_generic()?;
+	let request = request_builder.body(())?;
+	let response = isahc::send_async(request).await?;
 
-	if response.status_code == EXPECTED_STATUS_CODE {
+	//////////
+
+	let status = response.status();
+	let status_code = status.as_u16();
+
+	if status_code == 200 {
 		Ok(response)
 	}
 	else {
 		error_msg!(
-			"Response status code for URL '{url}' was not '{EXPECTED_STATUS_CODE}', \
-			but '{}', with this reason: '{}'", response.status_code, response.reason_phrase
+			"Response status code for URL '{url}' was '{status_code}', with this reason: '{}'",
+			status.canonical_reason().unwrap_or("unknown")
 		)
 	}
 }
 
-pub fn get(url: &str) -> Response {
-	get_with_maybe_header(url, None)
+pub async fn get(url: &str) -> Response {
+	get_with_maybe_header(url, None).await
 }
 
 // This function is monadic!
-pub fn as_type<T: for<'de> serde::Deserialize<'de>>(response: Response) -> GenericResult<T> {
-	let unpacked_response = response?;
-	serde_json::from_str(unpacked_response.as_str()?).to_generic()
+pub async fn as_type<T: for<'de> serde::Deserialize<'de>>(response: impl std::future::Future<Output = Response>) -> GenericResult<T> {
+	let mut unpacked_response = response.await?;
+	let text = unpacked_response.text().await?;
+	serde_json::from_str(&text).to_generic()
 }

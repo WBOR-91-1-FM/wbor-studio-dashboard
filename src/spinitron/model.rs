@@ -270,24 +270,26 @@ impl SpinitronModel for Show {
 
 impl Spin {
 	// TODO: can I reduce the repetition on the `get`s?
-	pub fn get(api_key: &str) -> GenericResult<Self> {get_model_from_id(api_key, None)}
+	pub async fn get(api_key: &str) -> GenericResult<Self> {
+		get_model_from_id(api_key, None).await
+	}
 }
 
 impl Playlist {
-	pub fn get(api_key: &str) -> GenericResult<Self> {
-		get_model_from_id(api_key, None)
+	pub async fn get(api_key: &str) -> GenericResult<Self> {
+		get_model_from_id(api_key, None).await
 	}
 }
 
 impl Persona {
-	pub fn get(api_key: &str, playlist: &Playlist) -> GenericResult<Self> {
-		get_model_from_id(api_key, Some(playlist.persona_id))
+	pub async fn get(api_key: &str, playlist: &Playlist) -> GenericResult<Self> {
+		get_model_from_id(api_key, Some(playlist.persona_id)).await
 	}
 }
 
 impl Show {
-	pub fn get(api_key: &str) -> GenericResult<Self> {
-		get_model_from_id(api_key, None)
+	pub async fn get(api_key: &str) -> GenericResult<Self> {
+		get_model_from_id(api_key, None).await
 	}
 }
 
