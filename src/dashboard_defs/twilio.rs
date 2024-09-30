@@ -305,11 +305,12 @@ impl TwilioStateData {
 	}
 
 	fn make_message_display_text(age_data: MessageAgeData, body: &str, maybe_from: Option<&str>) -> String {
+		let trimmed_body = body.trim();
 		let display_text = if let Some((unit_name, plural_suffix, unit_amount)) = age_data {
-			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}'")
+			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{trimmed_body}'")
 		}
 		else {
-			format!("Right now: '{body}'")
+			format!("Right now: '{trimmed_body}'")
 		};
 
 		//////////
