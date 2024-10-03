@@ -54,4 +54,14 @@ RUST_LOG=wbor_studio_dashboard cargo run --release
 
 ---
 
+## Branch Structure
+
+- Each branch represents a theme. I am aiming for as little branch divergence as possible.
+- A way help achieve this is by checking that only `dashboard.rs` (and maybe something in `assets/`) is modified for every theme.
+- For any logic-based change to the dashboard's internals, make your change to the `main` branch (or via some other feature branch, and then merge to `main`), and after that, merge that change into every other theme branch.
+- Changing the logic behind the dashboard in a theme branch is not encouraged (it should ideally be shared by every branch).
+- This might not be the world's best system for maintaining different themes, but since so much of the code per theme in `dashboard.rs` is shared, it makes sense in this case (I think).
+
+---
+
 ## [TODO](https://github.com/orgs/WBOR-91-1-FM/projects/3/views/1)
