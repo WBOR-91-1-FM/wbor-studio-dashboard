@@ -12,7 +12,11 @@ use crate::{
 		continually_updated::{ContinuallyUpdated, Updatable}
 	},
 
-	dashboard_defs::shared_window_state::SharedWindowState,
+	dashboard_defs::{
+		error::ErrorState,
+		shared_window_state::SharedWindowState,
+	},
+
 	window_tree::{ColorSDL, Window, WindowContents, WindowUpdaterParams},
 	texture::{FontInfo, DisplayText, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool}
 };
@@ -163,7 +167,7 @@ impl<V> SyncedMessageMap<V> {
 
 //////////
 
-// TODO: support texter blocking somehow (this code may turn out ugly to write; make it still work without the connected peripheral)
+// TODO: support texter blocking somehow (this code may turn out ugly to write; make it still work without a connected peripheral)
 
 type Timezone = chrono::Utc; // This should not be changed (Twilio uses UTC by default)
 type Timestamp = chrono::DateTime<Timezone>; // It seems like local time works too!
@@ -175,7 +179,7 @@ struct MessageInfo {
 	age_data: MessageAgeData,
 	display_text: String,
 	maybe_from: Option<String>, // This is `None` if the message identity is hidden
-	body: String, // TODO: trim and preceding or trailing whitespace
+	body: String,
 	time_sent: Timestamp,
 	time_loaded_by_app: Timestamp, // This includes sub-second precision, while the time sent above does not
 	just_updated: bool
@@ -200,18 +204,17 @@ struct TwilioStateData {
 }
 
 // TODO: put the non-continually-updated fields in their own struct
-pub struct TwilioState<'a> {
+pub struct TwilioState {
 	continually_updated: ContinuallyUpdated<TwilioStateData>,
 
 	/* This is not continually updated because the text history windows need to
 	be able to modify it directly. That is not possible with continually updated
-	objects, because once their internal thread finishes its work, any modifications
+	objects, because once their internal task finishes its work, any modifications
 	made by the creator of the continually updated object will be overwritten with all
 	newly computed data. */
 	texture_subpool_manager: TextureSubpoolManager,
 	id_to_texture_map: SyncedMessageMap<TextureHandle>, // TODO: integrate the subpool manager into this with the searching operations
-	historically_sorted_messages_by_id: Vec<MessageID>, // TODO: avoid resorting with smart insertions and deletions?
-	text_texture_creation_info_cache: Option<((u32, u32), &'a FontInfo, ColorSDL)>
+	historically_sorted_messages_by_id: Vec<MessageID> // TODO: avoid resorting with smart insertions and deletions?
 }
 
 //////////
@@ -305,13 +308,11 @@ impl TwilioStateData {
 	}
 
 	fn make_message_display_text(age_data: MessageAgeData, body: &str, maybe_from: Option<&str>) -> String {
-		let trimmed_body = body.trim();
-
 		let display_text = if let Some((unit_name, plural_suffix, unit_amount)) = age_data {
-			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{trimmed_body}'")
+			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}'")
 		}
 		else {
-			format!("Right now: '{trimmed_body}'")
+			format!("Right now: '{body}'")
 		};
 
 		//////////
@@ -342,7 +343,6 @@ impl Updatable for TwilioStateData {
 
 		let max_messages = self.immutable.max_num_messages_in_history;
 
-		// TODO: the page size is limiting what I need here (every inbound gets 2 outbound)
 		let json = self.do_twilio_request("Messages", &[],
 			&[
 				("PageSize", Cow::Borrowed(&max_messages.to_string())),
@@ -420,13 +420,14 @@ impl Updatable for TwilioStateData {
 						let time_sent = (*wrongly_typed_time_sent).into();
 						let age_data = Self::get_message_age_data(curr_time, time_sent);
 
+						let trimmed_body = body.trim().to_string();
 						let boxed_maybe_from = maybe_from.map(|from| from.to_owned());
 
 						return Ok(Some(MessageInfo {
 							age_data,
-							display_text: Self::make_message_display_text(age_data, body, *maybe_from),
+							display_text: Self::make_message_display_text(age_data, &trimmed_body, *maybe_from),
 							maybe_from: boxed_maybe_from,
-							body: body.to_string(),
+							body: trimmed_body,
 							time_sent,
 							time_loaded_by_app: *time_loaded_by_app,
 							just_updated: true
@@ -442,7 +443,7 @@ impl Updatable for TwilioStateData {
 
 /* TODO: eventually, integrate `new` into `Updatable`, and
 reduce the boilerplate for the `Updatable` stuff in general */
-impl TwilioState<'_> {
+impl TwilioState {
 	pub async fn new(
 		account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
@@ -458,20 +459,17 @@ impl TwilioState<'_> {
 			continually_updated: ContinuallyUpdated::new(&data, &(), "Twilio"),
 			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
 			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
-			historically_sorted_messages_by_id: Vec::new(),
-			text_texture_creation_info_cache: None
+			historically_sorted_messages_by_id: Vec::new()
 		}
 	}
 
 	// This returns false if something failed with the continual updater.
-	pub fn update(&mut self, texture_pool: &mut TexturePool) -> GenericResult<bool> {
-		// TODO: change other instances of `if-let` to this form
-		let Some((pixel_area, font_info, text_color)) = self.text_texture_creation_info_cache else {
-			// println!("It has not been cached yet, so wait for the next iteration");
-			return Ok(true);
-		};
+	pub fn update(&mut self, error_state: &mut ErrorState,
+		texture_pool: &mut TexturePool,
+		pixel_area: (u32, u32), font_info: &FontInfo,
+		text_color: ColorSDL) -> GenericResult<bool> {
 
-		let continual_updater_succeeded = self.continually_updated.update(&())?;
+		let continual_updater_succeeded = self.continually_updated.update(&(), error_state)?;
 		let curr_continual_data = self.continually_updated.get_data();
 
 		let local = &mut self.id_to_texture_map;
@@ -573,7 +571,7 @@ pub fn make_twilio_window(
 	top_box_height: f32,
 	top_box_contents: WindowContents,
 	message_background_contents_text_crop_factor: Vec2f,
-	overall_border_color: ColorSDL, text_color: ColorSDL,
+	overall_border_color: Option<ColorSDL>, text_color: ColorSDL,
 	message_background_contents: WindowContents) -> Window {
 
 	struct TwilioHistoryWindowState {
@@ -586,22 +584,22 @@ pub fn make_twilio_window(
 	let max_num_messages_in_history = twilio_state.continually_updated.get_data().immutable.max_num_messages_in_history;
 
 	fn history_updater_fn(params: WindowUpdaterParams) -> MaybeError {
+		let individual_window_state = params.window.get_state::<TwilioHistoryWindowState>();
 		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 		let twilio_state = &mut inner_shared_state.twilio_state;
-		let individual_window_state = params.window.get_state::<TwilioHistoryWindowState>();
-		let sorted_message_ids = &twilio_state.historically_sorted_messages_by_id;
+		let message_index = individual_window_state.message_index;
 
-		// Filling the text texture creation info cache
-		if twilio_state.text_texture_creation_info_cache.is_none() {
-			twilio_state.text_texture_creation_info_cache = Some((
-				params.area_drawn_to_screen,
-				inner_shared_state.font_info,
-				individual_window_state.text_color
-			));
+		// Running the updating only for the first history subwindow
+		if message_index == 0 {
+			twilio_state.update(&mut inner_shared_state.error_state,
+				params.texture_pool, params.area_drawn_to_screen, inner_shared_state.font_info,
+				individual_window_state.text_color)?;
 		}
 
+		let sorted_message_ids = &twilio_state.historically_sorted_messages_by_id;
+
 		// Then, possibly assigning a texture to the window contents
-		if individual_window_state.message_index < sorted_message_ids.len() {
+		if message_index < sorted_message_ids.len() {
 			let message_id = &sorted_message_ids[individual_window_state.message_index];
 
 			// If this condition is not met, that means that the created texture is still pending
@@ -626,7 +624,7 @@ pub fn make_twilio_window(
 
 	let history_window_height = 1.0 / max_num_messages_in_history as f32;
 
-	let all_subwindows = (0..max_num_messages_in_history).rev().map(|i| {
+	let all_subwindows = (0..max_num_messages_in_history).map(|i| {
 		// Note: I can't directly put the background contents into the history windows since it's sized differently
 		let history_window = Window::new(
 			Some((history_updater_fn, update_rate)),
@@ -651,7 +649,6 @@ pub fn make_twilio_window(
 
 		// Don't want to not stretch the message bubbles
 		with_background_contents.set_aspect_ratio_correction_skipping(true);
-
 		with_background_contents
 	}).collect();
 
@@ -700,7 +697,7 @@ pub fn make_twilio_window(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Nothing,
-		Some(overall_border_color),
+		overall_border_color,
 		top_left,
 		size,
 		Some(all_subwindows)
@@ -710,7 +707,7 @@ pub fn make_twilio_window(
 		None,
 		DynamicOptional::NONE,
 		WindowContents::Nothing,
-		Some(overall_border_color),
+		None,
 		Vec2f::ZERO,
 		Vec2f::ONE,
 		Some(vec![history_window_container, top_box])

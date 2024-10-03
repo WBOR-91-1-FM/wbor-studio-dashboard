@@ -25,8 +25,6 @@ pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	url
 }
 
-/* TODO: in order to effectively do request stuff, maybe eliminate this wrapper
-code altogether? Or just keep this wrapper layer as request submitting code? */
 pub async fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
 	const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 

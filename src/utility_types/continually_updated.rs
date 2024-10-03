@@ -1,15 +1,13 @@
 use std::sync::mpsc;
-use crate::utility_types::generic_result::*;
+
+use crate::{
+	utility_types::generic_result::*,
+	dashboard_defs::error::ErrorState
+};
+
+// TODO: could I model this better as an infinite stream instead?
 
 //////////
-
-/* TODO:
-- Can I avoid using threads here, and just have an async function that runs
-in short bursts when you call `update` (or work with coroutines somehow)?
-- I can maybe use the `park_timeout`, `sleep`, `yield_now`, or `sleep_until` functions for that...
-
-- Allow for thread joining (or just finishing one iteration, rather;) (would be useful for Twilio) (but this is assuming that I don't do the thread-always-alive idea)
-*/
 
 pub trait Updatable: Clone + Send {
 	type Param: Clone + Send + Sync;
@@ -79,8 +77,8 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		self.param_sender.send(param.clone()).to_generic()
 	}
 
-	// This returns false if a thread failed to complete its operation.
-	pub fn update(&mut self, param: &T::Param) -> GenericResult<bool> {
+	// This returns false if a task failed to complete its operation on its current iteration.
+	pub fn update(&mut self, param: &T::Param, error_state: &mut ErrorState) -> GenericResult<bool> {
 		let mut error: Option<String> = None;
 
 		match self.data_receiver.try_recv() {
@@ -98,9 +96,12 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		}
 
 		if let Some(err) = error {
-			log::error!("Updating the '{}' data on this iteration failed. Error: '{err}'", self.name);
+			error_state.report(self.name, &err);
 			self.run_new_update_iteration(param)?;
 			return Ok(false);
+		}
+		else {
+			error_state.unreport(self.name);
 		}
 
 		Ok(true)

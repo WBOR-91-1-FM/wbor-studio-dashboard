@@ -160,22 +160,20 @@ async fn main() -> utility_types::generic_result::MaybeError {
 			sdl_canvas,
 			texture_pool: texture::TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size),
 			frame_counter: utility_types::update_rate::FrameCounter::new(),
-			shared_window_state: utility_types::dynamic_optional::DynamicOptional::NONE,
-			shared_window_state_updater: None
+			shared_window_state: utility_types::dynamic_optional::DynamicOptional::NONE
 		};
 
 	let core_init_info = (top_level_window_creator)(
 		&mut rendering_params.texture_pool, utility_types::update_rate::UpdateRateCreator::new(fps)
 	).await;
 
-	let (mut top_level_window, shared_window_state, shared_window_state_updater) =
+	let (mut top_level_window, shared_window_state) =
 		match core_init_info {
 			Ok(info) => info,
 			Err(err) => panic!("An error arose when initializing the application: '{err}'.")
 		};
 
 	rendering_params.shared_window_state = shared_window_state;
-	rendering_params.shared_window_state_updater = shared_window_state_updater;
 
 	//////////
 
@@ -220,15 +218,7 @@ async fn main() -> utility_types::generic_result::MaybeError {
 		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
 
 		if let Err(err) = top_level_window.render(&mut rendering_params) {
-			log::error!("An error arose during rendering: '{err}'."); // TODO: put this error in the red dialog on the screen (pass into the renderer)
-		}
-
-		if let Some((shared_window_state_updater, shared_update_rate)) = shared_window_state_updater {
-			if shared_update_rate.is_time_to_update(rendering_params.frame_counter) {
-				if let Err(err) = shared_window_state_updater(&mut rendering_params.shared_window_state, &mut rendering_params.texture_pool) {
-					log::error!("An error arose from the shared window state updater: '{err}'."); // TODO: put this error in the red dialog on the screen
-				}
-			}
+			log::error!("An error arose during rendering: '{err}'.");
 		}
 
 		//////////

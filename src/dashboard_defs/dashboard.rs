@@ -19,14 +19,13 @@ use crate::{
 	window_tree::{
 		ColorSDL,
 		Window,
-		WindowContents,
-		PossibleSharedWindowStateUpdater
+		WindowContents
 	},
 
 	dashboard_defs::{
-		error::make_error_window,
 		credit::make_credit_window,
 		weather::make_weather_window,
+		error::{make_error_window, ErrorState},
 		shared_window_state::SharedWindowState,
 		twilio::{make_twilio_window, TwilioState},
 		surprise::{make_surprise_window, SurpriseCreationInfo},
@@ -92,11 +91,11 @@ struct ApiKeys {
 
 //////////
 
-// This returns a top-level window, shared window state, and a shared window state updater
+// This returns a top-level window, and shared window state
 pub async fn make_dashboard(
 	texture_pool: &mut TexturePool<'_>,
 	update_rate_creator: UpdateRateCreator)
-	-> GenericResult<(Window, DynamicOptional, PossibleSharedWindowStateUpdater)> {
+	-> GenericResult<(Window, DynamicOptional)> {
 
 	////////// Defining some shared global variables
 
@@ -224,9 +223,7 @@ pub async fn make_dashboard(
 
 	let twilio_window = make_twilio_window(
 		&twilio_state,
-
-		// This is how often the history windows check for new messages (this is low so that it'll be fast in the beginning)
-		update_rate_creator.new_instance(0.25),
+		shared_update_rate,
 
 		Vec2f::new(0.58, 0.45),
 		Vec2f::new(0.4, 0.27),
@@ -235,7 +232,7 @@ pub async fn make_dashboard(
 		WindowContents::Color(ColorSDL::RGB(0, 200, 0)),
 
 		Vec2f::new(0.1, 0.45),
-		theme_color_1, theme_color_1,
+		Some(theme_color_1), theme_color_1,
 
 		WindowContents::make_texture_contents("assets/text_bubble.png", texture_pool)?
 	);
@@ -245,7 +242,7 @@ pub async fn make_dashboard(
 	let error_window = make_error_window(
 		Vec2f::new(0.0, 0.95),
 		Vec2f::new(0.15, 0.05),
-		update_rate_creator.new_instance(2.0),
+		update_rate_creator.new_instance(1.0),
 		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 190)),
 		ColorSDL::GREEN
 	);
@@ -333,9 +330,13 @@ pub async fn make_dashboard(
 		}))
 	};
 
-	let mut all_main_windows = vec![twilio_window, error_window, credit_window];
+	let mut all_main_windows = vec![twilio_window, credit_window];
 	all_main_windows.extend(spinitron_windows);
 	add_static_texture_set(&mut all_main_windows, &main_static_texture_info, texture_pool);
+
+	/* The error window goes last (so that it can manage
+	errors in one shared update iteration properly) */
+	all_main_windows.push(error_window);
 
 	////////// Making all of the main windows
 
@@ -462,55 +463,18 @@ pub async fn make_dashboard(
 		SharedWindowState {
 			clock_hands,
 			spinitron_state,
+			error_state: ErrorState::new(),
 			twilio_state,
 			font_info: &FONT_INFO,
 			get_fallback_texture_creation_info,
-			curr_dashboard_error: None,
 			rand_generator: rand::thread_rng()
 		}
 	);
-
-	/* TODO:
-	- Allow for error reporting via the individual window updaters (make a new updater there, an invisible window)
-	- At some point, maybe figure out how to make this function async (no task spawn needed then)
-	*/
-	fn shared_window_state_updater(state: &mut DynamicOptional, texture_pool: &mut TexturePool<'_>) -> MaybeError {
-		let state = state.get_mut::<SharedWindowState>();
-
-		let mut error = None;
-
-		// More continual updaters can be added here
-		let success_states_and_names = [
-			(state.spinitron_state.update()?, "Spinitron"),
-			(state.twilio_state.update(texture_pool)?, "Twilio (messaging)")
-		];
-
-		for (succeeded, name) in success_states_and_names {
-			if !succeeded {
-				if let Some(already_error) = &mut error {
-					*already_error += ", and ";
-					*already_error += name;
-				}
-				else {
-					error = Some(format!("Internal dashboard error from {name}"))
-				}
-			}
-		}
-
-		if let Some(inner_error) = &mut error {
-			*inner_error += "!";
-		}
-
-		state.curr_dashboard_error = error;
-
-		Ok(())
-	}
 
 	//////////
 
 	Ok((
 		all_windows_window,
-		boxed_shared_state,
-		Some((shared_window_state_updater, shared_update_rate))
+		boxed_shared_state
 	))
 }

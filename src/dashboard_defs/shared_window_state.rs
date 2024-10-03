@@ -1,20 +1,19 @@
 use crate::{
     spinitron::state::SpinitronState,
     texture::{FontInfo, TextureCreationInfo},
-    dashboard_defs::{twilio::TwilioState, clock::ClockHands}
+    dashboard_defs::{twilio::TwilioState, clock::ClockHands, error::ErrorState}
 };
 
 pub struct SharedWindowState<'a> {
 	pub clock_hands: ClockHands,
 	pub spinitron_state: SpinitronState,
-	pub twilio_state: TwilioState<'a>,
+	pub twilio_state: TwilioState,
+	pub error_state: ErrorState,
 
 	pub font_info: &'a FontInfo,
 
 	// This is used whenever a texture can't be loaded
 	pub get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'a>,
-
-	pub curr_dashboard_error: Option<String>,
 
 	pub rand_generator: rand::rngs::ThreadRng
 

@@ -669,6 +669,7 @@ impl<'a> TexturePool<'a> {
 
 	//////////
 
+	// TODO: make an async variant of this (no blocking requests, and load texture bytes asynchronously for paths)
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
 		match creation_info {
 			// Use this whenever possible (whenever you can preload data into byte form)!

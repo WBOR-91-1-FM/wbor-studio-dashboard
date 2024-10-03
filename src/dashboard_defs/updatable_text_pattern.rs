@@ -34,7 +34,7 @@ pub type ComputedInTextUpdater<'a> = (Cow<'a, FontInfo>, &'static str);
 pub trait UpdatableTextWindowMethods {
 	fn should_skip_update(updater_params: &mut WindowUpdaterParams) -> bool;
 	fn compute_within_updater<'a>(inner_shared_state: &'a SharedWindowState) -> ComputedInTextUpdater<'a>;
-	fn extract_text(&self) -> Cow<str>;
+	fn extract_text(&self, inner_shared_state: &SharedWindowState) -> Cow<str>;
 	fn extract_texture_contents(window_contents: &mut WindowContents) -> &mut WindowContents;
 }
 
@@ -61,7 +61,7 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 
 		let wrapped_individual_state = params.window.get_state::<UpdatableTextWindowFields<IndividualState>>();
 		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
-		let extracted_text = wrapped_individual_state.inner.extract_text();
+		let extracted_text = wrapped_individual_state.inner.extract_text(inner_shared_state);
 
 		let (modified_font_info, right_padding) = IndividualState::compute_within_updater(inner_shared_state);
 

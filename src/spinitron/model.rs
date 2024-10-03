@@ -56,7 +56,7 @@ pub trait SpinitronModel {
 	fn extract_raw_time_range(&self) -> Option<(&str, &str)>;
 
 	fn to_string(&self, age_state: ModelAgeState) -> Cow<str>;
-	fn get_texture_creation_info(&self, age_state: ModelAgeState, texture_size: (u32, u32)) -> MaybeTextureCreationInfo;
+	fn get_texture_creation_info(&self, age_state: ModelAgeState, spin_texture_window_size: (u32, u32)) -> MaybeTextureCreationInfo;
 
 	fn maybe_get_time_range(&self) -> GenericResult<Option<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>> {
 		fn parse_time(time: &str) -> GenericResult<chrono::DateTime<chrono::Utc>> {
@@ -300,7 +300,7 @@ impl SpinitronModelWithProps for Show {}
 
 ////////// These are the model definitions
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum SpinitronModelName {
 	Spin, Playlist, Persona, Show
 }

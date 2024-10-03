@@ -45,15 +45,8 @@ pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
 	pub area_drawn_to_screen: (u32, u32)
 }
 
-// TODO: genericize these two over one typedef
-
 pub type PossibleWindowUpdater = Option<(
 	fn(WindowUpdaterParams) -> MaybeError,
-	UpdateRate
-)>;
-
-pub type PossibleSharedWindowStateUpdater = Option<(
-	fn(&mut DynamicOptional, &mut TexturePool) -> MaybeError,
 	UpdateRate
 )>;
 
@@ -62,8 +55,7 @@ pub struct PerFrameConstantRenderingParams<'a> {
 	pub sdl_canvas: CanvasSDL,
 	pub texture_pool: TexturePool<'a>,
 	pub frame_counter: FrameCounter,
-	pub shared_window_state: DynamicOptional,
-	pub shared_window_state_updater: PossibleSharedWindowStateUpdater
+	pub shared_window_state: DynamicOptional
 }
 
 //////////

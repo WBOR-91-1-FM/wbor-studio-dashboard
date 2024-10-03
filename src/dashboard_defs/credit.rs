@@ -36,7 +36,7 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
 			(Cow::Owned(italicized_font_info), "")
 		}
 
-		fn extract_text(&self) -> Cow<str> {
+		fn extract_text(&self, _: &SharedWindowState) -> Cow<str> {
 			Cow::Borrowed(self)
 		}
 

@@ -58,13 +58,23 @@ pub fn make_spinitron_windows(
 	of `area_drawn_to_screen`. */
 	fn spinitron_model_window_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
-		let spinitron_state = &mut inner_shared_state.spinitron_state;
-
 		let individual_window_state = params.window.get_state::<SpinitronModelWindowState>();
 		let model_name = individual_window_state.model_name;
 		let window_size_pixels = params.area_drawn_to_screen;
 
+		////////// The spin texture window is the window designated for updating the Spinitron state
+
+		let is_text_window = individual_window_state.maybe_text_color.is_some();
+
+		if model_name == SpinitronModelName::Spin && !is_text_window {
+			let spin_texture_window_size = window_size_pixels.0.min(window_size_pixels.1);
+			let size_2d = (spin_texture_window_size, spin_texture_window_size);
+			inner_shared_state.spinitron_state.update(size_2d, &mut inner_shared_state.error_state)?;
+		}
+
 		//////////
+
+		let spinitron_state = &mut inner_shared_state.spinitron_state;
 
 		let should_update_texture =
 			spinitron_state.model_was_updated(model_name) ||
@@ -74,7 +84,7 @@ pub fn make_spinitron_windows(
 
 		//////////
 
-		let texture_creation_info = if let Some(text_color) = individual_window_state.maybe_text_color {
+		let texture_creation_info = if is_text_window {
 			let model_text = spinitron_state.model_to_string(model_name);
 
 			TextureCreationInfo::Text((
@@ -82,7 +92,7 @@ pub fn make_spinitron_windows(
 
 				TextDisplayInfo {
 					text: DisplayText::new(&model_text),
-					color: text_color,
+					color: individual_window_state.maybe_text_color.unwrap(),
 					pixel_area: window_size_pixels, // TODO: why does cutting the max pixel width in half still work?
 
 					/* TODO:
@@ -96,12 +106,6 @@ pub fn make_spinitron_windows(
 			))
 		}
 		else {
-			// Registering the aspect-ratio-corrected spin window size
-			if matches!(model_name, SpinitronModelName::Spin) {
-				let size = window_size_pixels.0.min(window_size_pixels.1);
-				spinitron_state.register_spin_window_size((size, size));
-			}
-
 			spinitron_state.get_cached_texture_creation_info(model_name)
 		};
 

@@ -103,10 +103,10 @@ impl Updatable for WeatherStateData {
 
 // TODO: use the updatable text pattern here
 pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
-	let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
+	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<WeatherStateData>>();
 
-	individual_window_state.update(&())?;
+	individual_window_state.update(&(), &mut inner_shared_state.error_state)?;
 	let inner = individual_window_state.get_data();
 
 	if !inner.weather_changed || inner.curr_weather_info.is_none() {

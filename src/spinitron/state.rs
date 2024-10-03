@@ -6,6 +6,7 @@ use isahc::AsyncReadResponseExt;
 use crate::{
 	request,
 	texture::TextureCreationInfo,
+	dashboard_defs::error::ErrorState,
 
 	utility_types::{
 		generic_result::*,
@@ -120,7 +121,7 @@ type SpinitronStateDataParams<'a> = (
 
 impl SpinitronStateData {
 	async fn new((api_key, get_fallback_texture_creation_info,
-		custom_model_expiry_durations, spin_window_size):
+		custom_model_expiry_durations, spin_texture_size):
 		SpinitronStateDataParams<'_>) -> GenericResult<Self> {
 
 		////////// Getting the models
@@ -163,7 +164,7 @@ impl SpinitronStateData {
 		let model_names = data.get_model_names();
 
 		let model_texture_byte_futures = model_names.iter().map(
-			|model_name| data.get_model_texture_bytes(*model_name, spin_window_size)
+			|model_name| data.get_model_texture_bytes(*model_name, spin_texture_size)
 		);
 
 		let model_texture_bytes = futures::future::join_all(model_texture_byte_futures).await;
@@ -177,10 +178,10 @@ impl SpinitronStateData {
 		Ok(data)
 	}
 
-	async fn get_model_texture_bytes(&self, model_name: SpinitronModelName, size_pixels: WindowSize) -> GenericResult<Vec<u8>> {
+	async fn get_model_texture_bytes(&self, model_name: SpinitronModelName, spin_texture_size: WindowSize) -> GenericResult<Vec<u8>> {
 		async fn load_for_info(info: Cow<'_, TextureCreationInfo<'_>>) -> GenericResult<Vec<u8>> {
 			/* I am doing this to speed up the loading of textures on the main
-			thread, by doing the image URL requesting on this thread instead,
+			thread, by doing the image URL requesting on this task/thread instead,
 			and precaching anything from disk in byte form as well. */
 			match info.as_ref() {
 				TextureCreationInfo::Path(path) =>
@@ -203,7 +204,7 @@ impl SpinitronStateData {
 		let model = self.get_model_by_name(model_name);
 		let get_fallback = || Cow::Owned((self.get_fallback_texture_creation_info)());
 
-		let info = match model.get_texture_creation_info(age_state, size_pixels) {
+		let info = match model.get_texture_creation_info(age_state, spin_texture_size) {
 			Some(texture_creation_info) => Cow::Owned(texture_creation_info),
 			None => get_fallback()
 		};
@@ -278,7 +279,7 @@ impl SpinitronStateData {
 impl Updatable for SpinitronStateData {
 	type Param = WindowSize;
 
-	async fn update(&mut self, param: &Self::Param) -> MaybeError {
+	async fn update(&mut self, spin_texture_size: &Self::Param) -> MaybeError {
 		////////// Update the models
 
 		let get_model_ids = |data: &Self|
@@ -298,7 +299,9 @@ impl Updatable for SpinitronStateData {
 			let updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
 
 			if updated {
-				self.precached_texture_bytes[i] = self.get_model_texture_bytes(model_name, *param).await?;
+				self.precached_texture_bytes[i] = self.get_model_texture_bytes(
+					model_name, *spin_texture_size
+				).await?;
 			}
 
 			self.update_statuses[i] = updated;
@@ -311,19 +314,17 @@ impl Updatable for SpinitronStateData {
 //////////
 
 pub struct SpinitronState {
-	continually_updated: ContinuallyUpdated<SpinitronStateData>,
-	saved_continually_updated_param: <SpinitronStateData as Updatable>::Param
+	continually_updated: ContinuallyUpdated<SpinitronStateData>
 }
 
 impl SpinitronState {
 	pub async fn new(params: SpinitronStateDataParams<'_>) -> GenericResult<Self> {
 		let data = SpinitronStateData::new(params).await?;
 
-		let initial_spin_window_size_guess = params.3;
+		let initial_spin_texture_size_guess = params.3;
 
 		Ok(Self {
-			continually_updated: ContinuallyUpdated::new(&data, &initial_spin_window_size_guess, "Spinitron"),
-			saved_continually_updated_param: initial_spin_window_size_guess
+			continually_updated: ContinuallyUpdated::new(&data, &initial_spin_texture_size_guess, "Spinitron")
 		})
 	}
 
@@ -340,13 +341,6 @@ impl SpinitronState {
 		self.get().update_statuses[model_name as usize]
 	}
 
-	/* This is meant to be called by a spin texture window, so that the
-	spin window size can be given to the continual updater (which preloads
-	the spin texture's data on its line of execution, for less load times). */
-	pub fn register_spin_window_size(&mut self, size: WindowSize) {
-		self.saved_continually_updated_param = size;
-	}
-
 	pub fn model_to_string(&self, model_name: SpinitronModelName) -> Cow<str> {
 		let age_state = self.get_model_age_info(model_name).1;
 		self.get().get_model_by_name(model_name).to_string(age_state)
@@ -358,7 +352,7 @@ impl SpinitronState {
 		TextureCreationInfo::RawBytes(bytes)
 	}
 
-	pub fn update(&mut self) -> GenericResult<bool> {
-		self.continually_updated.update(&self.saved_continually_updated_param)
+	pub fn update(&mut self, spin_texture_size: WindowSize, error_state: &mut ErrorState) -> GenericResult<bool> {
+		self.continually_updated.update(&spin_texture_size, error_state)
 	}
 }
