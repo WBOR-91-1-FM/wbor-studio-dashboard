@@ -395,7 +395,7 @@ pub async fn make_dashboard(
 	let all_windows_window = Window::new(
 		None,
 		DynamicOptional::NONE,
-		WindowContents::Nothing,
+		WindowContents::Color(ColorSDL::RGB(0, 128, 128)),
 		None,
 		Vec2f::ZERO,
 		Vec2f::ONE,

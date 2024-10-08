@@ -15,7 +15,7 @@ use sdl2::{
 
 use crate::{
 	texture::TexturePool,
-
+	window_tree::ColorSDL,
 	dashboard_defs::themes,
 
 	utility_types::{
@@ -55,8 +55,7 @@ struct AppConfig {
 
 	screen_option: ScreenOption,
 	hide_cursor: bool,
-	use_linear_filtering: bool,
-	background_color: (u8, u8, u8)
+	use_linear_filtering: bool
 }
 
 //////////
@@ -88,6 +87,8 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 */
 
 //////////
+
+const STANDARD_BACKGROUND_COLOR: ColorSDL = ColorSDL::BLACK;
 
 #[async_std::main]
 async fn main() -> MaybeError {
@@ -239,8 +240,8 @@ async fn main() -> MaybeError {
 		// TODO: should I put this before event polling?
 		let sdl_performance_counter_before = sdl_timer.performance_counter();
 
-		rendering_params.sdl_canvas.set_draw_color(app_config.background_color);
-		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too
+		rendering_params.sdl_canvas.set_draw_color(STANDARD_BACKGROUND_COLOR);
+		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too (on MacOS)
 
 		if let Err(err) = top_level_window.render(&mut rendering_params) {
 			log::error!("An error arose during rendering: '{err}'.");
