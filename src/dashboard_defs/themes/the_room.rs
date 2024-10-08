@@ -102,13 +102,13 @@ pub async fn make_dashboard(
 			texture_window: Some(SpinitronModelWindowInfo {
 				tl: spin_tl,
 				size: spin_size,
-				border_color: Some(theme_color_1)
+				border_color: None
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
 				tl: spin_text_tl,
 				size: spin_text_size,
-				border_color: Some(theme_color_1)
+				border_color: None
 			})
 		},
 
@@ -119,13 +119,13 @@ pub async fn make_dashboard(
 			texture_window: Some(SpinitronModelWindowInfo {
 				tl: playlist_tl,
 				size: playlist_size,
-				border_color: Some(theme_color_1)
+				border_color: None
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
 				tl: playlist_text_tl,
 				size: playlist_text_size,
-				border_color: Some(theme_color_1)
+				border_color: None
 			})
 		},
 
@@ -144,13 +144,13 @@ pub async fn make_dashboard(
 			texture_window: Some(SpinitronModelWindowInfo {
 				tl: persona_tl,
 				size: persona_size,
-				border_color: Some(theme_color_1)
+				border_color: None
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
 				tl: persona_text_tl,
 				size: persona_text_size,
-				border_color: Some(theme_color_1)
+				border_color: None
 			})
 		}
 	];
@@ -329,10 +329,10 @@ pub async fn make_dashboard(
 		Vec2f::new(0.3, 0.06),
 
 		0.015,
-		WindowContents::Color(ColorSDL::RGBA(0, 200, 0, 20)),
+		WindowContents::Color(ColorSDL::RGBA(0, 240, 0, 80)),
 
 		Vec2f::new(0.075, 0.45),
-		Some(theme_color_1), theme_color_1,
+		None, theme_color_1,
 
 		WindowContents::make_texture_contents(&twilio_message_background_contents_creation_info, texture_pool)?
 	);
