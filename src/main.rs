@@ -210,7 +210,7 @@ async fn main() -> MaybeError {
 
 	let core_init_info = build_dashboard_theme!(
 		app_config.theme_name.as_str(), &mut rendering_params.texture_pool,
-		UpdateRateCreator::new(fps), [standard, barebones, the_room]
+		UpdateRateCreator::new(fps), [standard, barebones, retro_room]
 	);
 
 	let (mut top_level_window, shared_window_state) = match core_init_info {

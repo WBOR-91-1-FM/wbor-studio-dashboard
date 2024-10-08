@@ -52,7 +52,7 @@ RUST_LOG=wbor_studio_dashboard cargo run --release
 The current themes are:
 - `standard`
 - `barebones`
-- `the_room`
+- `retro_room`
 
 You can change the theme in `app_config.json`.
 If you want to make a new theme, start off by modifying `standard`. Make sure that it doesn't differ too much by running `diff standard.rs <YOUR_NEW_THEME.rs> --color=auto`.
