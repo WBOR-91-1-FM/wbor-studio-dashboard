@@ -6,13 +6,23 @@ mod utility_types;
 mod dashboard_defs;
 
 use sdl2::{
+	surface::Surface,
+	keyboard::Keycode,
 	image::LoadSurface,
 	video::WindowBuilder,
-	keyboard::Keycode,
 	event::{self, Event}
 };
 
-use crate::utility_types::generic_result::ToGenericError;
+use crate::{
+	texture::TexturePool,
+
+	utility_types::{
+		json_utils,
+		generic_result::*,
+		dynamic_optional::DynamicOptional,
+		update_rate::{FrameCounter, UpdateRateCreator}
+	}
+};
 
 //////////
 
@@ -58,7 +68,7 @@ fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 }
 
 /*
-fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<usize>, texture_pool: &texture::TexturePool) {
+fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<usize>, texture_pool: &TexturePool) {
 	let num_textures_in_pool = texture_pool.size();
 
 	match initial_num_textures_in_pool {
@@ -78,7 +88,9 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 //////////
 
 #[async_std::main]
-async fn main() -> utility_types::generic_result::MaybeError {
+async fn main() -> MaybeError {
+	////////// Getting the beginning timestamp, stating the logger, and loading the app config
+
 	let get_timestamp = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
 	let time_before_launch = get_timestamp()?;
 
@@ -86,10 +98,10 @@ async fn main() -> utility_types::generic_result::MaybeError {
 
 	log::info!("App launched!");
 
-	let app_config: AppConfig = utility_types::json_utils::load_from_file("assets/app_config.json").await?;
+	let app_config: AppConfig = json_utils::load_from_file("assets/app_config.json").await?;
 	let top_level_window_creator = dashboard_defs::dashboard::make_dashboard;
 
-	//////////
+	////////// Setting up SDL and the initial window
 
 	let sdl_context = sdl2::init().to_generic()?;
 	let sdl_video_subsystem = sdl_context.video().to_generic()?;
@@ -129,9 +141,9 @@ async fn main() -> utility_types::generic_result::MaybeError {
 		}
 	}
 
-	sdl_window.set_icon(sdl2::surface::Surface::from_file(app_config.icon_path).to_generic()?);
+	sdl_window.set_icon(Surface::from_file(app_config.icon_path).to_generic()?);
 
-	//////////
+	////////// Making a SDL canvas
 
 	let sdl_canvas = sdl_window
 		.into_canvas()
@@ -139,7 +151,7 @@ async fn main() -> utility_types::generic_result::MaybeError {
 		.present_vsync()
 		.build()?;
 
-	//////////
+	////////// Setting the texture filtering option
 
 	// TODO: why is the top-right texture not linearly filtered?
 	let using_texture_filtering_option =
@@ -155,7 +167,7 @@ async fn main() -> utility_types::generic_result::MaybeError {
 		sdl_context.mouse().show_cursor(false);
 	}
 
-	//////////
+	////////// Setting up the SDL timer, the TTF context, the core init info, and more
 
 	let mut sdl_timer = sdl_context.timer().to_generic()?;
 	let sdl_performance_frequency = sdl_timer.performance_frequency();
@@ -171,13 +183,13 @@ async fn main() -> utility_types::generic_result::MaybeError {
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
 			sdl_canvas,
-			texture_pool: texture::TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size),
-			frame_counter: utility_types::update_rate::FrameCounter::new(),
-			shared_window_state: utility_types::dynamic_optional::DynamicOptional::NONE
+			texture_pool: TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size),
+			frame_counter: FrameCounter::new(),
+			shared_window_state: DynamicOptional::NONE
 		};
 
 	let core_init_info = (top_level_window_creator)(
-		&mut rendering_params.texture_pool, utility_types::update_rate::UpdateRateCreator::new(fps)
+		&mut rendering_params.texture_pool, UpdateRateCreator::new(fps)
 	).await;
 
 	let (mut top_level_window, shared_window_state) =
@@ -188,13 +200,13 @@ async fn main() -> utility_types::generic_result::MaybeError {
 
 	rendering_params.shared_window_state = shared_window_state;
 
+	log::info!("Canvas size: {:?}. Renderer info: {sdl_renderer_info:?}.", rendering_params.sdl_canvas.output_size().to_generic()?);
+	log::info!("Finished setting up window. Launch time: {:?} ms.", (get_timestamp()? - time_before_launch).as_millis());
+
 	//////////
 
 	let mut pausing_window = false;
 	// let mut initial_num_textures_in_pool = None;
-
-	log::info!("Canvas size: {:?}. Renderer info: {sdl_renderer_info:?}.", rendering_params.sdl_canvas.output_size().to_generic()?);
-	log::info!("Finished setting up window. Launch time: {:?} ms.", (get_timestamp()? - time_before_launch).as_millis());
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
