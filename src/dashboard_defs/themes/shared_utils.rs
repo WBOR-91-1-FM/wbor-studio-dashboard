@@ -2,8 +2,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
 	error_msg,
-	texture::TextureCreationInfo,
-	utility_types::generic_result::*
+	window_tree::{Window, WindowContents},
+	texture::{TextureCreationInfo, TexturePool},
+
+	utility_types::{
+		vec2f::Vec2f,
+		generic_result::*,
+		dynamic_optional::DynamicOptional
+	}
 };
 
 //////////
@@ -57,4 +63,33 @@ pub fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
 	else {
 		String::from_utf8(output.stdout).to_generic().map(|s| s.trim().to_owned())
 	}
+}
+
+//////////
+
+pub type StaticTextureSetInfo = [(&'static str, Vec2f, Vec2f, bool)];
+
+pub async fn make_creation_info_for_static_texture_set(all_info: &StaticTextureSetInfo) -> GenericResult<Vec<TextureCreationInfo>> {
+	TextureCreationInfo::from_paths_async(all_info.iter().map(|&(path, ..)| path)).await
+}
+
+pub fn add_static_texture_set(set: &mut Vec<Window>, all_info: &StaticTextureSetInfo,
+	all_creation_info: &[TextureCreationInfo<'_>], texture_pool: &mut TexturePool<'_>) {
+
+	set.extend(all_info.iter().zip(all_creation_info).map(
+		|(&(_, tl, size, skip_ar_correction), creation_info)| {
+
+		let mut window = Window::new(
+			None,
+			DynamicOptional::NONE,
+			WindowContents::make_texture_contents(creation_info, texture_pool).unwrap(),
+			None,
+			tl,
+			size,
+			None
+		);
+
+		window.set_aspect_ratio_correction_skipping(skip_ar_correction);
+		window
+	}));
 }

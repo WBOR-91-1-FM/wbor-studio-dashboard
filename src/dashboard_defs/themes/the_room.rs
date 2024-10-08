@@ -339,33 +339,6 @@ pub async fn make_dashboard(
 
 	////////// Making some static texture windows
 
-	type StaticTextureSetInfo = [(&'static str, Vec2f, Vec2f, bool)];
-
-	async fn make_creation_info_for_static_texture_set(all_info: &StaticTextureSetInfo) -> GenericResult<Vec<TextureCreationInfo>> {
-		TextureCreationInfo::from_paths_async(all_info.iter().map(|&(path, ..)| path)).await
-	}
-
-	fn add_static_texture_set(set: &mut Vec<Window>, all_info: &StaticTextureSetInfo,
-		all_creation_info: &[TextureCreationInfo<'_>], texture_pool: &mut TexturePool<'_>) {
-
-		set.extend(all_info.iter().zip(all_creation_info).map(
-			|(&(_, tl, size, skip_ar_correction), creation_info)| {
-
-			let mut window = Window::new(
-				None,
-				DynamicOptional::NONE,
-				WindowContents::make_texture_contents(creation_info, texture_pool).unwrap(),
-				None,
-				tl,
-				size,
-				None
-			);
-
-			window.set_aspect_ratio_correction_skipping(skip_ar_correction);
-			window
-		}));
-	}
-
 	let mut all_main_windows = Vec::new();
 
 	all_main_windows.extend(spinitron_windows);
