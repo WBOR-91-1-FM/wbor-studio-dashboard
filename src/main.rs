@@ -64,6 +64,9 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 
 #[async_std::main]
 async fn main() -> utility_types::generic_result::MaybeError {
+	let get_timestamp = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+	let time_before_launch = get_timestamp()?;
+
 	env_logger::init();
 
 	log::info!("App launched!");
@@ -180,8 +183,8 @@ async fn main() -> utility_types::generic_result::MaybeError {
 	let mut pausing_window = false;
 	// let mut initial_num_textures_in_pool = None;
 
-	log::info!("Finished setting up window. Canvas size: {:?}. Renderer info: {sdl_renderer_info:?}.",
-		rendering_params.sdl_canvas.output_size().to_generic()?);
+	log::info!("Canvas size: {:?}. Renderer info: {sdl_renderer_info:?}.", rendering_params.sdl_canvas.output_size().to_generic()?);
+	log::info!("Finished setting up window. Launch time: {:?} ms.", (get_timestamp()? - time_before_launch).as_millis());
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
