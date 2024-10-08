@@ -8,4 +8,4 @@ mod shared_window_state;
 mod updatable_text_pattern;
 
 pub mod error;
-pub mod dashboard;
+pub mod themes;
