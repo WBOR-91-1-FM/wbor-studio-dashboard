@@ -176,7 +176,7 @@ pub async fn make_dashboard(
 
 	////////// Making a credit window
 
-	let weather_and_credit_window_size = Vec2f::new(0.2, 0.03);
+	let weather_and_credit_window_size = Vec2f::new(0.15, 0.03);
 	let credit_border_and_text_color = ColorSDL::RGB(255, 153, 153);
 
 	let num_commits = run_command("git", &["rev-list", "--count", "HEAD"])?;
@@ -184,7 +184,7 @@ pub async fn make_dashboard(
 	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'");
 
 	let credit_window = make_credit_window(
-		Vec2f::new(0.8, 0.97),
+		Vec2f::new(0.85, 0.97),
 		weather_and_credit_window_size,
 		credit_border_and_text_color,
 		credit_border_and_text_color,

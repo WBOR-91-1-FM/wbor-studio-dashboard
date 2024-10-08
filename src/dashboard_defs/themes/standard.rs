@@ -176,8 +176,8 @@ pub async fn make_dashboard(
 	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'");
 
 	let credit_window = make_credit_window(
-		Vec2f::new(0.8, 0.97),
-		Vec2f::new(0.2, 0.03),
+		Vec2f::new(0.85, 0.97),
+		Vec2f::new(0.15, 0.03),
 		ColorSDL::RED,
 		ColorSDL::RGB(210, 180, 140),
 		credit_message
@@ -292,7 +292,7 @@ pub async fn make_dashboard(
 			Vec2f::new(0.4, 0.3),
 			update_rate_creator,
 			&api_keys.tomorrow_io,
-			WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
+			WindowContents::Nothing,
 			theme_color_1,
 			theme_color_1
 		),
