@@ -50,6 +50,7 @@ enum ScreenOption {
 #[derive(serde::Deserialize)]
 struct AppConfig {
 	title: String,
+	theme_name: String,
 	icon_path: String,
 	maybe_pause_subduration_ms_when_window_unfocused: Option<u32>,
 
@@ -86,23 +87,38 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 }
 */
 
+macro_rules! build_dashboard_theme {(
+		$desired_theme_name:expr, $texture_pool:expr, $update_rate_creator:expr,
+		[$($theme_module_name:ident),* $(,)?]) => {
+
+		match $desired_theme_name {
+			$(
+				stringify!($theme_module_name) => {
+					let function = dashboard_defs::themes::$theme_module_name::make_dashboard;
+					function($texture_pool, $update_rate_creator).await
+				}
+			),*
+
+			_ => panic!("Unrecognized dashboard theme: '{}'", $desired_theme_name)
+		}
+	};
+}
+
 //////////
 
 const STANDARD_BACKGROUND_COLOR: ColorSDL = ColorSDL::BLACK;
 
 #[async_std::main]
 async fn main() -> MaybeError {
-	////////// Getting the beginning timestamp, stating the logger, and loading the app config
+	////////// Getting the beginning timestamp, starting the logger, and loading the app config
 
 	let get_timestamp = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
 	let time_before_launch = get_timestamp()?;
 
 	env_logger::init();
-
 	log::info!("App launched!");
 
 	let app_config: AppConfig = json_utils::load_from_file("assets/app_config.json").await?;
-	let top_level_window_creator = themes::standard::make_dashboard;
 
 	////////// Setting up SDL and the initial window
 
@@ -191,15 +207,16 @@ async fn main() -> MaybeError {
 			shared_window_state: DynamicOptional::NONE
 		};
 
-	let core_init_info = (top_level_window_creator)(
-		&mut rendering_params.texture_pool, UpdateRateCreator::new(fps)
-	).await;
 
-	let (mut top_level_window, shared_window_state) =
-		match core_init_info {
-			Ok(info) => info,
-			Err(err) => panic!("An error arose when initializing the application: '{err}'.")
-		};
+	let core_init_info = build_dashboard_theme!(
+		app_config.theme_name.as_str(), &mut rendering_params.texture_pool,
+		UpdateRateCreator::new(fps), [standard, barebones, the_room]
+	);
+
+	let (mut top_level_window, shared_window_state) = match core_init_info {
+		Ok(info) => info,
+		Err(err) => panic!("An error arose when initializing the application: '{err}'."),
+	};
 
 	rendering_params.shared_window_state = shared_window_state;
 

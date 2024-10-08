@@ -1,5 +1,6 @@
 {
 	"title": "WBOR Studio Dashboard",
+	"theme_name": "standard",
 	"icon_path": "assets/plane.bmp",
 	"maybe_pause_subduration_ms_when_window_unfocused": 250,
 
