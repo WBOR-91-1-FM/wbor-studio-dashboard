@@ -409,7 +409,7 @@ pub async fn make_dashboard(
 			let mut window = Window::new(
 				None,
 				DynamicOptional::NONE,
-				WindowContents::make_texture_contents(&creation_info, texture_pool).unwrap(),
+				WindowContents::make_texture_contents(creation_info, texture_pool).unwrap(),
 				None,
 				tl,
 				size,

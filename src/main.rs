@@ -5,6 +5,17 @@ mod window_tree;
 mod utility_types;
 mod dashboard_defs;
 
+use sdl2::{
+	image::LoadSurface,
+	video::WindowBuilder,
+	keyboard::Keycode,
+	event::{self, Event}
+};
+
+use crate::utility_types::generic_result::ToGenericError;
+
+//////////
+
 // Worked from this in the beginning: https://blog.logrocket.com/using-sdl2-bindings-rust/
 
 // https://gamedev.stackexchange.com/questions/137882/
@@ -36,6 +47,8 @@ struct AppConfig {
 	background_color: (u8, u8, u8)
 }
 
+//////////
+
 fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 	sdl_prev_performance_counter: u64,
 	sdl_performance_frequency: u64) -> f64 {
@@ -62,6 +75,8 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 }
 */
 
+//////////
+
 #[async_std::main]
 async fn main() -> utility_types::generic_result::MaybeError {
 	let get_timestamp = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
@@ -76,13 +91,9 @@ async fn main() -> utility_types::generic_result::MaybeError {
 
 	//////////
 
-	use crate::utility_types::generic_result::ToGenericError;
-
 	let sdl_context = sdl2::init().to_generic()?;
 	let sdl_video_subsystem = sdl_context.video().to_generic()?;
 	let mut sdl_event_pump = sdl_context.event_pump().to_generic()?;
-
-	use sdl2::video::WindowBuilder;
 
 	let build_window = |width: u32, height: u32, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
 		applier(&mut sdl_video_subsystem.window(&app_config.title, width, height)).allow_highdpi().build();
@@ -118,7 +129,6 @@ async fn main() -> utility_types::generic_result::MaybeError {
 		}
 	}
 
-	use sdl2::image::LoadSurface;
 	sdl_window.set_icon(sdl2::surface::Surface::from_file(app_config.icon_path).to_generic()?);
 
 	//////////
@@ -188,8 +198,6 @@ async fn main() -> utility_types::generic_result::MaybeError {
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
-			use sdl2::{event::{self, Event}, keyboard::Keycode};
-
 			match sdl_event {
 				Event::Quit {..} | Event::KeyDown {keycode: Some(Keycode::Escape), ..} => break 'running,
 
