@@ -166,8 +166,8 @@ pub async fn make_dashboard(
 		Vec2f::new(0.0, 0.95),
 		Vec2f::new(0.15, 0.05),
 		update_rate_creator.new_instance(1.0),
-		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 190)),
-		ColorSDL::GREEN
+		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 90)),
+		ColorSDL::RED
 	);
 
 	////////// Making a credit window

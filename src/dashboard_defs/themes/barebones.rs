@@ -72,8 +72,11 @@ pub async fn make_dashboard(
 	// Note: `tl` = top left
 	let spin_tl = Vec2f::new_scalar(main_windows_gap_size);
 	let spin_size = Vec2f::new(0.55, 0.81);
-	let spin_text_height = 0.03;
 	let spin_tr = spin_tl.x() + spin_size.x();
+
+	let spin_text_height = 0.03;
+	let spin_text_tl = Vec2f::translate_y(&spin_tl, spin_size.y());
+	let spin_text_size = Vec2f::new(spin_size.x(), spin_text_height);
 
 	let persona_tl = Vec2f::new(spin_tr + main_windows_gap_size, spin_tl.y());
 	let persona_size = Vec2f::new(0.2, 0.3);
@@ -106,8 +109,8 @@ pub async fn make_dashboard(
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
-				tl: Vec2f::translate_y(&spin_tl, spin_size.y()),
-				size: Vec2f::new(spin_size.x(), spin_text_height),
+				tl: spin_text_tl,
+				size: spin_text_size,
 				border_color: Some(theme_color_1)
 			})
 		},
@@ -170,8 +173,8 @@ pub async fn make_dashboard(
 		Vec2f::new(0.0, 0.95),
 		Vec2f::new(0.15, 0.05),
 		update_rate_creator.new_instance(1.0),
-		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 190)),
-		ColorSDL::GREEN
+		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 90)),
+		ColorSDL::RED
 	);
 
 	////////// Making a credit window
