@@ -8,6 +8,5 @@
 	"screen_option": "Fullscreen",
 
 	"hide_cursor": true,
-	"use_linear_filtering": true,
-	"background_color": [0, 128, 128]
+	"use_linear_filtering": true
 }
