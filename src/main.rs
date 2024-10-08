@@ -16,6 +16,8 @@ use sdl2::{
 use crate::{
 	texture::TexturePool,
 
+	dashboard_defs::themes,
+
 	utility_types::{
 		json_utils,
 		generic_result::*,
@@ -99,7 +101,7 @@ async fn main() -> MaybeError {
 	log::info!("App launched!");
 
 	let app_config: AppConfig = json_utils::load_from_file("assets/app_config.json").await?;
-	let top_level_window_creator = dashboard_defs::themes::standard_theme::make_dashboard;
+	let top_level_window_creator = themes::standard_theme::make_dashboard;
 
 	////////// Setting up SDL and the initial window
 
