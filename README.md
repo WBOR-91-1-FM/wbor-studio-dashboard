@@ -25,7 +25,6 @@ sudo dnf install rust cargo SDL2-devel SDL2_image-devel SDL2_ttf-devel
 ```sh
 # Doing this just because `apt-get` only has an outdated version of the toolchain:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
 sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
 ```
 
