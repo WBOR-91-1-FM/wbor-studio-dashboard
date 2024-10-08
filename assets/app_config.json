@@ -4,7 +4,7 @@
 	"icon_path": "assets/plane.bmp",
 	"maybe_pause_subduration_ms_when_window_unfocused": 250,
 
-	"o1": {"Windowed": [1200, 800, false, null]},
+	"o1": {"Windowed": [1024, 768, false, null]},
 	"o2": "FullscreenDesktop",
 	"screen_option": "Fullscreen",
 
