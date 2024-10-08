@@ -14,7 +14,11 @@ use sdl2::{
 use crate::{
 	request,
 	window_tree::{CanvasSDL, ColorSDL},
-	utility_types::{generic_result::*, vec2f::assert_in_unit_interval}
+
+	utility_types::{
+		generic_result::*,
+		vec2f::assert_in_unit_interval
+	}
 };
 
 //////////
@@ -31,6 +35,7 @@ pub struct FontInfo {
 	- Support non-static paths for these two
 	- Allow for a variable number of fallback fonts too
 	- Only load fallbacks when necessary
+	- Check if the entire Unicode supplementary multilingual plane is supported
 	*/
 	pub path: &'static str,
 	pub unusual_chars_fallback_path: &'static str,
@@ -125,12 +130,35 @@ pub struct TextDisplayInfo<'a> {
 	pub scroll_fn: TextTextureScrollFn
 }
 
+// TODO: use `Cow` around the whole struct instead, if possible
 #[derive(Clone)]
 pub enum TextureCreationInfo<'a> {
-	RawBytes(&'a [u8]),
+	RawBytes(Cow<'a, [u8]>),
 	Path(Cow<'a, str>),
 	Url(Cow<'a, str>),
 	Text((Cow<'a, FontInfo>, TextDisplayInfo<'a>))
+}
+
+impl TextureCreationInfo<'_> {
+	fn raw_bytes(contents: Vec<u8>) -> GenericResult<Self> {
+		Ok(TextureCreationInfo::RawBytes(Cow::Owned(contents)))
+	}
+
+	pub fn from_path(path: &str) -> TextureCreationInfo<'_> {
+		TextureCreationInfo::Path(Cow::Borrowed(path))
+	}
+
+	// This function preprocesses the texture creation info into a form that can be loaded quicker in non-async contexts
+	pub async fn from_path_async(path: &str) -> GenericResult<Self> {
+		let contents = async_std::fs::read(path).await?;
+		Self::raw_bytes(contents)
+	}
+
+	// The same applies for this one, but it does it for for multiple paths concurrently
+	pub async fn from_paths_async<'b>(paths: impl IntoIterator<Item = &'b str>) -> GenericResult<Vec<TextureCreationInfo<'b>>> {
+		let contents_future_iterator = paths.into_iter().map(TextureCreationInfo::from_path_async);
+		futures::future::try_join_all(contents_future_iterator).await
+	}
 }
 
 //////////
@@ -139,7 +167,8 @@ pub enum TextureCreationInfo<'a> {
 - Note that the handle is wrapped in a struct, so that it can't be modified.
 - Multiple ownership is possible, since we can clone the handles.
 - Textures can still be lost if they're reassigned (TODO: find some way to avoid that data loss. Also, can I detect this loss with `Rc` somehow?)
-- TODO: perhaps when doing the remaking thing, pass the handle in as `mut`, even when the handle is not modified (would this help?). */
+- TODO: perhaps when doing the remaking thing, pass the handle in as `mut`, even when the handle is not modified (would this help?).
+*/
 
 type InnerTextureHandle = u16;
 type TextureCreator = render::TextureCreator<sdl2::video::WindowContext>;
@@ -219,8 +248,7 @@ impl<'a> TexturePool<'a> {
 
 	// TODO: cache this
 	pub fn get_aspect_ratio_for(&self, handle: &TextureHandle) -> f32 {
-		let texture = self.get_texture_from_handle(handle);
-		let query = texture.query();
+		let query = self.get_texture_from_handle(handle).query();
 		query.width as f32 / query.height as f32
 	}
 
@@ -405,29 +433,26 @@ impl<'a> TexturePool<'a> {
 
 	/*
 	pub fn set_color_mod_for(&mut self, handle: &TextureHandle, r: u8, g: u8, b: u8) {
-		let texture = self.get_texture_from_handle_mut(handle);
-		texture.set_color_mod(r, g, b);
+		self.get_texture_from_handle_mut(handle).set_color_mod(r, g, b);
 	}
 
 	pub fn set_alpha_mod_for(&mut self, handle: &TextureHandle, a: u8) {
-		let texture = self.get_texture_from_handle_mut(handle);
-		texture.set_alpha_mod(a);
+		self.get_texture_from_handle_mut(handle).set_alpha_mod(a);
 	}
 	*/
 
 	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, blend_mode: render::BlendMode) {
-		let texture = self.get_texture_from_handle_mut(handle);
-		texture.set_blend_mode(blend_mode);
+		self.get_texture_from_handle_mut(handle).set_blend_mode(blend_mode);
 	}
 
 	////////// TODO: eliminate the repetition here (perhaps inline, or make to a macro - or is there some other way?)
 
-	fn get_texture_from_handle_mut(&mut self, handle: &TextureHandle) -> &mut Texture<'a> {
-		&mut self.textures[handle.handle as usize]
+	fn get_texture_from_handle(&self, handle: &TextureHandle) -> &Texture<'a> {
+		&self.textures[handle.handle as usize]
 	}
 
-	fn get_texture_from_handle(&self, handle: &TextureHandle) -> &Texture {
-		&self.textures[handle.handle as usize]
+	fn get_texture_from_handle_mut(&mut self, handle: &TextureHandle) -> &mut Texture<'a> {
+		&mut self.textures[handle.handle as usize]
 	}
 
 	//////////
@@ -669,7 +694,6 @@ impl<'a> TexturePool<'a> {
 
 	//////////
 
-	// TODO: make an async variant of this (no blocking requests, and load texture bytes asynchronously for paths)
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
 		match creation_info {
 			// Use this whenever possible (whenever you can preload data into byte form)!

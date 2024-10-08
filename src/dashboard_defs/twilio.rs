@@ -223,7 +223,7 @@ impl TwilioStateData {
 	async fn new(account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
 		message_history_duration: chrono::Duration,
-		reveal_texter_identities: bool) -> Self {
+		reveal_texter_identities: bool) -> GenericResult<Self> {
 
 		use base64::{engine::general_purpose::STANDARD, Engine};
 		let request_auth_base64 = STANDARD.encode(format!("{account_sid}:{auth_token}"));
@@ -243,7 +243,7 @@ impl TwilioStateData {
 
 		////////// Finding the phone number
 
-		let json = data.do_twilio_request("IncomingPhoneNumbers", &[], &[]).await.unwrap();
+		let json = data.do_twilio_request("IncomingPhoneNumbers", &[], &[]).await?;
 
 		let Some(phone_numbers) = json["incoming_phone_numbers"].as_array()
 		else {panic!("Expected the Twilio phone numbers to be an array!");};
@@ -255,7 +255,7 @@ impl TwilioStateData {
 
 		//////////
 
-		data
+		Ok(data)
 	}
 
 	async fn do_twilio_request(&self, endpoint: &str, path_params: &[Cow<'_, str>], query_params: &[(&str, Cow<'_, str>)]) -> GenericResult<serde_json::Value> {
@@ -448,19 +448,19 @@ impl TwilioState {
 		account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
 		message_history_duration: chrono::Duration,
-		reveal_texter_identities: bool) -> Self {
+		reveal_texter_identities: bool) -> GenericResult<Self> {
 
 		let data = TwilioStateData::new(
 			account_sid, auth_token, max_num_messages_in_history,
 			message_history_duration, reveal_texter_identities
-		).await;
+		).await?;
 
-		Self {
+		Ok(Self {
 			continually_updated: ContinuallyUpdated::new(&data, &(), "Twilio"),
 			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
 			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
 			historically_sorted_messages_by_id: Vec::new()
-		}
+		})
 	}
 
 	// This returns false if something failed with the continual updater.
@@ -674,7 +674,7 @@ pub fn make_twilio_window(
 				}
 			));
 
-			many[1] = WindowContents::Texture(params.texture_pool.make_texture(&texture_creation_info)?);
+			many[1] = WindowContents::make_texture_contents(&texture_creation_info, params.texture_pool)?;
 		}
 
 		Ok(())

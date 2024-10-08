@@ -33,6 +33,7 @@ use crate::{
 
 	texture::{TexturePool, TextureCreationInfo},
 	dashboard_defs::shared_window_state::SharedWindowState
+
 };
 
 /* Note: some surprises may take somewhat long to be
@@ -191,7 +192,7 @@ pub async fn make_surprise_window(
 
 	const SURPRISE_STREAM_PATH_BUFFER_INITIAL_SIZE: usize = 64;
 
-	let socket_path_fs_name = artificial_triggering_socket_path.to_fs_name::<GenericFilePath>()?;
+	let socket_path_fs_name = artificial_triggering_socket_path.to_fs_name::<GenericFilePath>()?; // TODO: make the listener via async
 	let make_listener = || ListenerOptions::new().name(socket_path_fs_name.clone()).create_sync();
 
 	let surprise_stream_listener = match make_listener() {
@@ -215,8 +216,12 @@ pub async fn make_surprise_window(
 
 	////////// Making the surprise windows
 
-	let surprise_windows = surprise_creation_info.iter().enumerate().map(
-		|(index, creation_info)| {
+	let all_creation_info = TextureCreationInfo::from_paths_async(
+		surprise_creation_info.iter().map(|info| info.texture_path)
+	).await?;
+
+	let surprise_windows = surprise_creation_info.iter().enumerate().zip(all_creation_info).map(
+		|((index, creation_info), texture_creation_info)| {
 			assert_in_unit_interval(creation_info.chance_of_appearing_when_updating as f32);
 
 			/* The lower bound checks that it actually appears, and the upper
@@ -251,10 +256,9 @@ pub async fn make_surprise_window(
 
 			//////////
 
-			let update_rate = update_rate_creator.new_instance(update_rate_secs);
-			let texture_creation_info = TextureCreationInfo::Path(Cow::Borrowed(creation_info.texture_path));
-
 			let texture = texture_pool.make_texture(&texture_creation_info)?;
+			let update_rate = update_rate_creator.new_instance(update_rate_secs);
+
 			texture_pool.set_blend_mode_for(&texture, creation_info.texture_blend_mode);
 
 			let mut window = Window::new(
@@ -285,7 +289,7 @@ pub async fn make_surprise_window(
 			window.set_aspect_ratio_correction_skipping(true);
 			Ok(window)
 		}
-	).collect::<GenericResult<_>>()?;
+	).collect::<GenericResult<Vec<_>>>()?;
 
 	Ok(Window::new(
 		None,

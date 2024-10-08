@@ -74,9 +74,8 @@ pub enum WindowContents {
 }
 
 impl WindowContents {
-	pub fn make_texture_contents(path: &str, texture_pool: &mut TexturePool) -> GenericResult<Self> {
-		let creation_info = TextureCreationInfo::Path(std::borrow::Cow::Borrowed(path));
-		Ok(Self::Texture(texture_pool.make_texture(&creation_info)?))
+	pub fn make_texture_contents(creation_info: &TextureCreationInfo, texture_pool: &mut TexturePool) -> GenericResult<Self> {
+		Ok(Self::Texture(texture_pool.make_texture(creation_info)?))
 	}
 
 	/* This is used for updating the texture of a window whose
@@ -85,14 +84,14 @@ impl WindowContents {
 		&mut self,
 		should_remake: bool,
 		texture_pool: &mut TexturePool,
-		texture_creation_info: &TextureCreationInfo,
+		creation_info: &TextureCreationInfo,
 		get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>) -> MaybeError {
 
 		/* This is a macro for making or remaking a texture. If making or
 		remaking fails, a fallback texture is put into that texture's slot. */
 		macro_rules! try_to_make_or_remake_texture {
 			($make_or_remake: expr, $make_or_remake_description: expr, $($extra_args:expr),*) => {{
-				$make_or_remake(texture_creation_info, $($extra_args),*).or_else(
+				$make_or_remake(creation_info, $($extra_args),*).or_else(
 					|failure_reason| {
 						log::warn!("Unexpectedly failed while trying to {} texture, and reverting to a fallback \
 							texture. Reason: '{failure_reason}'.", $make_or_remake_description);
@@ -103,7 +102,7 @@ impl WindowContents {
 			}};
 		}
 
-		let updated_texture = if let WindowContents::Texture(prev_texture) = self {
+		let updated_texture = if let Self::Texture(prev_texture) = self {
 			if should_remake {try_to_make_or_remake_texture!(|a, b| texture_pool.remake_texture(a, b), "remake an existing", prev_texture)?}
 			prev_texture.clone()
 		}
@@ -114,7 +113,7 @@ impl WindowContents {
 			try_to_make_or_remake_texture!(|a| texture_pool.make_texture(a), "make a new",)?
 		};
 
-		*self = WindowContents::Texture(updated_texture);
+		*self = Self::Texture(updated_texture);
 		Ok(())
 	}
 }

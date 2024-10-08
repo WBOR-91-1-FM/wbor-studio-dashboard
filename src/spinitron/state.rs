@@ -126,8 +126,10 @@ impl SpinitronStateData {
 
 		////////// Getting the models
 
-		let most_models = futures::join!(Spin::get(api_key), Playlist::get(api_key), Show::get(api_key));
-		let (spin, playlist, show) = (most_models.0?, most_models.1?, most_models.2?);
+		let (spin, playlist, show) = futures::try_join!(
+			Spin::get(api_key), Playlist::get(api_key), Show::get(api_key)
+		)?;
+
 		let persona = Persona::get(api_key, &playlist).await?;
 
 		////////// Setting up their age data
@@ -167,10 +169,10 @@ impl SpinitronStateData {
 			|model_name| data.get_model_texture_bytes(*model_name, spin_texture_size)
 		);
 
-		let model_texture_bytes = futures::future::join_all(model_texture_byte_futures).await;
+		let model_texture_bytes = futures::future::try_join_all(model_texture_byte_futures).await?;
 
 		for (i, texture_bytes) in model_texture_bytes.iter().enumerate() {
-			data.precached_texture_bytes[i] = texture_bytes.as_ref().unwrap().clone(); // TODO: don't unwrap
+			data.precached_texture_bytes[i] = texture_bytes.clone();
 		}
 
 		//////////
@@ -349,7 +351,7 @@ impl SpinitronState {
 	// Note: this is not for text textures.
 	pub fn get_cached_texture_creation_info(&self, model_name: SpinitronModelName) -> TextureCreationInfo {
 		let bytes = &self.get().precached_texture_bytes[model_name as usize];
-		TextureCreationInfo::RawBytes(bytes)
+		TextureCreationInfo::RawBytes(Cow::Borrowed(bytes))
 	}
 
 	pub fn update(&mut self, spin_texture_size: WindowSize, error_state: &mut ErrorState) -> GenericResult<bool> {

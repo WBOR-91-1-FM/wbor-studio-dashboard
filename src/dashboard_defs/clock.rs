@@ -1,6 +1,4 @@
 use crate::{
-	texture::TexturePool,
-
 	window_tree::{
 		Window,
 		ColorSDL,
@@ -78,8 +76,7 @@ impl ClockHands {
 		top_left: Vec2f,
 		size: Vec2f,
 		hand_configs: ClockHandConfigs,
-		dial_texture_path: &str,
-		texture_pool: &mut TexturePool) -> GenericResult<(Self, Window)> {
+		dial_contents: WindowContents) -> GenericResult<(Self, Window)> {
 
 		fn updater_fn(params: WindowUpdaterParams) -> MaybeError {
 			let curr_time = Local::now();
@@ -132,8 +129,6 @@ impl ClockHands {
 
 		//////////
 
-		let texture_contents = WindowContents::make_texture_contents(dial_texture_path, texture_pool)?;
-
 		let clock_hand_configs_as_list: [&ClockHandConfig; NUM_CLOCK_HANDS] = [
 			&hand_configs.milliseconds, &hand_configs.seconds,
 			&hand_configs.minutes, &hand_configs.hours
@@ -149,7 +144,7 @@ impl ClockHands {
 		let clock_window = Window::new(
 			Some((updater_fn, update_rate)),
 			DynamicOptional::NONE,
-			WindowContents::Many(vec![texture_contents, line_contents]),
+			WindowContents::Many(vec![dial_contents, line_contents]),
 			None,
 			top_left,
 			size,

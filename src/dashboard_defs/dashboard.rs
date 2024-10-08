@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use chrono::Duration;
@@ -58,9 +57,10 @@ fn get_fallback_texture_creation_info() -> TextureCreationInfo<'static> {
 		FALLBACK_TEXTURE_CREATION_INFO_PATH_INDEX.store(0, ordering);
 	}
 
-	TextureCreationInfo::Path(Cow::Borrowed(&FALLBACK_TEXTURE_PATHS[index]))
+	TextureCreationInfo::from_path(&FALLBACK_TEXTURE_PATHS[index])
 }
 
+// TODO: make this async once `async_std::process` is stabilized
 fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
 	let output = std::process::Command::new(command)
 		.args(args)
@@ -143,7 +143,7 @@ pub async fn make_dashboard(
 
 	// TODO: make a type for the top-left/size combo (and add useful utility functions from there)
 
-	//////////
+	////////// Making the Spinitron windows
 
 	let all_model_windows_info = [
 		SpinitronModelWindowsInfo {
@@ -211,32 +211,6 @@ pub async fn make_dashboard(
 		&all_model_windows_info, shared_update_rate
 	);
 
-	////////// Making a Twilio window
-
-	let twilio_state = TwilioState::new(
-		&api_keys.twilio_account_sid,
-		&api_keys.twilio_auth_token,
-		6,
-		Duration::days(5),
-		false
-	).await;
-
-	let twilio_window = make_twilio_window(
-		&twilio_state,
-		shared_update_rate,
-
-		Vec2f::new(0.58, 0.45),
-		Vec2f::new(0.4, 0.27),
-
-		0.025,
-		WindowContents::Color(ColorSDL::RGB(0, 200, 0)),
-
-		Vec2f::new(0.1, 0.45),
-		Some(theme_color_1), theme_color_1,
-
-		WindowContents::make_texture_contents("assets/text_bubble.png", texture_pool)?
-	);
-
 	////////// Making an error window
 
 	let error_window = make_error_window(
@@ -267,6 +241,8 @@ pub async fn make_dashboard(
 	let clock_tl = Vec2f::new(1.0 - clock_size_x, 0.0);
 	let clock_size = Vec2f::new(clock_size_x, 1.0);
 
+	let clock_dial_creation_info = TextureCreationInfo::from_path_async("assets/watch_dial.png").await?;
+
 	let (clock_hands, clock_window) = ClockHands::new_with_window(
 		UpdateRate::ONCE_PER_FRAME,
 		clock_tl,
@@ -279,23 +255,67 @@ pub async fn make_dashboard(
 			hours: ClockHandConfig::new(0.01, 0.02, 0.2, ColorSDL::BLACK) // Hours
 		},
 
-		"assets/watch_dial.png",
-		texture_pool
+		WindowContents::make_texture_contents(&clock_dial_creation_info, texture_pool)?
 	)?;
 
-	////////// Making a weather window
+	////////// Defining the data for the surprise window
 
-	let weather_window = make_weather_window(
-		Vec2f::ZERO,
-		Vec2f::new(0.4, 0.3),
-		update_rate_creator,
-		&api_keys.tomorrow_io,
-		WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
-		theme_color_1,
-		theme_color_1
-	).await?;
+	let surprises = &[
+		SurpriseCreationInfo {
+			texture_path: "assets/nathan.png",
+			texture_blend_mode: BlendMode::None,
 
-	////////// Making some static texture windows
+			update_rate: Duration::seconds(15),
+			num_update_steps_to_appear_for: 1,
+			chance_of_appearing_when_updating: 0.0007,
+
+			local_hours_24_start: 8,
+			local_hours_24_end: 22,
+
+			flicker_window: false
+		},
+
+		SurpriseCreationInfo {
+			texture_path: "assets/jumpscare.png",
+			texture_blend_mode: BlendMode::Add,
+
+			update_rate: Duration::milliseconds(35),
+			num_update_steps_to_appear_for: 20,
+			chance_of_appearing_when_updating: 0.000003,
+
+			local_hours_24_start: 0,
+			local_hours_24_end: 5,
+
+			flicker_window: true
+		},
+
+		SurpriseCreationInfo {
+			texture_path: "assets/horrible.webp",
+			texture_blend_mode: BlendMode::Add,
+
+			update_rate: Duration::milliseconds(100),
+			num_update_steps_to_appear_for: 9,
+			chance_of_appearing_when_updating: 0.0, // This one can only be triggered artificially
+
+			local_hours_24_start: 0,
+			local_hours_24_end: 23,
+
+			flicker_window: true
+		}
+	];
+
+	////////// Defining the Spinitron state parametwrs
+
+	let initial_spin_window_size_guess = (1024, 1024);
+
+	let custom_model_expiry_durations = [
+		Duration::minutes(10), // 10 minutes after a spin, it's expired
+		Duration::minutes(-5), // 5 minutes before a playlist ends, let the DJ know that they should pack up
+		Duration::minutes(0), // Personas don't expire (their end time is the max UTC time)
+		Duration::minutes(0) // 0 minutes after a show, it's expired (this is not used in practice)
+	];
+
+	////////// Defining some static texture info
 
 	// Texture path, top left, size (TODO: make animated textures possible)
 	let main_static_texture_info = [
@@ -311,14 +331,85 @@ pub async fn make_dashboard(
 
 	let background_static_texture_info = [];
 
-	let add_static_texture_set =
-		|set: &mut Vec<Window>, all_info: &[(&'static str, Vec2f, Vec2f, bool)], texture_pool: &mut TexturePool| {
+	////////// Making couple of different window types (and other stuff) concurrently
 
-		set.extend(all_info.iter().map(|&(path, tl, size, skip_ar_correction)| {
+	let (weather_window, surprise_window, spinitron_state,
+		twilio_state, twilio_message_background_contents_creation_info,
+		background_static_texture_creation_info,
+		foreground_static_texture_creation_info,
+		main_static_texture_creation_info) = futures::try_join!(
+
+		make_weather_window(
+			Vec2f::ZERO,
+			Vec2f::new(0.4, 0.3),
+			update_rate_creator,
+			&api_keys.tomorrow_io,
+			WindowContents::Color(ColorSDL::RGB(255, 0, 255)),
+			theme_color_1,
+			theme_color_1
+		),
+
+		make_surprise_window(
+			Vec2f::ZERO, Vec2f::ONE, "/tmp/surprises_wbor_studio_dashboard.sock",
+			surprises, update_rate_creator, texture_pool
+		),
+
+		SpinitronState::new(
+			(&api_keys.spinitron, get_fallback_texture_creation_info,
+			custom_model_expiry_durations, initial_spin_window_size_guess)
+		),
+
+		TwilioState::new(
+			&api_keys.twilio_account_sid,
+			&api_keys.twilio_auth_token,
+			6,
+			Duration::days(5),
+			false
+		),
+
+		TextureCreationInfo::from_path_async("assets/text_bubble.png"),
+
+		make_creation_info_for_static_texture_set(&background_static_texture_info),
+		make_creation_info_for_static_texture_set(&foreground_static_texture_info),
+		make_creation_info_for_static_texture_set(&main_static_texture_info)
+	)?;
+
+	////////// Making a Twilio window
+
+	let twilio_window = make_twilio_window(
+		&twilio_state,
+		shared_update_rate,
+
+		Vec2f::new(0.58, 0.45),
+		Vec2f::new(0.4, 0.27),
+
+		0.025,
+		WindowContents::Color(ColorSDL::RGB(0, 200, 0)),
+
+		Vec2f::new(0.1, 0.45),
+		Some(theme_color_1), theme_color_1,
+
+		WindowContents::make_texture_contents(&twilio_message_background_contents_creation_info, texture_pool)?
+	);
+
+	////////// Making some static texture windows
+
+	type StaticTextureSetInfo = [(&'static str, Vec2f, Vec2f, bool)];
+
+	async fn make_creation_info_for_static_texture_set(all_info: &StaticTextureSetInfo) -> GenericResult<Vec<TextureCreationInfo>> {
+		TextureCreationInfo::from_paths_async(all_info.iter().map(|&(path, ..)| path)).await
+	}
+
+	fn add_static_texture_set(set: &mut Vec<Window>, all_info: &StaticTextureSetInfo,
+		all_creation_info: &[TextureCreationInfo<'_>], texture_pool: &mut TexturePool<'_>) {
+
+		set.extend(all_info.iter().zip(all_creation_info).map(
+			|(&(_, tl, size, skip_ar_correction), creation_info)| {
+
 			let mut window = Window::new(
 				None,
 				DynamicOptional::NONE,
-				WindowContents::make_texture_contents(path, texture_pool).unwrap(),
+				WindowContents::make_texture_contents(&creation_info, texture_pool).unwrap(),
 				None,
 				tl,
 				size,
@@ -327,12 +418,12 @@ pub async fn make_dashboard(
 
 			window.set_aspect_ratio_correction_skipping(skip_ar_correction);
 			window
-		}))
-	};
+		}));
+	}
 
 	let mut all_main_windows = vec![twilio_window, credit_window];
 	all_main_windows.extend(spinitron_windows);
-	add_static_texture_set(&mut all_main_windows, &main_static_texture_info, texture_pool);
+	add_static_texture_set(&mut all_main_windows, &main_static_texture_info, &main_static_texture_creation_info, texture_pool);
 
 	/* The error window goes last (so that it can manage
 	errors in one shared update iteration properly) */
@@ -361,9 +452,9 @@ pub async fn make_dashboard(
 		DynamicOptional::NONE,
 
 		WindowContents::Many(
-			background_static_texture_info.into_iter().map(|path|
-				WindowContents::make_texture_contents(path, texture_pool)
-			).collect::<GenericResult<_>>()?
+			background_static_texture_creation_info.iter().map(|info|
+				WindowContents::make_texture_contents(info, texture_pool).unwrap() // TODO: use some util fn here
+			).collect()
 		),
 
 		Some(theme_color_1),
@@ -374,63 +465,10 @@ pub async fn make_dashboard(
 
 	main_window.set_aspect_ratio_correction_skipping(true);
 
-	////////// Making a surprise window
-
-	let surprise_window = make_surprise_window(
-		Vec2f::ZERO, Vec2f::ONE, "/tmp/surprises_wbor_studio_dashboard.sock",
-
-		&[
-			SurpriseCreationInfo {
-				texture_path: "assets/nathan.png",
-				texture_blend_mode: BlendMode::None,
-
-				update_rate: Duration::seconds(15),
-				num_update_steps_to_appear_for: 1,
-				chance_of_appearing_when_updating: 0.0007,
-
-				local_hours_24_start: 8,
-				local_hours_24_end: 22,
-
-				flicker_window: false
-			},
-
-			SurpriseCreationInfo {
-				texture_path: "assets/jumpscare.png",
-				texture_blend_mode: BlendMode::Add,
-
-				update_rate: Duration::milliseconds(35),
-				num_update_steps_to_appear_for: 20,
-				chance_of_appearing_when_updating: 0.000003,
-
-				local_hours_24_start: 0,
-				local_hours_24_end: 5,
-
-				flicker_window: true
-			},
-
-			SurpriseCreationInfo {
-				texture_path: "assets/horrible.webp",
-				texture_blend_mode: BlendMode::Add,
-
-				update_rate: Duration::milliseconds(100),
-				num_update_steps_to_appear_for: 9,
-				chance_of_appearing_when_updating: 0.0, // This one can only be triggered artificially
-
-				local_hours_24_start: 0,
-				local_hours_24_end: 23,
-
-				flicker_window: true
-			}
-		],
-
-		update_rate_creator,
-		texture_pool
-	).await?;
-
 	////////// Making the highest-level window
 
 	let mut all_windows = vec![top_bar_window, main_window];
-	add_static_texture_set(&mut all_windows, &foreground_static_texture_info, texture_pool);
+	add_static_texture_set(&mut all_windows, &foreground_static_texture_info, &foreground_static_texture_creation_info, texture_pool);
 	all_windows.push(surprise_window);
 
 	let all_windows_window = Window::new(
@@ -444,20 +482,6 @@ pub async fn make_dashboard(
 	);
 
 	////////// Defining the shared state
-
-	let initial_spin_window_size_guess = (1024, 1024);
-
-	let custom_model_expiry_durations = [
-		Duration::minutes(10), // 10 minutes after a spin, it's expired
-		Duration::minutes(-5), // 5 minutes before a playlist ends, let the DJ know that they should pack up
-		Duration::minutes(0), // Personas don't expire (their end time is the max UTC time)
-		Duration::minutes(0) // 0 minutes after a show, it's expired (this is not used in practice)
-	];
-
-	let spinitron_state = SpinitronState::new(
-		(&api_keys.spinitron, get_fallback_texture_creation_info,
-		custom_model_expiry_durations, initial_spin_window_size_guess)
-	).await?;
 
 	let boxed_shared_state = DynamicOptional::new(
 		SharedWindowState {

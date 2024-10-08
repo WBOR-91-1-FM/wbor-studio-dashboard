@@ -116,7 +116,7 @@ pub trait SpinitronModel {
 
 		-> MaybeTextureCreationInfo<'a> where Self: Sized {
 
-		let fallback = TextureCreationInfo::Path(Cow::Borrowed(image_for_no_persona_or_show));
+		let fallback = TextureCreationInfo::from_path(image_for_no_persona_or_show);
 
 		Self::evaluate_model_image_url_with_regexp(url,
 			|| Some(fallback.clone()),
@@ -167,7 +167,7 @@ impl SpinitronModel for Spin {
 
 	fn get_texture_creation_info(&self, age_state: ModelAgeState, (texture_width, texture_height): (u32, u32)) -> MaybeTextureCreationInfo {
 		if age_state == ModelAgeState::AfterItFromCustomExpiryDuration {
-			Some(TextureCreationInfo::Path(Cow::Borrowed("assets/polar_headphones_logo.png")))
+			Some(TextureCreationInfo::from_path("assets/polar_headphones_logo.png"))
 		}
 		else {
 			Self::evaluate_model_image_url_with_regexp(&self.image,
@@ -223,11 +223,11 @@ impl SpinitronModel for Playlist {
 	fn get_texture_creation_info(&self, age_state: ModelAgeState, _: (u32, u32)) -> MaybeTextureCreationInfo {
 		match age_state {
 			ModelAgeState::BeforeIt =>
-				Some(TextureCreationInfo::Path(Cow::Borrowed("assets/before_show_image.jpg"))),
+				Some(TextureCreationInfo::from_path("assets/before_show_image.jpg")),
 
 			ModelAgeState::CurrentlyActive | ModelAgeState::AfterItFromCustomExpiryDuration => {
 				if self.automation == Some(1) {
-					Some(TextureCreationInfo::Path(Cow::Borrowed("assets/automation_playlist.png")))
+					Some(TextureCreationInfo::from_path("assets/automation_playlist.png"))
 				}
 				else {
 					Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png")
@@ -235,7 +235,7 @@ impl SpinitronModel for Playlist {
 			}
 
 			ModelAgeState::AfterIt =>
-				Some(TextureCreationInfo::Path(Cow::Borrowed("assets/after_show_image.jpg")))
+				Some(TextureCreationInfo::from_path("assets/after_show_image.jpg"))
 		}
 	}
 }
