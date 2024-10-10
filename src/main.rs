@@ -19,7 +19,7 @@ use crate::{
 	dashboard_defs::themes,
 
 	utility_types::{
-		json_utils,
+		file_utils,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
 		update_rate::{FrameCounter, UpdateRateCreator}
@@ -108,7 +108,7 @@ macro_rules! build_dashboard_theme {(
 
 const STANDARD_BACKGROUND_COLOR: ColorSDL = ColorSDL::BLACK;
 
-#[async_std::main]
+#[tokio::main]
 async fn main() -> MaybeError {
 	////////// Getting the beginning timestamp, starting the logger, and loading the app config
 
@@ -118,7 +118,7 @@ async fn main() -> MaybeError {
 	env_logger::init();
 	log::info!("App launched!");
 
-	let app_config: AppConfig = json_utils::load_from_file("assets/app_config.json").await?;
+	let app_config: AppConfig = file_utils::load_json_from_file("assets/app_config.json").await?;
 
 	////////// Setting up SDL and the initial window
 

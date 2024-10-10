@@ -1,11 +1,9 @@
 use std::borrow::Cow;
-use isahc::{config::Configurable, AsyncReadResponseExt};
-
 use crate::utility_types::generic_result::*;
 
 //////////
 
-type Response = GenericResult<isahc::Response<isahc::AsyncBody>>;
+type Response = GenericResult<reqwest::Response>;
 
 pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	query_params: &[(&str, Cow<str>)]) -> String {
@@ -28,14 +26,14 @@ pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 pub async fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
 	const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
-	let mut request_builder = isahc::Request::get(url).timeout(DEFAULT_TIMEOUT);
+	let client = reqwest::Client::new();
+	let mut request_builder = client.get(url).timeout(DEFAULT_TIMEOUT);
 
 	if let Some(header) = maybe_header {
 		request_builder = request_builder.header(header.0, header.1);
 	}
 
-	let request = request_builder.body(())?;
-	let response = isahc::send_async(request).await?;
+	let response = request_builder.send().await?;
 
 	//////////
 
@@ -59,7 +57,7 @@ pub async fn get(url: &str) -> Response {
 
 // This function is monadic!
 pub async fn as_type<T: for<'de> serde::Deserialize<'de>>(response: impl std::future::Future<Output = Response>) -> GenericResult<T> {
-	let mut unpacked_response = response.await?;
+	let unpacked_response = response.await?;
 	let text = unpacked_response.text().await?;
 	serde_json::from_str(&text).to_generic()
 }

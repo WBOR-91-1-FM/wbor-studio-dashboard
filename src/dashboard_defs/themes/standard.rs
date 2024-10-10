@@ -7,7 +7,7 @@ use crate::{
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
 
 	utility_types::{
-		json_utils,
+		file_utils,
 		vec2f::Vec2f,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
@@ -66,7 +66,7 @@ pub async fn make_dashboard(
 
 	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
 	let shared_update_rate = update_rate_creator.new_instance(15.0);
-	let api_keys: ApiKeys = json_utils::load_from_file("assets/api_keys.json").await?;
+	let api_keys: ApiKeys = file_utils::load_json_from_file("assets/api_keys.json").await?;
 
 	////////// Defining the Spinitron window extents
 
@@ -288,7 +288,7 @@ pub async fn make_dashboard(
 		twilio_state, twilio_message_background_contents_creation_info,
 		background_static_texture_creation_info,
 		foreground_static_texture_creation_info,
-		main_static_texture_creation_info) = futures::try_join!(
+		main_static_texture_creation_info) = tokio::try_join!(
 
 		make_weather_window(
 			Vec2f::ZERO,

@@ -192,7 +192,7 @@ pub async fn make_surprise_window(
 
 	const SURPRISE_STREAM_PATH_BUFFER_INITIAL_SIZE: usize = 64;
 
-	let socket_path_fs_name = artificial_triggering_socket_path.to_fs_name::<GenericFilePath>()?; // TODO: make the listener via async
+	let socket_path_fs_name = artificial_triggering_socket_path.to_fs_name::<GenericFilePath>()?;
 	let make_listener = || ListenerOptions::new().name(socket_path_fs_name.clone()).create_sync();
 
 	let surprise_stream_listener = match make_listener() {
@@ -200,7 +200,7 @@ pub async fn make_surprise_window(
 
 		Err(err) => {
 			log::warn!("A previous surprise stream socket path was still around after a previous crash; removing it and making a new one.");
-			async_std::fs::remove_file(artificial_triggering_socket_path).await?;
+			tokio::fs::remove_file(artificial_triggering_socket_path).await?;
 			make_listener().unwrap_or_else(|_| panic!("Could not create a surprise stream listener: '{err}'."))
 		}
 	};

@@ -51,7 +51,6 @@ pub fn get_fallback_texture_creation_info() -> TextureCreationInfo<'static> {
 
 //////////
 
-// TODO: make this async once `async_std::process` is stabilized
 pub fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
 	let output = std::process::Command::new(command)
 		.args(args)

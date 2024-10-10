@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use chrono::Timelike;
-use isahc::AsyncReadResponseExt;
 
 use crate::{
 	request,
@@ -9,6 +8,7 @@ use crate::{
 	dashboard_defs::error::ErrorState,
 
 	utility_types::{
+		file_utils,
 		generic_result::*,
 		continually_updated::{Updatable, ContinuallyUpdated}
 	},
@@ -126,7 +126,7 @@ impl SpinitronStateData {
 
 		////////// Getting the models
 
-		let (spin, playlist, show) = futures::try_join!(
+		let (spin, playlist, show) = tokio::try_join!(
 			Spin::get(api_key), Playlist::get(api_key), Show::get(api_key)
 		)?;
 
@@ -165,11 +165,11 @@ impl SpinitronStateData {
 
 		let model_names = data.get_model_names();
 
-		let model_texture_byte_futures = model_names.iter().map(
+		let futures = model_names.iter().map(
 			|model_name| data.get_model_texture_bytes(*model_name, spin_texture_size)
 		);
 
-		let model_texture_bytes = futures::future::try_join_all(model_texture_byte_futures).await?;
+		let model_texture_bytes = futures::future::try_join_all(futures).await?;
 
 		for (i, texture_bytes) in model_texture_bytes.iter().enumerate() {
 			data.precached_texture_bytes[i] = texture_bytes.clone();
@@ -187,11 +187,12 @@ impl SpinitronStateData {
 			and precaching anything from disk in byte form as well. */
 			match info.as_ref() {
 				TextureCreationInfo::Path(path) =>
-					async_std::fs::read(path as &str).await.to_generic(),
+					file_utils::read_file_contents(path).await,
 
 				TextureCreationInfo::Url(url) => {
-					let mut response = request::get(url).await?;
-					Ok(response.bytes().await?)
+					let response = request::get(url).await?;
+					let bytes = response.bytes().await?;
+					Ok(bytes.to_vec())
 				}
 
 				TextureCreationInfo::RawBytes(_) =>

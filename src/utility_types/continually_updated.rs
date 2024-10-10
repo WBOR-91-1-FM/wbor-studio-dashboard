@@ -34,7 +34,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 			log::warn!("Problem from '{name}' with {transfer_description} main thread (probably harmless, at program shutdown): '{err}'");
 		}
 
-		async_std::task::spawn(async move {
+		tokio::task::spawn(async move {
 			loop {
 				/* `recv` will block until it receives the parameter! The parameters will
 				only be passed once the data has been received on the main thread. */

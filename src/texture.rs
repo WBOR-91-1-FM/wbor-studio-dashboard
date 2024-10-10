@@ -16,6 +16,7 @@ use crate::{
 	window_tree::{CanvasSDL, ColorSDL},
 
 	utility_types::{
+		file_utils,
 		generic_result::*,
 		vec2f::assert_in_unit_interval
 	}
@@ -150,8 +151,7 @@ impl TextureCreationInfo<'_> {
 
 	// This function preprocesses the texture creation info into a form that can be loaded quicker in non-async contexts
 	pub async fn from_path_async(path: &str) -> GenericResult<Self> {
-		let contents = async_std::fs::read(path).await?;
-		Self::raw_bytes(contents)
+		Self::raw_bytes(file_utils::read_file_contents(path).await?)
 	}
 
 	// The same applies for this one, but it does it for for multiple paths concurrently
@@ -704,10 +704,9 @@ impl<'a> TexturePool<'a> {
 				self.texture_creator.load_texture(path as &str),
 
 			TextureCreationInfo::Url(url) => {
-				use isahc::AsyncReadResponseExt;
-				use async_std::task::block_on;
+				use futures::executor::block_on;
 
-				let mut response = block_on(request::get(url))?;
+				let response = block_on(request::get(url))?;
 				let bytes = block_on(response.bytes())?;
 
 				self.texture_creator.load_texture_bytes(&bytes)
