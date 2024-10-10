@@ -184,7 +184,7 @@ pub struct TextureHandle {
 	handle: InnerTextureHandle
 }
 
-pub struct SideScrollingTextMetadata {
+struct SideScrollingTextMetadata {
 	size: (u32, u32),
 	scroll_fn: TextTextureScrollFn,
 	text: String
