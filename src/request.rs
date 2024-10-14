@@ -26,7 +26,7 @@ pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 pub async fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
 	const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
-	let client = reqwest::Client::new();
+	let client = reqwest::Client::new(); // TODO: figure out why client sharing results in a deadlock
 	let mut request_builder = client.get(url).timeout(DEFAULT_TIMEOUT);
 
 	if let Some(header) = maybe_header {
