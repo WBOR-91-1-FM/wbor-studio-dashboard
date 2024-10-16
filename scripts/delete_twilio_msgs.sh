@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# NOTE: DON'T USE THIS. Script kept for posterity, but we shouldn't delete from the source anymore.
+
 auth_details=`jq -r '[.twilio_account_sid, .twilio_auth_token] | join(" ")' ../assets/api_keys.json`
 read account_sid auth_token <<< $auth_details
 
