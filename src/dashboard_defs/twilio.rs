@@ -364,7 +364,7 @@ impl Updatable for TwilioStateData {
 				let time_sent = DateTime::parse_from_rfc2822(unparsed_time_sent).unwrap();
 
 				// TODO: see that the manual date filtering logic works
-				if time_sent >= history_cutoff_time {
+				if time_sent >= history_cutoff_time && message_field("direction") == "inbound" {
 					let id = message_field("uri");
 
 					// If a key on the heap already existed, reuse it
