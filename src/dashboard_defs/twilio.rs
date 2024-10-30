@@ -363,7 +363,8 @@ impl Updatable for TwilioStateData {
 				let unparsed_time_sent = message_field("date_created");
 				let time_sent = DateTime::parse_from_rfc2822(unparsed_time_sent).unwrap();
 
-				// TODO: see that the manual date filtering logic works
+				/* TODO: re-request if not enough messages were gotten. Filtering out outbound
+				messages will give you less messages than you requested if there are any outbound ones. */
 				if time_sent >= history_cutoff_time && message_field("direction") == "inbound" {
 					let id = message_field("uri");
 
