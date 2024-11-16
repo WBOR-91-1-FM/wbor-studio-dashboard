@@ -78,6 +78,7 @@ struct WeatherStateData {
 impl Updatable for WeatherStateData {
 	type Param = ();
 
+	// TODO: while the weather is fetched every 10 minutes, use the other 9 minutes' forecasts for more updated data
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
 		let all_info_json: serde_json::Value = request::as_type(request::get(&self.request_url)).await?;
 

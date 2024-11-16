@@ -343,6 +343,8 @@ impl Updatable for TwilioStateData {
 
 		let max_messages = self.immutable.max_num_messages_in_history;
 
+		/* TODO: re-request if not enough inbound messages were gotten. Filtering out outbound
+		messages will give you less messages than you requested if there are any outbound ones. */
 		let json = self.do_twilio_request("Messages", &[],
 			&[
 				("PageSize", Cow::Borrowed(&max_messages.to_string())),
@@ -363,9 +365,7 @@ impl Updatable for TwilioStateData {
 				let unparsed_time_sent = message_field("date_created");
 				let time_sent = DateTime::parse_from_rfc2822(unparsed_time_sent).unwrap();
 
-				/* TODO: re-request if not enough messages were gotten. Filtering out outbound
-				messages will give you less messages than you requested if there are any outbound ones. */
-				if time_sent >= history_cutoff_time && message_field("direction") == "inbound" {
+				if time_sent >= history_cutoff_time {
 					let id = message_field("uri");
 
 					// If a key on the heap already existed, reuse it
