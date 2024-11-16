@@ -58,9 +58,10 @@ impl<'a> DisplayText<'a> {
 		// Indicates that emojis should be made colored; not rendered correctly on the Pi
 		const UNICODE_VARIATION_SELECTOR_16: char = '\u{FE0F}';
 
-		const WHITESPACE_REPLACEMENT_PAIRS: [(char, &str); 3] = [
+		const WHITESPACE_REPLACEMENT_PAIRS: [(char, &str); 4] = [
 			('\t', "    "),
 			('\n', " "),
+			('\r', " "),
 			(UNICODE_VARIATION_SELECTOR_16, "")
 		];
 
@@ -68,8 +69,8 @@ impl<'a> DisplayText<'a> {
 		- Should I add the rest of the blank characters (see https://invisible-characters.com/ for all), for better cleanup?
 		- The second reason for this is to stop 'nonavailable' character variants to appear - although this would be hard to verify
 		*/
-		const ALL_WHITESPACE_CHARS: [char; 4] = [
-			' ', '\t', '\n', UNICODE_VARIATION_SELECTOR_16
+		const ALL_WHITESPACE_CHARS: [char; 5] = [
+			' ', '\t', '\n', '\r', UNICODE_VARIATION_SELECTOR_16
 		];
 
 		//////////
@@ -556,7 +557,8 @@ impl<'a> TexturePool<'a> {
 					let orig_span_len = span.len();
 					let first_char_pixel_width = chosen_font.size_of_char(span[0])?.0;
 
-					// Checking that the monospace property holds
+					/* Checking that the monospace property holds (TODO: in the future, to guarantee this better, build up a set
+					of all characters in the font that break the monospace property, and prefilter them out in `DisplayText`) */
 					assert!(first_char_pixel_width * orig_span_len as u32 == subsurface_width);
 
 					let pixel_overstep = next_total_width - max_texture_width;
