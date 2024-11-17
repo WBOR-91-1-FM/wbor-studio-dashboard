@@ -68,6 +68,7 @@ impl<'a> DisplayText<'a> {
 		/* TODO:
 		- Should I add the rest of the blank characters (see https://invisible-characters.com/ for all), for better cleanup?
 		- The second reason for this is to stop 'nonavailable' character variants to appear - although this would be hard to verify
+		- Does character 157 have to be handled? It might crash the dashboard...
 		*/
 		const ALL_WHITESPACE_CHARS: [char; 5] = [
 			' ', '\t', '\n', '\r', UNICODE_VARIATION_SELECTOR_16
@@ -547,41 +548,64 @@ impl<'a> TexturePool<'a> {
 			if text_goes_over_max_width {
 				log::debug!("A subsurface exceeded the pixel width maximum (the next total was {next_total_width}); will try to trim it");
 
+				let mut did_monospace_cutting = false;
+
 				/* If the font is monospace (and not italicized) and it exceeds the
 				max texture width, cut off enough characters to make it fit in one texture.
 				I am not running this branch for italicized fonts since italicized fonts are
 				not really monospaced per character. */
 				if chosen_font.face_is_fixed_width() && !chosen_font.get_style().intersects(ttf::FontStyle::ITALIC) {
 					log::debug!("Doing optimized monospace text span cutting");
-
 					let orig_span_len = span.len();
 					let first_char_pixel_width = chosen_font.size_of_char(span[0])?.0;
 
+					//////////
+
 					/* Checking that the monospace property holds (TODO: in the future, to guarantee this better, build up a set
-					of all characters in the font that break the monospace property, and prefilter them out in `DisplayText`) */
-					assert!(first_char_pixel_width * orig_span_len as u32 == subsurface_width);
+					of all characters in the font that break the monospace property, and prefilter them out in `DisplayText`).
+					Perhaps ignore control characters? Not sure how some of them would interfere with the monospace property... */
+					let monospace_property_holds = first_char_pixel_width * orig_span_len as u32 == subsurface_width;
 
-					let pixel_overstep = next_total_width - max_texture_width;
-					let approx_char_overstep = pixel_overstep as f64 / subsurface_width as f64 * orig_span_len as f64;
-					let char_overstep = approx_char_overstep.ceil() as usize;
+					if monospace_property_holds {
+						let pixel_overstep = next_total_width - max_texture_width;
+						let approx_char_overstep = pixel_overstep as f64 / subsurface_width as f64 * orig_span_len as f64;
+						let char_overstep = approx_char_overstep.ceil() as usize;
 
-					// Checking that the cut text amount is not too large for this span
-					assert!(char_overstep <= orig_span_len);
+						// Checking that the cut text amount is not too large for this span
+						assert!(char_overstep <= orig_span_len);
 
-					span = &span[0..orig_span_len - char_overstep];
-					(span_as_string, subsurface_width, next_total_width) = compute_span_data(span)?;
+						span = &span[0..orig_span_len - char_overstep];
+						(span_as_string, subsurface_width, next_total_width) = compute_span_data(span)?;
 
-					// Double-checking that the monospace property holds
-					assert!(subsurface_width == first_char_pixel_width * span.len() as u32);
+						// Double-checking that the monospace property holds
+						assert!(subsurface_width == first_char_pixel_width * span.len() as u32);
+
+						did_monospace_cutting = true;
+					}
+					else {
+						log::error!("The monospace property did not hold! Finding the offending character(s).");
+
+						for (i, c) in span.iter().enumerate() {
+							let char_width = chosen_font.size_of_char(*c)?.0;
+
+							if char_width != first_char_pixel_width {
+								log::error!("Character #{i} ({c}) had a width of {char_width} instead of {first_char_pixel_width}.");
+							}
+						}
+					}
 				}
-				else {
-					log::debug!("Font was not monospaced; doing manual text span cutting");
+
+				if !did_monospace_cutting {
+					log::debug!("Doing manual text span cutting (quite inefficient)");
+
+					let time_before = std::time::Instant::now();
 
 					while next_total_width > max_texture_width {
-						log::debug!("Doing an iteration of manual inefficient text span cutting");
 						span = &span[0..span.len() - 1];
-						(span_as_string, subsurface_width, next_total_width) = compute_span_data(span)?;
+						(span_as_string, subsurface_width, next_total_width) = compute_span_data(&span)?;
 					}
+
+					log::debug!("That took this many milliseconds: {}", time_before.elapsed().as_millis());
 				}
 
 				/////////
