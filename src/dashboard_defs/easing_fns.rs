@@ -58,6 +58,7 @@ pub mod transition {
 
 			dashboard_defs::easing_fns::{
 				ease_out_bounce,
+
 				transition::aspect_ratio::{
 					STRAIGHT_WAVY as AR_STRAIGHT_WAVY,
 					JITTER_WAVY as AR_JITTER_WAVY
