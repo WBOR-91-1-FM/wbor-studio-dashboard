@@ -52,7 +52,7 @@ impl TextureSubpoolManager {
 				if !*is_used {
 					// println!("(request) doing re-request, and setting {texture:?} to used");
 					*is_used = true;
-					texture_pool.remake_texture(texture_creation_info, texture)?;
+					texture_pool.remake_texture(texture_creation_info, texture, None)?;
 					return Ok(texture.clone());
 				}
 			}
@@ -81,7 +81,7 @@ impl TextureSubpoolManager {
 			// println!("(re-request) checking {incoming_texture:?} for being used before");
 			assert!(is_used);
 			// println!("(re-request) doing re-request for {incoming_texture:?}");
-			texture_pool.remake_texture(texture_creation_info, incoming_texture)
+			texture_pool.remake_texture(texture_creation_info, incoming_texture, None)
 		}
 		else {
 			panic!("Slot was not previously allocated in subpool!");
