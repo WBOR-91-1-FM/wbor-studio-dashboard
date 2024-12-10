@@ -113,6 +113,5 @@ pub mod transition {
 			let tau_n = std::f64::consts::TAU * N as f64;
 			percent_done - ((tau_n * percent_done).sin() / tau_n)
 		};
-
 	}
 }
