@@ -1,10 +1,14 @@
-use chrono::DateTime;
-use std::{sync::Arc, borrow::Cow, collections::HashMap};
+use std::{
+	sync::Arc,
+	borrow::Cow,
+	collections::HashMap
+};
 
 use crate::{
 	request,
 
 	utility_types::{
+		time::*,
 		vec2f::Vec2f,
 		generic_result::*,
 		update_rate::UpdateRate,
@@ -13,6 +17,7 @@ use crate::{
 	},
 
 	dashboard_defs::{
+		easing_fns,
 		error::ErrorState,
 		shared_window_state::SharedWindowState,
 	},
@@ -167,10 +172,6 @@ impl<V> SyncedMessageMap<V> {
 
 //////////
 
-// TODO: support texter blocking somehow (this code may turn out ugly to write; make it still work without a connected peripheral)
-
-type Timezone = chrono::Utc; // This should not be changed (Twilio uses UTC by default)
-type Timestamp = chrono::DateTime<Timezone>; // It seems like local time works too!
 type MessageAgeData = Option<(&'static str, &'static str, i64)>;
 
 // TODO: should/could I include caller ID, and an image, if sent?
@@ -180,8 +181,8 @@ struct MessageInfo {
 	display_text: String,
 	maybe_from: Option<String>, // This is `None` if the message identity is hidden
 	body: String,
-	time_sent: Timestamp,
-	time_loaded_by_app: Timestamp, // This includes sub-second precision, while the time sent above does not
+	time_sent: ReferenceTimestamp,
+	time_loaded_by_app: ReferenceTimestamp, // This includes sub-second precision, while the time sent above does not
 	just_updated: bool
 }
 
@@ -189,7 +190,7 @@ struct ImmutableTwilioStateData {
 	account_sid: String,
 	request_auth: String,
 	max_num_messages_in_history: usize,
-	message_history_duration: chrono::Duration,
+	message_history_duration: Duration,
 	reveal_texter_identities: bool
 }
 
@@ -222,7 +223,7 @@ pub struct TwilioState {
 impl TwilioStateData {
 	async fn new(account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
-		message_history_duration: chrono::Duration,
+		message_history_duration: Duration,
 		reveal_texter_identities: bool) -> GenericResult<Self> {
 
 		use base64::{engine::general_purpose::STANDARD, Engine};
@@ -270,7 +271,7 @@ impl TwilioStateData {
 
 	//////////
 
-	fn get_message_age_data(curr_time: Timestamp, time_sent: Timestamp) -> MessageAgeData {
+	fn get_message_age_data(curr_time: ReferenceTimestamp, time_sent: ReferenceTimestamp) -> MessageAgeData {
 		let duration = curr_time - time_sent;
 
 		/* TODO:
@@ -332,7 +333,7 @@ impl Updatable for TwilioStateData {
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
 		////////// Making a request, and getting a response
 
-		let curr_time = Timezone::now();
+		let curr_time = ReferenceTimezone::now();
 		let history_cutoff_time = curr_time - self.immutable.message_history_duration;
 		let history_cutoff_day = history_cutoff_time.format("%Y-%m-%d");
 
@@ -363,7 +364,7 @@ impl Updatable for TwilioStateData {
 
 				// Using the date created instead, since it is never null at the beginning (unlike the date sent)
 				let unparsed_time_sent = message_field("date_created");
-				let time_sent = DateTime::parse_from_rfc2822(unparsed_time_sent).unwrap();
+				let time_sent = parse_time_from_rfc2822(unparsed_time_sent).unwrap();
 
 				if time_sent >= history_cutoff_time {
 					let id = message_field("uri");
@@ -374,7 +375,7 @@ impl Updatable for TwilioStateData {
 							(already_id.clone(), already_message.time_loaded_by_app)
 						}
 						else {
-							(id.into(), Timezone::now())
+							(id.into(), ReferenceTimezone::now())
 						};
 
 					let maybe_from = if self.immutable.reveal_texter_identities {
@@ -448,7 +449,7 @@ impl TwilioState {
 	pub async fn new(
 		account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
-		message_history_duration: chrono::Duration,
+		message_history_duration: Duration,
 		reveal_texter_identities: bool) -> GenericResult<Self> {
 
 		let data = TwilioStateData::new(
@@ -457,7 +458,7 @@ impl TwilioState {
 		).await?;
 
 		Ok(Self {
-			continually_updated: ContinuallyUpdated::new(&data, &(), "Twilio"),
+			continually_updated: ContinuallyUpdated::new(&data, &(), "Twilio").await,
 			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
 			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
 			historically_sorted_messages_by_id: Vec::new()
@@ -483,19 +484,8 @@ impl TwilioState {
 				text: DisplayText::new(""),
 				color: text_color,
 				pixel_area,
-
-				scroll_fn: |seed, text_fits_in_box| {
-					if text_fits_in_box {return (0.0, true);}
-
-					let total_cycle_time = 4.0;
-					let scroll_time_percent = 0.75;
-
-					let wait_boundary = total_cycle_time * scroll_time_percent;
-					let scroll_value = seed % total_cycle_time;
-
-					let scroll_fract = if scroll_value < wait_boundary {scroll_value / wait_boundary} else {0.0};
-					(scroll_fract, true)
-				}
+				scroll_easer: easing_fns::scroll::PAUSE_THEN_SCROLL_LEFT,
+				scroll_speed_multiplier: 1.0
 			}
 		));
 
@@ -569,7 +559,7 @@ pub fn make_twilio_window(
 	twilio_state: &TwilioState,
 	update_rate: UpdateRate,
 	top_left: Vec2f, size: Vec2f,
-	top_box_height: f32,
+	top_box_height: f64,
 	top_box_contents: WindowContents,
 	message_background_contents_text_crop_factor: Vec2f,
 	overall_border_color: Option<ColorSDL>, text_color: ColorSDL,
@@ -623,7 +613,7 @@ pub fn make_twilio_window(
 		Vec2f::ONE - message_background_contents_text_crop_factor
 	);
 
-	let history_window_height = 1.0 / max_num_messages_in_history as f32;
+	let history_window_height = 1.0 / max_num_messages_in_history as f64;
 
 	let all_subwindows = (0..max_num_messages_in_history).map(|i| {
 		// Note: I can't directly put the background contents into the history windows since it's sized differently
@@ -643,7 +633,7 @@ pub fn make_twilio_window(
 			DynamicOptional::NONE,
 			message_background_contents.clone(),
 			None,
-			Vec2f::new(0.0, history_window_height * i as f32),
+			Vec2f::new(0.0, i as f64 * history_window_height),
 			Vec2f::new(1.0, history_window_height),
 			Some(vec![history_window])
 		);
@@ -671,7 +661,8 @@ pub fn make_twilio_window(
 					text: DisplayText::new(&twilio_state.formatted_phone_number).with_padding(" ", ""),
 					color: text_color,
 					pixel_area: params.area_drawn_to_screen,
-					scroll_fn: |_, _| (0.0, true)
+					scroll_easer: easing_fns::scroll::STAY_PUT,
+					scroll_speed_multiplier: 1.0
 				}
 			));
 

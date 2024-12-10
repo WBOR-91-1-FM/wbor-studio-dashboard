@@ -1,7 +1,7 @@
 use std::{
 	borrow::Cow,
-	collections::BTreeSet,
-	hash::{Hash, Hasher}
+	hash::{Hash, Hasher},
+	collections::BTreeSet
 };
 
 use crate::{
@@ -18,6 +18,7 @@ use crate::{
 	},
 
 	dashboard_defs::{
+		easing_fns,
 		updatable_text_pattern,
 		shared_window_state::SharedWindowState
 	}
@@ -143,14 +144,10 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 	let fields = updatable_text_pattern::UpdatableTextWindowFields {
 		inner: None,
 		text_color,
-
-		scroll_fn: |seed, _| {
-			let repeat_rate_secs = 2.0;
-			((seed % repeat_rate_secs) / repeat_rate_secs, true)
-		},
-
+		scroll_easer: easing_fns::scroll::LEFT_LINEAR,
 		update_rate,
-		maybe_border_color: None
+		maybe_border_color: None,
+		scroll_speed_multiplier: 1.0
 	};
 
 	let mut window = updatable_text_pattern::make_window(

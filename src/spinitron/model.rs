@@ -7,7 +7,11 @@ use serde::{Serialize, Deserialize};
 
 use crate::{
 	texture::TextureCreationInfo,
-	utility_types::generic_result::*,
+
+	utility_types::{
+		time::*,
+		generic_result::*
+	},
 
 	spinitron::{
 		wrapper_types::*,
@@ -18,6 +22,7 @@ use crate::{
 
 pub const NUM_SPINITRON_MODEL_TYPES: usize = 4;
 
+// TODO: switch to `once_cell` at some point
 lazy_static::lazy_static!(
 	static ref SPIN_IMAGE_SIZE_REGEXP: Regex = Regex::new(r#"\d+x\d+bb"#).unwrap();
 	static ref SPIN_IMAGE_REGEXP: Regex = Regex::new(r#"^https:\/\/.+\d+x\d+bb.+$"#).unwrap();
@@ -58,11 +63,11 @@ pub trait SpinitronModel {
 	fn to_string(&self, age_state: ModelAgeState) -> Cow<str>;
 	fn get_texture_creation_info(&self, age_state: ModelAgeState, spin_texture_window_size: (u32, u32)) -> MaybeTextureCreationInfo;
 
-	fn maybe_get_time_range(&self) -> GenericResult<Option<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>> {
-		fn parse_time(time: &str) -> GenericResult<chrono::DateTime<chrono::Utc>> {
+	fn maybe_get_time_range(&self) -> GenericResult<Option<(ReferenceTimestamp, ReferenceTimestamp)>> {
+		fn parse_time(time: &str) -> GenericResult<ReferenceTimestamp> {
 			let mut amended_end = time.to_owned();
 			amended_end.insert(amended_end.len() - 2, ':');
-			Ok(chrono::DateTime::parse_from_rfc3339(&amended_end)?.into())
+			Ok(parse_time_from_rfc3339(&amended_end)?.into())
 		}
 
 		// TODO: don't unwrap here
@@ -151,7 +156,10 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 
 impl SpinitronModel for Spin {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {Some((&self.start, &self.end))}
+	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {
+		// Doing this because the end is very rarely `None`. Earlier, this was returned: `Some((&self.start, &self.end))`.
+		self.end.as_ref().map(|end| (self.start.as_str(), end.as_str()))
+	}
 
 	// TODO: for this, can I split the outut string into multiple lines, and then render multiline text somehow?
 	fn to_string(&self, age_state: ModelAgeState) -> Cow<str> {
@@ -249,6 +257,8 @@ impl SpinitronModel for Persona {
 	}
 
 	fn get_texture_creation_info(&self, _: ModelAgeState, _: (u32, u32)) -> MaybeTextureCreationInfo {
+		/* TODO: after a show, replace the old image with a meme, like how it's done for playlists;
+		also, when there's no next persona image, it carries over, which shouldn't happen */
 		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_persona_image.png")
 	}
 }
@@ -320,9 +330,9 @@ pub struct Spin {
 
 	// TODO: why is `time` not there?
 
-	duration: Uint,
+	duration: MaybeUint, // This, along with the `end` field, are very rarely `None`
 	start: String,
-	end: String,
+	end: MaybeString,
 
 	request: MaybeBool,
 	new: MaybeBool,

@@ -1,4 +1,7 @@
-use std::sync::mpsc;
+use tokio::sync::mpsc::{
+	self,
+	error::{TrySendError, TryRecvError}
+};
 
 use crate::{
 	utility_types::generic_result::*,
@@ -14,9 +17,10 @@ pub trait Updatable: Clone + Send {
 	fn update(&mut self, param: &Self::Param) -> impl std::future::Future<Output = MaybeError> + Send;
 }
 
+// The main purpose of this is to be able to call async functions in sync contexts without blocking.
 pub struct ContinuallyUpdated<T: Updatable> {
 	curr_data: T,
-	param_sender: mpsc::SyncSender<T::Param>,
+	param_sender: mpsc::Sender<T::Param>,
 	data_receiver: mpsc::Receiver<Result<T, String>>,
 	name: &'static str
 }
@@ -24,57 +28,82 @@ pub struct ContinuallyUpdated<T: Updatable> {
 //////////
 
 impl<T: Updatable + 'static> ContinuallyUpdated<T> {
-	pub fn new(data: &T, initial_param: &T::Param, name: &'static str) -> Self {
-		let (data_sender, data_receiver) = mpsc::sync_channel(1); // This can be async if needed
-		let (param_sender, param_receiver) = mpsc::sync_channel(1);
+	fn handle_channel_error(name: &str, transfer_description: &str, err: impl std::fmt::Display, should_panic: bool) {
+		let message = format!("Problem from '{name}' with {transfer_description} ({}): '{err}'",
+			if should_panic {"should never happen!"} else {"probably harmless, at program shutdown"}
+		);
+
+		if should_panic {
+			panic!("{message}");
+		}
+		else {
+			log::warn!("{message}");
+		}
+	}
+
+	pub async fn new(data: &T, initial_param: &T::Param, name: &'static str) -> Self {
+		let (data_sender, data_receiver) = mpsc::channel(1);
+		let (param_sender, mut param_receiver) = mpsc::channel(1);
+
+		if let Err(err) = param_sender.send(initial_param.clone()).await {
+			panic!("Could not pass an initial param to the continual updater: '{err}'");
+		}
 
 		let mut cloned_data = data.clone();
 
-		fn handle_channel_error<Error: std::fmt::Display>(err: Error, name: &str, transfer_description: &str) {
-			log::warn!("Problem from '{name}' with {transfer_description} main thread (probably harmless, at program shutdown): '{err}'");
-		}
-
 		tokio::task::spawn(async move {
 			loop {
-				/* `recv` will block until it receives the parameter! The parameters will
-				only be passed once the data has been received on the main thread. */
-				let param = match param_receiver.recv() {
-					Ok(inner_param) => inner_param,
+				let param = match param_receiver.recv().await {
+					Some(inner_param) => inner_param,
 
-					Err(_err) => {
-						// This happens almost every time, so just silencing this (it's harmless)
-						// handle_channel_error(_err, name, "receiving parameter from");
-						return;
+					None => {
+						return; // Bottom message is not printed since it happens almost every time
+
+						/*
+						return Self::handle_channel_error( // Ending the task
+							name, "receiving parameter from main thread", "channel has been closed", false
+						);
+						*/
 					}
 				};
+
+				//////////
 
 				let result = match cloned_data.update(&param).await {
 					Ok(_) => Ok(cloned_data.clone()),
 					Err(err) => Err(err.to_string())
 				};
 
-				if let Err(err) = data_sender.send(result) {
-					handle_channel_error(err, name, "sending data back to the");
-					return;
+				//////////
+
+				if let Err(err) = data_sender.send(result).await {
+					return Self::handle_channel_error( // Ending the task
+						name, "sending computed data back to the main thread", err, false
+					);
 				}
 			}
 		});
 
-		let continually_updated = Self {
-			curr_data: data.clone(), param_sender,
-			data_receiver, name
-		};
-
-		if let Err(err) = continually_updated.run_new_update_iteration(initial_param) {
-			panic!("Could not pass an initial param to the continual updater: '{err}'");
-		}
-
-		continually_updated
+		Self {curr_data: data.clone(), param_sender, data_receiver, name}
 	}
 
-	// This unblocks the param receiver and starts a new update iteration with a new param
-	fn run_new_update_iteration(&self, param: &T::Param) -> MaybeError {
-		self.param_sender.send(param.clone()).to_generic()
+	// This allows the param receiver to move past its await point, and starts a new update iteration with a new param.
+	fn run_new_update_iteration(&self, param: &T::Param) {
+		let transfer_description = "sending a parameter to its task";
+
+		match self.param_sender.try_send(param.clone()) {
+			Ok(()) => {},
+
+			Err(TrySendError::Full(_)) =>
+				Self::handle_channel_error(
+					self.name, transfer_description, "channel is full", true
+				),
+
+			Err(TrySendError::Closed(_)) =>
+				Self::handle_channel_error(
+					self.name, transfer_description, "channel is closed", true
+				)
+		}
 	}
 
 	// This returns false if a task failed to complete its operation on its current iteration.
@@ -84,20 +113,25 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		match self.data_receiver.try_recv() {
 			Ok(Ok(new_data)) => {
 				self.curr_data = new_data;
-				self.run_new_update_iteration(param)?;
+				self.run_new_update_iteration(param);
 			}
 
 			Ok(Err(err)) => error = Some(err),
 
 			// Waiting for a response...
-			Err(mpsc::TryRecvError::Empty) => {}
+			Err(TryRecvError::Empty) => {}
 
-			Err(err) => error = Some(err.to_string())
+			Err(TryRecvError::Disconnected) => {
+				Self::handle_channel_error(
+					self.name, "receiving computed data from its task",
+					"channel became disconnected", true
+				);
+			}
 		}
 
 		if let Some(err) = error {
 			error_state.report(self.name, &err);
-			self.run_new_update_iteration(param)?;
+			self.run_new_update_iteration(param);
 			return Ok(false);
 		}
 		else {

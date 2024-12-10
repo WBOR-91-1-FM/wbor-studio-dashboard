@@ -1,21 +1,22 @@
 use std::{
 	borrow::Cow,
-	collections::HashMap
+	collections::{HashMap, VecDeque}
 };
 
 use sdl2::{
 	ttf,
-	rect::Rect,
 	surface::Surface,
 	image::LoadTexture,
-	render::{self, Texture}
+	rect::{Rect, FRect},
+	render::{self, BlendMode, Texture}
 };
 
 use crate::{
 	request,
-	window_tree::{CanvasSDL, ColorSDL},
+	window_tree::{CanvasSDL, ColorSDL, PreciseRect},
 
 	utility_types::{
+		time::*,
 		file_utils,
 		generic_result::*,
 		vec2f::assert_in_unit_interval
@@ -117,9 +118,14 @@ impl<'a> DisplayText<'a> {
 
 //////////
 
-/* Input: seed, and if the text fits fully in the box.
-Output: scroll amount (in [0, 1]), and if the text should wrap or not. */
-pub type TextTextureScrollFn = fn(f64, bool) -> (f64, bool);
+/*
+
+The first item, the function itself:
+	Input: seed (some number of real-time fractional seconds), and if the text fits fully in the box.
+	Output: scroll amount (range: [0, 1]), and if the text should wrap or not.
+The second item is the period of the function.
+*/
+pub type TextTextureScrollEaser = (fn(f64, bool) -> (f64, bool), f64);
 
 // TODO: make a constructor for this, instead of making everything `pub`.
 #[derive(Clone)]
@@ -127,11 +133,123 @@ pub struct TextDisplayInfo<'a> {
 	pub text: DisplayText<'a>,
 	pub color: ColorSDL, // TODO: change the name of this to `text_color`, perhaps
 	pub pixel_area: (u32, u32),
-
-	/* Maps the unix time in secs to a scroll fraction
-	(0 to 1), and if the scrolling should wrap. */
-	pub scroll_fn: TextTextureScrollFn
+	pub scroll_easer: TextTextureScrollEaser,
+	pub scroll_speed_multiplier: f64
 }
+
+//////////
+
+/* Input: the percent done with the transition. Domain: [0, 1).
+Output: the opacities of the background and foreground textures. Range: [0, 1]. */
+pub type TextureTransitionOpacityEaser = fn(f64) -> (f64, f64);
+
+/* Under texture transitions, textures will stretch or shrink to fit into
+the new texture's size and shape. The amount shrunken or stretched depends on
+the percent done with the transition. This function determines how the aspect ratio
+will change during the transition, either linearly, or via some easing function.
+
+Input: the percent done with the transition. Domain: [0, 1].
+Output: a new percent used to ease the aspect ratio at a different rate. Range: [0, 1]. */
+pub type TextureTransitionAspectRatioEaser = fn(f64) -> f64;
+
+#[derive(Clone)]
+pub struct RemakeTransitionInfo {
+	pub duration: Duration,
+	pub opacity_easer: TextureTransitionOpacityEaser,
+	pub aspect_ratio_easer: TextureTransitionAspectRatioEaser
+}
+
+//////////
+
+// TODO: perhaps only only storing the creation info would ease memory usage?
+struct RemakeTransition<'a> {
+	new_texture: Texture<'a>,
+
+	// The end time is not set until the transition starts (it might be waiting in a queue until then)
+	end_time: Option<ReferenceTimestamp>,
+
+	transition_info: RemakeTransitionInfo,
+	maybe_text_metadata: Option<TextMetadataItem>
+}
+
+impl<'a> RemakeTransition<'a> {
+	fn new(new_texture: Texture<'a>, transition_info: &RemakeTransitionInfo, creation_info: &TextureCreationInfo) -> Self {
+		let maybe_text_metadata = TextMetadataItem::maybe_new(&new_texture, creation_info);
+
+		Self {
+			new_texture,
+			end_time: None,
+			transition_info: transition_info.clone(),
+			maybe_text_metadata
+		}
+	}
+
+	// This is the function used when the transition is first used. If over 1, it will be clamped to 1.
+	fn get_percent_done(&mut self) -> f64 {
+		let now = get_reference_time();
+
+		if self.end_time.is_none() {
+			// The end time is not set immediately, because the transition only starts once `get_percent_done` has been called
+			self.end_time = Some(now + self.transition_info.duration);
+		}
+
+		let num_ms_left = (self.end_time.unwrap() - now).num_milliseconds();
+		let total_time_for_transition = self.transition_info.duration.num_milliseconds();
+
+		let percent = 1.0 - (num_ms_left as f64 / total_time_for_transition as f64);
+		percent.min(1.0)
+	}
+}
+
+//////////
+
+struct RemakeTransitions<'a> {
+	transitions: HashMap<TextureHandle, VecDeque<RemakeTransition<'a>>>,
+	max_queue_size: usize
+}
+
+impl<'a> RemakeTransitions<'a> {
+	fn new(max_queue_size: usize) -> Self {
+		Self {transitions: HashMap::new(), max_queue_size}
+	}
+
+	fn get_from_handle(&self, handle: &TextureHandle) -> Option<&RemakeTransition> {
+		self.transitions.get(handle).map(|queue| queue.front())?
+	}
+
+	fn get_from_handle_mut(&mut self, handle: &TextureHandle) -> Option<&mut RemakeTransition<'a>> {
+		self.transitions.get_mut(handle).map(|queue| queue.front_mut())?
+	}
+
+	fn queue_new(&mut self, handle: &TextureHandle, mut transition: RemakeTransition<'a>) {
+		// TODO: remove the blend mode if needed after the transition
+		transition.new_texture.set_blend_mode(BlendMode::Blend);
+
+		let queue = self.transitions
+			.entry(handle.clone()).or_insert_with(|| VecDeque::with_capacity(1));
+
+		if queue.len() > self.max_queue_size {
+			log::warn!("Your texture queue is unusually large; in order to not use too much memory, discarding this queue entry.");
+		}
+		else {
+			queue.push_back(transition);
+		}
+
+	}
+
+	fn dequeue_current(&mut self, handle: &TextureHandle) -> Option<RemakeTransition<'a>> {
+		self.transitions.get_mut(handle).and_then(|queue|
+			queue.pop_front().map(|mut transition| {
+				/* Setting the alpha mod to this, so that if the screen became unfocused,
+				the alpha mod becomes set to its final value (instead of leaving it slightly translucent).
+				TODO: perhaps set to a prev alpha mod, or a queued future one? */
+				transition.new_texture.set_alpha_mod(255);
+				transition
+		}))
+	}
+}
+
+//////////
 
 // TODO: use `Cow` around the whole struct instead, if possible
 #[derive(Clone)]
@@ -186,11 +304,70 @@ pub struct TextureHandle {
 	handle: InnerTextureHandle
 }
 
-struct SideScrollingTextMetadata {
+//////////
+
+#[derive(Clone)]
+struct TextMetadataItem {
 	size: (u32, u32),
-	scroll_fn: TextTextureScrollFn,
+	scroll_speed: f64,
+	scroll_easer: TextTextureScrollEaser,
 	text: String
 }
+
+impl TextMetadataItem {
+	fn maybe_new(texture: &Texture, creation_info: &TextureCreationInfo) -> Option<Self> {
+		// Add/update the metadata key for this handle
+		if let TextureCreationInfo::Text((_, text_display_info)) = creation_info {
+			let texture_query = texture.query();
+			let display_width_to_texture_width_ratio = text_display_info.pixel_area.0 as f64 / texture_query.width as f64;
+
+			Some(TextMetadataItem {
+				size: (texture_query.width, texture_query.height),
+				scroll_speed: display_width_to_texture_width_ratio * text_display_info.scroll_speed_multiplier,
+				scroll_easer: text_display_info.scroll_easer,
+				text: text_display_info.text.text.to_string() // TODO: maybe copy it with a reference count instead?
+			})
+		}
+		else {
+			None
+		}
+	}
+}
+
+struct TextMetadata {
+	metadata: HashMap<TextureHandle, TextMetadataItem>
+}
+
+impl TextMetadata {
+	fn new() -> Self {
+		Self {metadata: HashMap::new()}
+	}
+
+	fn get(&self, handle: &TextureHandle) -> Option<&TextMetadataItem> {
+		self.metadata.get(handle)
+	}
+
+	fn contains_handle(&self, handle: &TextureHandle) -> bool {
+		self.metadata.contains_key(handle)
+	}
+
+	fn update(&mut self, handle: &TextureHandle, maybe_item: &Option<TextMetadataItem>) {
+		if let Some(item) = maybe_item {
+			// Add/update the metadata key for this handle
+			self.metadata.insert(handle.clone(), item.clone());
+		}
+		else {
+			/* If it is not text anymore, but text metadata still
+			exists for this handle, then remove that metadata.
+			TODO: perhaps I could do a font cache clearing here somehow? */
+			if self.metadata.contains_key(handle) {
+				self.metadata.remove(handle);
+			}
+		}
+	}
+}
+
+//////////
 
 /* TODO:
 - Later on, if I am using multiple texture pools,
@@ -200,22 +377,31 @@ Otherwise, try to find some way to verify that it's a singleton.
 
 - Will textures be destroyed when dropped currently, and if so, would using
 the `unsafe_textures` feature help this?
+
+- Split a lot of the code into distinct files
 */
 
 pub struct TexturePool<'a> {
 	max_texture_size: (u32, u32),
-	textures: Vec<Texture<'a>>,
+
+	/* Used as an offset time in some time calculations,
+	in contrast to the start of Unix time (just to not lose too much
+	precision with big numbers). */
+	init_time: ReferenceTimestamp,
+
 	texture_creator: &'a TextureCreator,
-
-	//////////
-
 	ttf_context: &'a ttf::Sdl2TtfContext,
+
+	textures: Vec<Texture<'a>>,
 
 	// This maps font paths and point sizes to fonts (TODO: should I limit the cache size?)
 	font_cache: HashMap<FontCacheKey, FontPair<'a>>,
 
 	// This maps texture handles of side-scrolling text textures to metadata about that scrolling text
-	text_metadata: HashMap<TextureHandle, SideScrollingTextMetadata>
+	text_metadata: TextMetadata,
+
+	// This maps texture handles to remake transitions (structs that define how textures should be rendered when remade)
+	remake_transitions: RemakeTransitions<'a>
 }
 
 //////////
@@ -231,27 +417,105 @@ impl<'a> TexturePool<'a> {
 
 	pub fn new(texture_creator: &'a TextureCreator,
 		ttf_context: &'a ttf::Sdl2TtfContext,
-		max_texture_size: (u32, u32)) -> Self {
+		max_texture_size: (u32, u32),
+		max_remake_transition_queue_size: usize) -> Self {
 
 		Self {
 			max_texture_size,
-			textures: Vec::new(),
+			init_time: get_reference_time(),
 			texture_creator,
-
 			ttf_context,
-			text_metadata: HashMap::new(),
-			font_cache: HashMap::new()
+
+			textures: Vec::new(),
+			font_cache: HashMap::new(),
+			text_metadata: TextMetadata::new(),
+			remake_transitions: RemakeTransitions::new(max_remake_transition_queue_size)
 		}
 	}
 
-	pub fn is_text_texture(&self, handle: &TextureHandle) -> bool {
-		self.text_metadata.contains_key(handle)
-	}
+	//////////
 
-	// TODO: cache this
-	pub fn get_aspect_ratio_for(&self, handle: &TextureHandle) -> f32 {
-		let query = self.get_texture_from_handle(handle).query();
-		query.width as f32 / query.height as f32
+	pub fn get_screen_draw_area_for_texture(&mut self, handle: &TextureHandle,
+		uncorrected_screen_dest: PreciseRect,
+		get_centered_subrect_with_aspect_ratio: fn(PreciseRect, f64) -> PreciseRect) -> PreciseRect {
+
+		fn get_aspect_ratio(texture: &Texture) -> f64 {
+			let query = texture.query();
+			query.width as f64 / query.height as f64
+		}
+
+		fn lerp(a: f64, b: f64, t: f64) -> f64 {
+			a + (b - a) * t
+		}
+
+		fn lerp_rects(a: PreciseRect, b: PreciseRect, t: f64) -> PreciseRect {
+			PreciseRect::new(
+				lerp(a.x, b.x, t),
+				lerp(a.y, b.y, t),
+				lerp(a.width, b.width, t),
+				lerp(a.height, b.height, t)
+			)
+		}
+
+		let curr_is_text_texture = self.text_metadata.contains_handle(handle);
+
+		if let Some(transition) = self.remake_transitions.get_from_handle_mut(handle) {
+			let percent_done = transition.get_percent_done();
+			let eased_percent_done = (transition.transition_info.aspect_ratio_easer)(percent_done);
+			assert_in_unit_interval(eased_percent_done);
+
+			// If the next one is a text texture
+			if transition.maybe_text_metadata.is_some() {
+				if curr_is_text_texture {
+					// Case 1: text -> text. No size change.
+					uncorrected_screen_dest
+				}
+				else {
+					// Case 2: normal -> text. Note: this is not aspect-ratio-corrected.
+
+					let bg_aspect_ratio = get_aspect_ratio(self.get_texture_from_handle(handle));
+					let normal_rect = get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, bg_aspect_ratio);
+					let text_rect = uncorrected_screen_dest;
+					lerp_rects(normal_rect, text_rect, eased_percent_done)
+				}
+			}
+			else if curr_is_text_texture {
+				// Case 3: text -> normal. Note: this is not aspect-ratio-corrected.
+
+				let text_rect = uncorrected_screen_dest;
+				let fg_aspect_ratio = get_aspect_ratio(&transition.new_texture);
+				let normal_rect = get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, fg_aspect_ratio);
+				lerp_rects(text_rect, normal_rect, eased_percent_done)
+			}
+			else {
+				// Case 4: normal -> normal.
+
+				// This one linearly interpolates the two aspect ratios, and then does AR correction. Intermediate rect is AR-corrected.
+				let fg_aspect_ratio = get_aspect_ratio(&transition.new_texture);
+				let bg_aspect_ratio = get_aspect_ratio(self.get_texture_from_handle(handle));
+				let lerped_aspect_ratio = lerp(bg_aspect_ratio, fg_aspect_ratio, eased_percent_done);
+
+				get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, lerped_aspect_ratio)
+
+				/*
+				// This one does a linear interpolation between two aspect-ratio-corrected rects. Intermediate rect is not AR-corrected.
+				lerp_rects(
+					get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, bg_aspect_ratio),
+					get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, fg_aspect_ratio),
+					eased_percent_done
+				)
+				*/
+			}
+		}
+		else if curr_is_text_texture {
+			// Case 5: just text.
+			uncorrected_screen_dest
+		}
+		else {
+			// Case 6: just normal.
+			let bg_aspect_ratio = get_aspect_ratio(self.get_texture_from_handle(handle));
+			get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, bg_aspect_ratio)
+		}
 	}
 
 	/*
@@ -259,6 +523,187 @@ impl<'a> TexturePool<'a> {
 		self.textures.len()
 	}
 	*/
+
+	pub fn draw_texture_to_canvas(&mut self, handle: &TextureHandle,
+		canvas: &mut CanvasSDL, screen_dest: PreciseRect) -> MaybeError {
+
+		// Using the integer coordinates here, since it's more compatible with the text rendering code (TODO: perhaps change in the future)
+		let integer_screen_dest = Rect::new(
+			screen_dest.x as i32,
+			screen_dest.y as i32,
+			screen_dest.width.ceil() as u32,
+			screen_dest.height.ceil() as u32
+		);
+
+		// Note: the foreground is a transition layer, drawn on top of the base texture.
+		let mut draw_helper =
+			|this: &mut Self, maybe_opacity: Option<f64>, draw_foreground: bool| {
+
+			////////// First task: determine if the texture should be drawn
+
+			// If there's an opacity to modify, see if it's in range. Otherwise, draw by default.
+			let should_draw = if let Some(opacity) = maybe_opacity {
+				// Skip drawing if the opacity is less than or equal to zero, or greater than one
+				let should_draw = opacity > 0.0 && opacity <= 1.0;
+
+				if should_draw {
+
+					// If drawing, first get a mutable texture
+					let texture_mut = if draw_foreground {
+						&mut this.remake_transitions.get_from_handle_mut(handle).unwrap().new_texture
+					}
+					else {
+						this.get_texture_from_handle_mut(handle)
+					};
+
+					// Then, set the alpha mod accordingly
+					let alpha = (opacity * 255.0) as u8;
+					texture_mut.set_alpha_mod(alpha);
+				}
+
+				should_draw
+			}
+			else {
+				true
+			};
+
+			////////// Second task: draw if necessary
+
+			if should_draw {
+				let (texture, maybe_text_metadata) = if draw_foreground {
+					let transition = this.remake_transitions.get_from_handle(handle).unwrap();
+					(&transition.new_texture, transition.maybe_text_metadata.as_ref())
+				}
+				else {
+					let texture = this.get_texture_from_handle(handle);
+					let text_metadata = this.text_metadata.get(handle);
+					(texture, text_metadata)
+				};
+
+				if let Some(text_metadata) = maybe_text_metadata {
+					this.draw_text_texture_to_canvas(texture, text_metadata, canvas, integer_screen_dest)
+				}
+				else {
+					canvas.copy_f::<_, FRect>(texture, None, screen_dest.into()).to_generic()
+				}
+			}
+			else {
+				Ok(())
+			}
+		};
+
+		//////////
+
+		if let Some(transition) = self.remake_transitions.get_from_handle_mut(handle) {
+			let percent_done = transition.get_percent_done();
+
+			if percent_done == 1.0 { // Finishing the transition
+				let moved_transition = self.remake_transitions.dequeue_current(handle).unwrap();
+
+				// Carry over the old color mod (TODO: do this in another helper function, and carry over the alpha mod and blend mode too)
+				/*
+				let old_texture = self.get_texture_from_handle(handle);
+				let prev_color_mod = old_texture.color_mod();
+				moved_transition.new_texture.set_color_mod(prev_color_mod.0, prev_color_mod.1, prev_color_mod.2);
+				*/
+
+				// Update the text metadata appropriately
+				self.text_metadata.update(handle, &moved_transition.maybe_text_metadata);
+
+				// And finally, move the new texture into its new slot
+				*self.get_texture_from_handle_mut(handle) = moved_transition.new_texture;
+			}
+			else {
+				let (bg_opacity, fg_opacity) = (transition.transition_info.opacity_easer)(percent_done);
+				assert_in_unit_interval(bg_opacity);
+				assert_in_unit_interval(fg_opacity);
+
+				let bg_texture = self.get_texture_from_handle_mut(handle);
+				bg_texture.set_blend_mode(BlendMode::Blend); // TODO: only set once
+
+				// Draw the background, and then the foreground
+				draw_helper(self, Some(bg_opacity), false)?;
+				draw_helper(self, Some(fg_opacity), true)?;
+
+				return Ok(()); // Not continuing with any normal drawing here
+			}
+		}
+
+		//////////
+
+		// This invocation runs whenever there is no foreground transition layer to draw
+		draw_helper(self, None, false)
+	}
+
+	fn draw_text_texture_to_canvas(
+		&self, texture: &Texture,
+		text_metadata: &TextMetadataItem,
+		canvas: &mut CanvasSDL, screen_dest: Rect) -> MaybeError {
+
+		// This can be extended later to allow for stuff like rotation
+		fn draw(texture: &Texture, canvas: &mut CanvasSDL, src: Option<Rect>, dest: Rect) -> MaybeError {
+			canvas.copy(texture, src, dest).to_generic()
+		}
+
+		fn compute_time_seed(secs_fract: f64, text_metadata: &TextMetadataItem) -> f64 {
+			/* Note: any text that appears to scroll faster when compressed on the x-axis (during a transition)
+			is not scrolling faster; it's just getting 'pushed' rightwards (or 'pulled' leftwards);
+			so it is technically moving at a faster speed, but relative to the area of movement itself,
+			it's not moving any faster. */
+
+			let scroll_speed = text_metadata.scroll_speed;
+			let unchanged_period = text_metadata.scroll_easer.1;
+			let period = unchanged_period / scroll_speed;
+
+			// I am modding the secs fract by the period, so that the time values don't get too large
+			(secs_fract % period) * scroll_speed
+		}
+
+		//////////
+
+		let texture_size = text_metadata.size;
+		let dest_width = screen_dest.width();
+		let time_since_start = get_reference_time().signed_duration_since(self.init_time);
+
+		let secs_fract = time_since_start.num_milliseconds() as f64 / 1000.0;
+		let time_seed = compute_time_seed(secs_fract, text_metadata);
+
+		let (scroll_fract, should_wrap) = (text_metadata.scroll_easer.0)(
+			time_seed, texture_size.0 <= dest_width
+		);
+
+		assert_in_unit_interval(scroll_fract);
+
+		//////////
+
+		let mut x = texture_size.0;
+		if !should_wrap {x -= dest_width;}
+
+		//////////
+
+		let texture_src = Rect::new(
+			(x as f64 * scroll_fract) as i32,
+			0, dest_width, texture_size.1
+		);
+
+		if !should_wrap {
+			return draw(texture, canvas, Some(texture_src), screen_dest);
+		}
+
+		//////////
+
+		let (right_screen_dest, possible_left_rects) = Self::split_overflowing_scrolled_rect(
+			texture_src, screen_dest, texture_size, &text_metadata.text
+		);
+
+		draw(texture, canvas, Some(texture_src), right_screen_dest)?;
+
+		if let Some((left_texture_src, left_screen_dest)) = possible_left_rects {
+			draw(texture, canvas, Some(left_texture_src), left_screen_dest)?;
+		}
+
+		Ok(())
+	}
 
 	/* This returns the left/righthand screen dest, and a possible other texture
 	src and screen dest that may wrap around to the left side of the screen */
@@ -271,6 +716,8 @@ impl<'a> TexturePool<'a> {
 		- `texture_src.width == screen_dest.width`
 		- `texture_src.height` == `screen_dest.height`
 		- `texture_src.width != texture_width` (`texture_src.width` will be smaller or equal)
+
+		This only holds true when the texture is not part of a transition, though.
 		*/
 
 		//////////
@@ -314,98 +761,6 @@ impl<'a> TexturePool<'a> {
 		(righthand_dest_rect, Some((lefthand_texture_clip_rect, lefthand_screen_dest)))
 	}
 
-	/* TODO:
-	- Add an option for not scrolling text (a fixed string that never changes)
-	- Make the scroll effect something common?
-	- Would it be possible to manipulate the canvas scale to be able to only pass normalized coordinates to the renderer?
-	- Use `copy_ex` eventually, and the special canvas functions for things like rounded rectangles
-	*/
-	pub fn draw_texture_to_canvas(&self, handle: &TextureHandle,
-		canvas: &mut CanvasSDL, screen_dest: Rect) -> MaybeError {
-
-		let texture = self.get_texture_from_handle(handle);
-		let possible_text_metadata = self.text_metadata.get(handle);
-
-		if possible_text_metadata.is_none() {
-			return canvas.copy(texture, None, screen_dest).to_generic();
-		}
-
-		//////////
-
-		let text_metadata = possible_text_metadata.context("Expected text metadata")?;
-		let texture_size = text_metadata.size;
-
-		// TODO: compute the time since the unix epoch outside this fn, somehow (or, use the SDL timer)
-
-		let dest_width = screen_dest.width();
-		let time_since_unix_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
-		let time_seed = (time_since_unix_epoch.as_millis() as f64 / 1000.0) * (dest_width as f64 / texture_size.0 as f64);
-
-		let mut x = texture_size.0;
-
-		let (scroll_fract, should_wrap) = (text_metadata.scroll_fn)(
-			time_seed, x <= dest_width
-		);
-
-		assert_in_unit_interval(scroll_fract as f32);
-
-		//////////
-
-		if !should_wrap {x -= dest_width;}
-
-		//////////
-
-		let texture_src = Rect::new(
-			(x as f64 * scroll_fract) as i32,
-			0, dest_width, texture_size.1
-		);
-
-		if !should_wrap {
-			return canvas.copy(texture, texture_src, screen_dest).to_generic();
-		}
-
-		//////////
-
-		let (right_screen_dest, possible_left_rects) = Self::split_overflowing_scrolled_rect(
-			texture_src, screen_dest, texture_size, &text_metadata.text
-		);
-
-		canvas.copy(texture, texture_src, right_screen_dest).to_generic()?;
-
-		if let Some((left_texture_src, left_screen_dest)) = possible_left_rects {
-			canvas.copy(texture, left_texture_src, left_screen_dest).to_generic()?;
-		}
-
-		Ok(())
-	}
-
-	fn possibly_update_text_metadata(&mut self, new_texture: &Texture,
-		handle: &TextureHandle, creation_info: &TextureCreationInfo) {
-
-		match creation_info {
-			// Add/update the metadata key for this handle
-			TextureCreationInfo::Text((_, text_display_info)) => {
-				let query = new_texture.query();
-
-				let metadata = SideScrollingTextMetadata {
-					size: (query.width, query.height),
-					scroll_fn: text_display_info.scroll_fn,
-					text: text_display_info.text.text.to_string() // TODO: maybe copy it with a reference count instead?
-				};
-
-				self.text_metadata.insert(handle.clone(), metadata);
-			},
-
-			_ => {
-				/* If it is not text anymore, but text metadata still
-				exists for this handle, then remove that metadata.
-				TODO: perhaps I could do a font cache clearing here somehow? */
-				if self.text_metadata.contains_key(handle) {
-					self.text_metadata.remove(handle);
-				}
-			}
-		}
-	}
 
 	//////////
 
@@ -413,7 +768,7 @@ impl<'a> TexturePool<'a> {
 		let handle = TextureHandle {handle: self.textures.len() as InnerTextureHandle};
 		let texture = self.make_raw_texture(creation_info)?;
 
-		self.possibly_update_text_metadata(&texture, &handle, creation_info);
+		self.text_metadata.update(&handle, &TextMetadataItem::maybe_new(&texture, creation_info));
 		self.textures.push(texture);
 
 		Ok(handle)
@@ -422,32 +777,58 @@ impl<'a> TexturePool<'a> {
 	// TODO: if possible, update the texture in-place instead (if they occupy the amount of space, or less)
 	pub fn remake_texture(&mut self, creation_info: &TextureCreationInfo, handle: &TextureHandle) -> MaybeError {
 		let new_texture = self.make_raw_texture(creation_info)?;
-
-		self.possibly_update_text_metadata(&new_texture, handle, creation_info);
+		self.text_metadata.update(handle, &TextMetadataItem::maybe_new(&new_texture, creation_info));
 		*self.get_texture_from_handle_mut(handle) = new_texture;
+		Ok(())
+
+	}
+
+	// TODO: merge this with `remake_texture` (just add an extra param)
+	pub fn remake_texture_with_transition(&mut self, creation_info: &TextureCreationInfo,
+		handle: &TextureHandle, remake_transition_info: &RemakeTransitionInfo) -> MaybeError {
+
+		/* TODO: defer the creation of this until a later point, if possible
+		(otherwise, queueing many at once will be quite slow) */
+		let new_texture = self.make_raw_texture(creation_info)?;
+
+		self.remake_transitions.queue_new(handle, RemakeTransition::new(
+			new_texture, remake_transition_info, creation_info
+		));
 
 		Ok(())
 	}
 
 	// TODO: allow for texture deletion too
 
-	////////// TODO: use these
+	////////// TODO: implement these fully
 
-	/*
 	pub fn set_color_mod_for(&mut self, handle: &TextureHandle, r: u8, g: u8, b: u8) {
-		self.get_texture_from_handle_mut(handle).set_color_mod(r, g, b);
+		unimplemented!("Texture color mod setting is currently not supported! In the future, it will \
+			be supported by carrying it over for transitioning/remade textures.");
+
+		// self.get_texture_from_handle_mut(handle).set_color_mod(r, g, b);
 	}
 
 	pub fn set_alpha_mod_for(&mut self, handle: &TextureHandle, a: u8) {
-		self.get_texture_from_handle_mut(handle).set_alpha_mod(a);
-	}
-	*/
+		unimplemented!("Texture alpha mod setting is currently not supported! In the future, it will \
+			be supported by using it as a start/end interpolant for transitioning textures, \
+			and carrying it over for remade textures.");
 
-	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, blend_mode: render::BlendMode) {
-		self.get_texture_from_handle_mut(handle).set_blend_mode(blend_mode);
+		// self.get_texture_from_handle_mut(handle).set_alpha_mod(a);
 	}
 
-	////////// TODO: eliminate the repetition here (perhaps inline, or make to a macro - or is there some other way?)
+	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, blend_mode: BlendMode) {
+		// TODO: specify a blend mode when making a transition? Or perhaps just do queueing logic internally here?
+		if self.remake_transitions.get_from_handle(handle).is_some() {
+			unimplemented!("Cannot set the blend mode during a remake transition! In The future, it will \
+				be supported by queueing the new blend mode for once the transition is done somehow \
+				(not all blend modes may be valid for transitions).");
+		}
+
+		// self.get_texture_from_handle_mut(handle).set_blend_mode(blend_mode);
+	}
+
+	//////////
 
 	fn get_texture_from_handle(&self, handle: &TextureHandle) -> &Texture<'a> {
 		&self.textures[handle.handle as usize]
@@ -460,7 +841,7 @@ impl<'a> TexturePool<'a> {
 	//////////
 
 	fn get_font_pair(&mut self, key: FontCacheKey, maybe_options: Option<&FontInfo>) -> &FontPair {
-		let fonts = self.font_cache.entry(key).or_insert_with(
+		let fonts = self.font_cache.entry(key).or_insert_with( // TODO: should I use `or_insert_with_key` instead?
 			|| {
 				// TODO: don't unwrap
 				let make_font = |path, point_size| self.ttf_context.load_font(path, point_size).unwrap();
@@ -598,11 +979,14 @@ impl<'a> TexturePool<'a> {
 				if !did_monospace_cutting {
 					log::debug!("Doing manual text span cutting (quite inefficient)");
 
+					// TODO: perhaps use `get_reference_time`?
 					let time_before = std::time::Instant::now();
 
+					/* TODO: could I use the monospace cutting as a lossy estimator,
+					and use that as a faster starting point for this cutting? */
 					while next_total_width > max_texture_width {
 						span = &span[0..span.len() - 1];
-						(span_as_string, subsurface_width, next_total_width) = compute_span_data(&span)?;
+						(span_as_string, subsurface_width, next_total_width) = compute_span_data(span)?;
 					}
 
 					log::debug!("That took this many milliseconds: {}", time_before.elapsed().as_millis());
@@ -659,7 +1043,7 @@ impl<'a> TexturePool<'a> {
 		let mut dest_rect = Rect::new(0, 0, 1, 1);
 
 		for mut subsurface in subsurfaces {
-			subsurface.set_blend_mode(render::BlendMode::None).to_generic()?;
+			subsurface.set_blend_mode(BlendMode::None).to_generic()?;
 
 			(dest_rect.w, dest_rect.h) = (subsurface.width() as i32, subsurface.height() as i32);
 			subsurface.blit(None, &mut joined_surface, dest_rect).to_generic()?;
@@ -705,7 +1089,7 @@ impl<'a> TexturePool<'a> {
 
 			Ok(if blank_surface.width() < max_width || blank_surface.height() != needed_height {
 				let mut corrected = Surface::new(max_width, needed_height, blank_surface.pixel_format_enum()).to_generic()?;
-				blank_surface.set_blend_mode(render::BlendMode::None).to_generic()?;
+				blank_surface.set_blend_mode(BlendMode::None).to_generic()?;
 				blank_surface.blit(None, &mut corrected, None).to_generic()?;
 				corrected
 			}

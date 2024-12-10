@@ -1,13 +1,12 @@
 use std::borrow::Cow;
 
-use chrono::Timelike;
-
 use crate::{
 	request,
 	texture::TextureCreationInfo,
 	dashboard_defs::error::ErrorState,
 
 	utility_types::{
+		time::*,
 		file_utils,
 		generic_result::*,
 		continually_updated::{Updatable, ContinuallyUpdated}
@@ -32,13 +31,13 @@ pub enum ModelAgeState {
 
 #[derive(Clone)]
 struct ModelAgeData {
-	custom_expiry_duration: chrono::Duration,
+	custom_expiry_duration: Duration,
 	curr_age_state: ModelAgeState,
 	just_updated_state: bool
 }
 
 impl ModelAgeData {
-	fn new(custom_expiry_duration: chrono::Duration, model: &dyn SpinitronModel) -> GenericResult<Self> {
+	fn new(custom_expiry_duration: Duration, model: &dyn SpinitronModel) -> GenericResult<Self> {
 		let data = Self {
 			custom_expiry_duration,
 			curr_age_state: ModelAgeState::CurrentlyActive,
@@ -51,12 +50,12 @@ impl ModelAgeData {
 	// This returns the new model age data
 	fn update(mut self, model: &dyn SpinitronModel) -> GenericResult<ModelAgeData> {
 		if let Some((start_time, end_time)) = model.maybe_get_time_range()? {
-			let curr_time = chrono::Utc::now();
+			let curr_time = get_reference_time();
 
 			let time_after_start = curr_time.signed_duration_since(start_time);
 			let time_after_end = curr_time.signed_duration_since(end_time);
 
-			let zero = chrono::Duration::zero();
+			let zero = Duration::zero();
 
 			// The custom end may be before or after the actual end
 			let (is_after_start, is_after_end, is_after_custom_end) = (
@@ -113,7 +112,7 @@ type WindowSize = (u32, u32);
 type SpinitronStateDataParams<'a> = (
 	&'a str, // API key
 	fn() -> TextureCreationInfo<'static>, // Fallback texture creation info getter
-	[chrono::Duration; NUM_SPINITRON_MODEL_TYPES], // Custom model expiry durations
+	[Duration; NUM_SPINITRON_MODEL_TYPES], // Custom model expiry durations
 	WindowSize
 );
 
@@ -135,7 +134,7 @@ impl SpinitronStateData {
 		////////// Setting up their age data
 
 		// TODO: once `zip` is implemented for arrays, rewrite this ugly bit
-		let models_with_custom_expiry_durations: [(&dyn SpinitronModel, chrono::Duration); NUM_SPINITRON_MODEL_TYPES] = [
+		let models_with_custom_expiry_durations: [(&dyn SpinitronModel, Duration); NUM_SPINITRON_MODEL_TYPES] = [
 			(&spin, custom_model_expiry_durations[0]),
 			(&playlist, custom_model_expiry_durations[1]),
 			(&persona, custom_model_expiry_durations[2]),
@@ -264,7 +263,7 @@ impl SpinitronStateData {
 
 		//////////
 
-		let curr_minutes = chrono::Local::now().minute();
+		let curr_minutes = get_local_time().minute();
 
 		// Shows can only be scheduled under 30-minute intervals (will not switch immediately if added sporadically)
 		if curr_minutes == 0 || curr_minutes == 30 {
@@ -327,7 +326,7 @@ impl SpinitronState {
 		let initial_spin_texture_size_guess = params.3;
 
 		Ok(Self {
-			continually_updated: ContinuallyUpdated::new(&data, &initial_spin_texture_size_guess, "Spinitron")
+			continually_updated: ContinuallyUpdated::new(&data, &initial_spin_texture_size_guess, "Spinitron").await
 		})
 	}
 

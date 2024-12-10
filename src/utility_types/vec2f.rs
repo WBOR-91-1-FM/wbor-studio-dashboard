@@ -2,7 +2,7 @@ use std::ops;
 
 /* TODO: could I wrap this in a struct type?
 That would then allow for things like closure under multiplication */
-type Component = f32;
+type Component = f64;
 
 // A 0-1 normalized floating-point vec2
 #[derive(Copy, Clone, PartialEq)]

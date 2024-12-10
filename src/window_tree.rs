@@ -1,4 +1,4 @@
-use sdl2::{self, rect::Rect};
+use sdl2::{self, rect::FRect};
 
 use crate::{
 	utility_types::{
@@ -13,28 +13,30 @@ use crate::{
 
 ////////// These are some general utility types
 
-/* TODO: make this more similar to `Rect`, in terms of operations.
-Also make a constructor for this. */
-#[derive(Copy, Clone)]
-struct FRect {
-	pub x: f32,
-	pub y: f32,
-	pub width: f32,
-	pub height: f32
-}
-
-impl From<FRect> for Rect {
-	fn from(r: FRect) -> Self {
-		Rect::new(
-			r.x as i32, r.y as i32,
-			r.width as u32, r.height as u32
-		)
-	}
-}
-
 // TODO: maybe put these in `utility_types`
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
+
+// This should be used instead of `FRect` whenever possible
+#[derive(Copy, Clone)]
+pub struct PreciseRect {
+	pub x: f64,
+	pub y: f64,
+	pub width: f64,
+	pub height: f64
+}
+
+impl PreciseRect {
+	pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
+		Self {x, y, width, height}
+	}
+}
+
+impl From<PreciseRect> for FRect {
+	fn from(rect: PreciseRect) -> FRect {
+		FRect::new(rect.x as f32, rect.y as f32, rect.width as f32, rect.height as f32)
+	}
+}
 
 /* TODO: can I pass a current time parameter in here,
 in order to allow for timing-based effects like texture fade-in? */
@@ -224,30 +226,36 @@ impl Window {
 
 	////////// These are the window rendering functions (both public and private)
 
-	pub fn render(&mut self, rendering_params: &mut PerFrameConstantRenderingParams) -> MaybeError {
-		let output_size = rendering_params.sdl_canvas.output_size().to_generic()?;
-		let sdl_window_bounds = FRect {x: 0.0, y: 0.0, width: output_size.0 as f32, height: output_size.1 as f32};
-		self.inner_render(rendering_params, sdl_window_bounds)
+	pub fn render(&mut self, rendering_params: &mut PerFrameConstantRenderingParams) {
+		match rendering_params.sdl_canvas.output_size() {
+			Ok(output_size) => {
+				let sdl_window_bounds = PreciseRect::new(0.0, 0.0, output_size.0 as f64, output_size.1 as f64);
+				self.inner_render(rendering_params, sdl_window_bounds);
+			}
+			Err(err) => {
+				log::error!("Skipping rendering; could not get the canvas's output size. Reason: '{err}'.");
+			}
+		};
 	}
 
-	fn transform_vec2_to_parent_scale(v: Vec2f, parent_rect: FRect) -> (f32, f32) {
+	fn transform_vec2_to_parent_scale(v: Vec2f, parent_rect: PreciseRect) -> (f64, f64) {
 		(v.x() * parent_rect.width + parent_rect.x, v.y() * parent_rect.height + parent_rect.y)
 	}
 
 	fn inner_render(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
-		parent_rect: FRect) -> MaybeError {
+		parent_rect: PreciseRect) {
 
 		////////// Getting the new pixel-space bounding box for this window
 
 		let rect_origin = Self::transform_vec2_to_parent_scale(self.top_left, parent_rect);
 
-		let screen_dest = FRect {
-			x: rect_origin.0,
-			y: rect_origin.1,
-			width: self.size.x() * parent_rect.width,
-			height: self.size.y() * parent_rect.height
-		};
+		let screen_dest = PreciseRect::new(
+			rect_origin.0,
+			rect_origin.1,
+			self.size.x() * parent_rect.width,
+			self.size.y() * parent_rect.height
+		);
 
 		////////// Updating the window
 
@@ -260,33 +268,43 @@ impl Window {
 
 		if let Some((updater, update_rate)) = self.possible_updater {
 			if update_rate.is_time_to_update(rendering_params.frame_counter) {
-				updater(WindowUpdaterParams {
+				//////////
+
+				let params = WindowUpdaterParams {
 					window: self,
 					texture_pool: &mut rendering_params.texture_pool,
 					shared_window_state: &mut rendering_params.shared_window_state,
-					area_drawn_to_screen: (screen_dest.width as u32, screen_dest.height as u32)
-				})?;
+					area_drawn_to_screen: (screen_dest.width.ceil() as u32, screen_dest.height.ceil() as u32)
+				};
+
+				if let Err(err) = updater(params) {
+					// TODO: report this as an internal dashboard error too
+					log::error!("An error occurred while updating a window: '{err}'.");
+				}
+
+				//////////
 			}
 		}
 
 		if !self.skip_drawing {
-			self.draw_window_contents(rendering_params, screen_dest)?;
+			if let Err(err) = self.draw_window_contents(rendering_params, screen_dest) {
+				// TODO: report this as an internal dashboard error too
+				log::error!("An error occurred while drawing a window's contents: '{err}'.");
+			}
 		}
 
 		////////// Updating all child windows
 
 		if let Some(children) = &mut self.children {
 			for child in children {
-				child.inner_render(rendering_params, screen_dest)?;
+				child.inner_render(rendering_params, screen_dest);
 			}
 		}
-
-		Ok(())
 	}
 
 	fn draw_window_contents(&mut self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
-		uncorrected_screen_dest: FRect) -> MaybeError {
+		uncorrected_screen_dest: PreciseRect) -> MaybeError {
 
 		//////////
 
@@ -298,7 +316,7 @@ impl Window {
 
 		if let Some(border_color) = &self.maybe_border_color {
 			possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
-				|canvas| canvas.draw_rect(uncorrected_screen_dest.into()).to_generic())?;
+				|canvas| canvas.draw_frect(uncorrected_screen_dest.into()).to_generic())?;
 		}
 
 		return Ok(());
@@ -308,11 +326,11 @@ impl Window {
 		fn draw_contents(
 			contents: &WindowContents,
 			rendering_params: &mut PerFrameConstantRenderingParams,
-			uncorrected_screen_dest: FRect,
+			uncorrected_screen_dest: PreciseRect,
 			skip_aspect_ratio_correction: bool) -> MaybeError {
 
 			let maybe_corrected_screen_dest = maybe_correct_aspect_ratio(
-				contents, uncorrected_screen_dest, &rendering_params.texture_pool,
+				contents, uncorrected_screen_dest, &mut rendering_params.texture_pool,
 				skip_aspect_ratio_correction);
 
 			let sdl_canvas = &mut rendering_params.sdl_canvas;
@@ -321,21 +339,21 @@ impl Window {
 				WindowContents::Nothing => {},
 
 				WindowContents::Color(color) => possibly_draw_with_transparency(
-					color, sdl_canvas, |canvas|
-						canvas.fill_rect::<Rect>(uncorrected_screen_dest.into()).to_generic()
-					)?,
+					color, sdl_canvas, |canvas| {
+						canvas.fill_frect::<FRect>(uncorrected_screen_dest.into()).to_generic()
+					})?,
 
 				WindowContents::Lines(line_series) => {
-					use sdl2::rect::Point as PointSDL;
+					use sdl2::rect::FPoint as PointSDL;
 
 					for series in line_series {
 						let converted_series: Vec<PointSDL> = series.1.iter().map(|&point| {
 							let xy = Window::transform_vec2_to_parent_scale(point, maybe_corrected_screen_dest);
-							PointSDL::new(xy.0 as i32, xy.1 as i32)
+							PointSDL::new(xy.0 as f32, xy.1 as f32)
 						}).collect();
 
 						possibly_draw_with_transparency(&series.0, sdl_canvas, |canvas|
-							canvas.draw_lines(&*converted_series).to_generic()
+							canvas.draw_flines(&*converted_series).to_generic()
 						)?;
 					}
 				},
@@ -344,7 +362,7 @@ impl Window {
 				the opaque areas of textures with alpha values */
 				WindowContents::Texture(texture) =>
 					rendering_params.texture_pool.draw_texture_to_canvas(
-						texture, sdl_canvas, maybe_corrected_screen_dest.into()
+						texture, sdl_canvas, maybe_corrected_screen_dest
 					)?,
 
 				WindowContents::Many(many) => {
@@ -382,47 +400,43 @@ impl Window {
 		////////// A function for correcting the aspect ratio of some window contents
 
 		fn maybe_correct_aspect_ratio(contents: &WindowContents,
-			uncorrected_screen_dest: FRect, texture_pool: &TexturePool,
-			skip_aspect_ratio_correction: bool) -> FRect {
+			uncorrected_screen_dest: PreciseRect, texture_pool: &mut TexturePool,
+			skip_aspect_ratio_correction: bool) -> PreciseRect {
 
-			match contents {
-				WindowContents::Texture(texture) => {
-					if skip_aspect_ratio_correction || texture_pool.is_text_texture(texture) {
-						uncorrected_screen_dest
-					}
-					else {
-						let texture_aspect_ratio = texture_pool.get_aspect_ratio_for(texture);
-						get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, texture_aspect_ratio)
-					}
-				},
+			if skip_aspect_ratio_correction {
+				uncorrected_screen_dest
+			}
+			else {
+				match contents {
+					WindowContents::Color(_) | WindowContents::Many(_) => uncorrected_screen_dest,
 
-				WindowContents::Color(_) | WindowContents::Many(_) => uncorrected_screen_dest,
+					WindowContents::Texture(texture) =>
+						texture_pool.get_screen_draw_area_for_texture(texture, uncorrected_screen_dest, get_centered_subrect_with_aspect_ratio),
 
-				_ => {
-					if skip_aspect_ratio_correction {uncorrected_screen_dest}
-					else {get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, 1.0)}
+					_ => get_centered_subrect_with_aspect_ratio(uncorrected_screen_dest, 1.0)
 				}
 			}
 		}
 
 		////////// A function for making a rect within another one with a given aspect ratio
 
-		fn get_centered_subrect_with_aspect_ratio(orig_rect: FRect, desired_aspect_ratio: f32) -> FRect {
-			let orig_aspect_ratio = orig_rect.width / orig_rect.height;
+		fn get_centered_subrect_with_aspect_ratio(orig_rect: PreciseRect, desired_aspect_ratio: f64) -> PreciseRect {
+			let (orig_w, orig_h) = (orig_rect.width, orig_rect.height);
+			let orig_aspect_ratio = orig_w / orig_h;
 
-			let (width, height) = if desired_aspect_ratio > orig_aspect_ratio {
-				(orig_rect.width, orig_rect.width / desired_aspect_ratio)
+			let (w, h) = if desired_aspect_ratio > orig_aspect_ratio {
+				(orig_w, orig_w / desired_aspect_ratio)
 			}
 			else {
-				(orig_rect.height * desired_aspect_ratio, orig_rect.height)
+				(orig_h * desired_aspect_ratio, orig_h)
 			};
 
-			FRect {
-				x: orig_rect.x + (orig_rect.width - width) * 0.5,
-				y: orig_rect.y + (orig_rect.height - height) * 0.5,
-				width,
-				height
-			}
+			PreciseRect::new(
+				orig_rect.x + (orig_w - w) * 0.5,
+				orig_rect.y + (orig_h - h) * 0.5,
+				w,
+				h
+			)
 		}
 	}
 }

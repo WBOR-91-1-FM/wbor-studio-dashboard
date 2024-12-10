@@ -6,8 +6,6 @@ use std::{
 	io::{BufRead, BufReader}
 };
 
-use chrono::Timelike;
-
 use interprocess::local_socket::{
 	ToFsName,
 	GenericFilePath,
@@ -25,6 +23,7 @@ use crate::{
 	},
 
 	utility_types::{
+		time::*,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
 		vec2f::{Vec2f, assert_in_unit_interval},
@@ -48,7 +47,7 @@ pub struct SurpriseCreationInfo<'a> {
 	pub texture_path: &'a str,
 	pub texture_blend_mode: sdl2::render::BlendMode,
 
-	pub update_rate: chrono::Duration,
+	pub update_rate: Duration,
 	pub num_update_steps_to_appear_for: NumAppearanceSteps,
 	pub chance_of_appearing_when_updating: SurpriseAppearanceChance,
 
@@ -98,7 +97,7 @@ pub async fn make_surprise_window(
 	////////// Some utility functions
 
 	fn appearance_was_randomly_triggered(surprise_info: &SurpriseInfo, rand_generator: &mut rand::rngs::ThreadRng) -> bool {
-		let local_hour = chrono::Local::now().hour();
+		let local_hour = get_local_time().hour();
 
 		let in_acceptable_hour_range =
 			local_hour >= surprise_info.local_hours_24_start.into()
@@ -222,7 +221,7 @@ pub async fn make_surprise_window(
 
 	let surprise_windows = surprise_creation_info.iter().enumerate().zip(all_creation_info).map(
 		|((index, creation_info), texture_creation_info)| {
-			assert_in_unit_interval(creation_info.chance_of_appearing_when_updating as f32);
+			assert_in_unit_interval(creation_info.chance_of_appearing_when_updating);
 
 			/* The lower bound checks that it actually appears, and the upper
 			bound checks that the ` + 1` in the updater does not overflow */

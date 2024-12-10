@@ -1,4 +1,3 @@
-use chrono::Duration;
 use sdl2::{render::BlendMode, ttf::{FontStyle, Hinting}};
 
 use crate::{
@@ -9,6 +8,7 @@ use crate::{
 	utility_types::{
 		file_utils,
 		vec2f::Vec2f,
+		time::Duration,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
 		update_rate::{UpdateRate, UpdateRateCreator}

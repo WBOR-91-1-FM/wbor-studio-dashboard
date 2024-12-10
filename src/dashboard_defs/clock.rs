@@ -8,6 +8,7 @@ use crate::{
 	},
 
 	utility_types::{
+		time::*,
 		vec2f::Vec2f,
 		generic_result::*,
 		update_rate::UpdateRate,
@@ -17,26 +18,24 @@ use crate::{
 	dashboard_defs::shared_window_state::SharedWindowState
 };
 
-use chrono::{Local, Timelike};
-
 // This is called raw because it's centered at (0, 0) and is unrotated.
-type RawClockHand = GeneralLine<(f32, f32)>;
+type RawClockHand = GeneralLine<(f64, f64)>;
 
 const NUM_CLOCK_HANDS: usize = 4;
-const CLOCK_CENTER: (f32, f32) = (0.5, 0.5);
+const CLOCK_CENTER: (f64, f64) = (0.5, 0.5);
 
 //////////
 
 // These extents are defined assuming that the clock is pointing to 12:00
 pub struct ClockHandConfig {
-	x_extent: f32,
-	minor_y_extent: f32,
-	major_y_extent: f32,
+	x_extent: f64,
+	minor_y_extent: f64,
+	major_y_extent: f64,
 	color: ColorSDL
 }
 
 impl ClockHandConfig {
-	pub const fn new(x_extent: f32, minor_y_extent: f32, major_y_extent: f32, color: ColorSDL) -> Self {
+	pub const fn new(x_extent: f64, minor_y_extent: f64, major_y_extent: f64, color: ColorSDL) -> Self {
 		Self {x_extent, minor_y_extent, major_y_extent, color}
 	}
 
@@ -79,7 +78,7 @@ impl ClockHands {
 		dial_contents: WindowContents) -> GenericResult<(Self, Window)> {
 
 		fn updater_fn(params: WindowUpdaterParams) -> MaybeError {
-			let curr_time = Local::now();
+			let curr_time = get_local_time();
 
 			let time_units: [(u32, u32); NUM_CLOCK_HANDS] = [
 				(curr_time.timestamp_subsec_millis(), 1000),
@@ -110,10 +109,10 @@ impl ClockHands {
 			for ((raw_hand, rotated_hand), time_unit) in
 				clock_hands_as_list.into_iter().zip(rotated_hands.iter_mut().rev()).zip(time_units) {
 
-				let time_fract = (time_unit.0 as f32 + prev_time_fract) / time_unit.1 as f32;
+				let time_fract = (time_unit.0 as f64 + prev_time_fract) / time_unit.1 as f64;
 				prev_time_fract = time_fract;
 
-				let angle = time_fract * std::f32::consts::TAU;
+				let angle = time_fract * std::f64::consts::TAU;
 				let (cos_angle, sin_angle) = (angle.cos(), angle.sin());
 
 				rotated_hand.1.iter_mut().zip(&raw_hand.1).for_each(|(dest, raw)| {

@@ -14,7 +14,6 @@ use sdl2::{
 };
 
 use crate::{
-	texture::TexturePool,
 	window_tree::ColorSDL,
 	dashboard_defs::themes,
 
@@ -35,7 +34,7 @@ use crate::{
 enum ScreenOption {
 	/* This runs it as a small app window, which can optionally
 	be borderless, and optionally be translucent too. */
-	Windowed(u32, u32, bool, Option<f32>),
+	Windowed(u32, u32, bool, Option<f64>),
 
 	/* This allows you to switch windows without shutting
 	down the app. It is slower than real fullscreen. */
@@ -70,7 +69,7 @@ fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 }
 
 /*
-fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<usize>, texture_pool: &TexturePool) {
+fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<usize>, texture_pool: &texture::TexturePool) {
 	let num_textures_in_pool = texture_pool.size();
 
 	match initial_num_textures_in_pool {
@@ -107,6 +106,7 @@ macro_rules! build_dashboard_theme {(
 //////////
 
 const STANDARD_BACKGROUND_COLOR: ColorSDL = ColorSDL::BLACK;
+const MAX_REMAKE_TRANSITION_QUEUE_SIZE: usize = 5; // This is to avoid unbounded memory consumption
 
 #[tokio::main]
 async fn main() -> MaybeError {
@@ -155,7 +155,7 @@ async fn main() -> MaybeError {
 
 	// TODO: why does not setting the opacity result in broken fullscreen screen clearing?
 	if let ScreenOption::Windowed(.., Some(opacity)) = app_config.screen_option {
-		if let Err(err) = sdl_window.set_opacity(opacity) {
+		if let Err(err) = sdl_window.set_opacity(opacity as f32) {
 			log::warn!("Window translucency not supported by your current platform! Official error: '{err}'.");
 		}
 	}
@@ -188,8 +188,6 @@ async fn main() -> MaybeError {
 
 	////////// Setting up the SDL timer, the TTF context, the core init info, and more
 
-	let mut sdl_timer = sdl_context.timer().to_generic()?;
-	let sdl_performance_frequency = sdl_timer.performance_frequency();
 	let sdl_ttf_context = sdl2::ttf::init()?;
 
 	let texture_creator = sdl_canvas.texture_creator();
@@ -199,10 +197,13 @@ async fn main() -> MaybeError {
 	let sdl_renderer_info = sdl_canvas.info();
 	let max_texture_size = (sdl_renderer_info.max_texture_width, sdl_renderer_info.max_texture_height);
 
+	let sdl_timer = sdl_context.timer().to_generic()?;
+	let sdl_performance_frequency = sdl_timer.performance_frequency();
+
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
 			sdl_canvas,
-			texture_pool: TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size),
+			texture_pool: texture::TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size, MAX_REMAKE_TRANSITION_QUEUE_SIZE),
 			frame_counter: FrameCounter::new(),
 			shared_window_state: DynamicOptional::NONE
 		};
@@ -227,6 +228,8 @@ async fn main() -> MaybeError {
 
 	let mut pausing_window = false;
 	// let mut initial_num_textures_in_pool = None;
+
+	//////////
 
 	'running: loop {
 		for sdl_event in sdl_event_pump.poll_iter() {
@@ -260,9 +263,7 @@ async fn main() -> MaybeError {
 		rendering_params.sdl_canvas.set_draw_color(STANDARD_BACKGROUND_COLOR);
 		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too (on MacOS)
 
-		if let Err(err) = top_level_window.render(&mut rendering_params) {
-			log::error!("An error arose during rendering: '{err}'.");
-		}
+		top_level_window.render(&mut rendering_params);
 
 		//////////
 
@@ -280,7 +281,7 @@ async fn main() -> MaybeError {
 			sdl_performance_frequency
 		);
 
-		// println!("fps without and with vsync = {:.3}, {:.3}", _fps_without_vsync, _fps_with_vsync);
+		// println!("fps with and without vsync = {:.3}, {:.3}", _fps_with_vsync, _fps_without_vsync);
 
 		// TODO: add this back later
 		// check_for_texture_pool_memory_leak(&mut initial_num_textures_in_pool, &rendering_params.texture_pool);

@@ -6,7 +6,7 @@ use crate::{
 		DisplayText,
 		TextDisplayInfo,
 		TextureCreationInfo,
-		TextTextureScrollFn
+		TextTextureScrollEaser
 	},
 
 	window_tree::{
@@ -42,7 +42,8 @@ pub trait UpdatableTextWindowMethods {
 pub struct UpdatableTextWindowFields<IndividualState> {
 	pub inner: IndividualState,
 	pub text_color: ColorSDL,
-	pub scroll_fn: TextTextureScrollFn,
+	pub scroll_easer: TextTextureScrollEaser,
+	pub scroll_speed_multiplier: f64,
 	pub update_rate: UpdateRate,
 	pub maybe_border_color: Option<ColorSDL>
 }
@@ -72,7 +73,8 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 				text: DisplayText::new(&extracted_text).with_padding("", right_padding),
 				color: wrapped_individual_state.text_color,
 				pixel_area: params.area_drawn_to_screen,
-				scroll_fn: wrapped_individual_state.scroll_fn
+				scroll_easer: wrapped_individual_state.scroll_easer,
+				scroll_speed_multiplier: wrapped_individual_state.scroll_speed_multiplier
 			}
 		));
 

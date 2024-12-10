@@ -27,7 +27,7 @@ pub struct ApiKeys {
 static FALLBACK_TEXTURE_CREATION_INFO_PATH_INDEX: AtomicUsize = AtomicUsize::new(0);
 
 lazy_static::lazy_static!(
-	pub static ref FALLBACK_TEXTURE_PATHS: Vec<String> =
+	static ref FALLBACK_TEXTURE_PATHS: Vec<String> =
 		std::fs::read_dir("assets/fallback_textures").unwrap()
 		.map(|maybe_dir_entry| maybe_dir_entry.map(|dir_entry| {
 			let path = dir_entry.path();
@@ -36,6 +36,8 @@ lazy_static::lazy_static!(
 		}))
 	   .collect::<Result<Vec<_>, _>>().unwrap();
 );
+
+//////////
 
 pub fn get_fallback_texture_creation_info() -> TextureCreationInfo<'static> {
 	let ordering = Ordering::SeqCst;

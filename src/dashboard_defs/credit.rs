@@ -14,6 +14,7 @@ use crate::{
 	},
 
 	dashboard_defs::{
+		easing_fns,
 		updatable_text_pattern,
 		shared_window_state::SharedWindowState
 	}
@@ -48,7 +49,8 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
 	let fields = updatable_text_pattern::UpdatableTextWindowFields {
 		inner: text,
 		text_color,
-		scroll_fn: |seed, _| ((seed * 2.0).sin() * 0.5 + 0.5, false),
+		scroll_easer: easing_fns::scroll::OSCILLATE_NO_WRAP,
+		scroll_speed_multiplier: 0.5,
 		update_rate: UpdateRate::ALMOST_NEVER,
 		maybe_border_color: Some(border_color)
 	};

@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
 use crate::{
-	dashboard_defs::shared_window_state::SharedWindowState,
+	dashboard_defs::{
+		easing_fns,
+		shared_window_state::SharedWindowState
+	},
 
 	spinitron::model::{SpinitronModelName, NUM_SPINITRON_MODEL_TYPES},
 
@@ -84,6 +87,7 @@ pub fn make_spinitron_windows(
 
 		//////////
 
+
 		let texture_creation_info = if is_text_window {
 			let model_text = spinitron_state.model_to_string(model_name);
 
@@ -97,11 +101,10 @@ pub fn make_spinitron_windows(
 
 					/* TODO:
 					- Pass this in
-					- Make a scroll fn util file
 					- Why doesn't this scroll when the text is short enough? Good, but not programmed in...
 					*/
-					scroll_fn: |seed, _| (seed.sin() * 0.5 + 0.5, false)
-
+					scroll_easer: easing_fns::scroll::OSCILLATE_NO_WRAP,
+					scroll_speed_multiplier: 2.0
 				}
 			))
 		}

@@ -2,7 +2,6 @@ use std::{collections::HashMap, borrow::Cow};
 
 use crate::{
 	request,
-
 	texture::{DisplayText, TextDisplayInfo, TextureCreationInfo},
 
 	utility_types::{
@@ -20,7 +19,10 @@ use crate::{
 		WindowUpdaterParams
 	},
 
-	dashboard_defs::shared_window_state::SharedWindowState
+	dashboard_defs::{
+		easing_fns,
+		shared_window_state::SharedWindowState
+	}
 };
 
 lazy_static::lazy_static!(
@@ -124,12 +126,8 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 			text: DisplayText::new(&weather_string).with_padding("", " "),
 			color: inner.text_color,
 			pixel_area: params.area_drawn_to_screen,
-
-			scroll_fn: |seed, _| {
-				let repeat_rate_secs = 3.0;
-				let base_scroll = (seed % repeat_rate_secs) / repeat_rate_secs;
-				(base_scroll, true)
-			}
+			scroll_easer: easing_fns::scroll::LEFT_LINEAR,
+			scroll_speed_multiplier: 1.0 / 3.0
 		}
 	));
 
@@ -175,7 +173,7 @@ pub async fn make_weather_window(
 		curr_weather_info: None
 	};
 
-	let continually_updated = ContinuallyUpdated::new(&data, &(), "Weather");
+	let continually_updated = ContinuallyUpdated::new(&data, &(), "Weather").await;
 
 	Ok(Window::new(
 		Some((weather_updater_fn, weather_update_rate)),

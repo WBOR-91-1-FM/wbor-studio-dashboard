@@ -72,7 +72,6 @@ async fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	/* TODO: later on, cache this URL for the specific request (otherwise, a lot of time is spent rebuilding it).
 	Actually, don't do that, build the URL, and then cache the request itself (it will then be resent other times). */
 	let url = request::build_url("https://spinitron.com/api", &path_params, &query_params);
-
 	request::as_type(request::get(&url)).await
 }
 

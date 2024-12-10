@@ -1,3 +1,4 @@
+pub mod time;
 pub mod vec2f;
 pub mod file_utils;
 pub mod update_rate;
