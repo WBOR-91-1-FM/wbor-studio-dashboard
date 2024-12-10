@@ -105,7 +105,7 @@ impl WindowContents {
 		}
 
 		let updated_texture = if let Self::Texture(prev_texture) = self {
-			if should_remake {try_to_make_or_remake_texture!(|a, b| texture_pool.remake_texture(a, b), "remake an existing", prev_texture)?}
+			if should_remake {try_to_make_or_remake_texture!(|a, b| texture_pool.remake_texture(a, b, None), "remake an existing", prev_texture)?}
 			prev_texture.clone()
 		}
 		else {

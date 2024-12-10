@@ -775,25 +775,22 @@ impl<'a> TexturePool<'a> {
 	}
 
 	// TODO: if possible, update the texture in-place instead (if they occupy the amount of space, or less)
-	pub fn remake_texture(&mut self, creation_info: &TextureCreationInfo, handle: &TextureHandle) -> MaybeError {
-		let new_texture = self.make_raw_texture(creation_info)?;
-		self.text_metadata.update(handle, &TextMetadataItem::maybe_new(&new_texture, creation_info));
-		*self.get_texture_from_handle_mut(handle) = new_texture;
-		Ok(())
+	pub fn remake_texture(&mut self, creation_info: &TextureCreationInfo, handle: &TextureHandle,
+		maybe_remake_transition_info: Option<&RemakeTransitionInfo>) -> MaybeError {
 
-	}
-
-	// TODO: merge this with `remake_texture` (just add an extra param)
-	pub fn remake_texture_with_transition(&mut self, creation_info: &TextureCreationInfo,
-		handle: &TextureHandle, remake_transition_info: &RemakeTransitionInfo) -> MaybeError {
-
-		/* TODO: defer the creation of this until a later point, if possible
+		/* TODO: for remakes, defer the creation of this until a later point, if possible
 		(otherwise, queueing many at once will be quite slow) */
 		let new_texture = self.make_raw_texture(creation_info)?;
 
-		self.remake_transitions.queue_new(handle, RemakeTransition::new(
-			new_texture, remake_transition_info, creation_info
-		));
+		if let Some(remake_transition_info) = maybe_remake_transition_info {
+			self.remake_transitions.queue_new(handle, RemakeTransition::new(
+				new_texture, remake_transition_info, creation_info
+			));
+		}
+		else {
+			self.text_metadata.update(handle, &TextMetadataItem::maybe_new(&new_texture, creation_info));
+			*self.get_texture_from_handle_mut(handle) = new_texture;
+		}
 
 		Ok(())
 	}
