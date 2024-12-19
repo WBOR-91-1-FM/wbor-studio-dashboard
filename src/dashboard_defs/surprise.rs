@@ -103,7 +103,7 @@ pub async fn make_surprise_window(
 			local_hour >= surprise_info.local_hours_24_start.into()
 			&& local_hour <= surprise_info.local_hours_24_end.into();
 
-		use rand::Rng; // TODO: can I use the system's rand generator instead? Less dependencies that way...
+		use rand::Rng;
 		let rand_num = rand_generator.gen::<SurpriseAppearanceChance>();
 
 		in_acceptable_hour_range && rand_num < surprise_info.chance_of_appearing_when_updating

@@ -119,7 +119,6 @@ impl<'a> DisplayText<'a> {
 //////////
 
 /*
-
 The first item, the function itself:
 	Input: seed (some number of real-time fractional seconds), and if the text fits fully in the box.
 	Output: scroll amount (range: [0, 1]), and if the text should wrap or not.
@@ -154,9 +153,15 @@ pub type TextureTransitionAspectRatioEaser = fn(f64) -> f64;
 
 #[derive(Clone)]
 pub struct RemakeTransitionInfo {
-	pub duration: Duration,
-	pub opacity_easer: TextureTransitionOpacityEaser,
-	pub aspect_ratio_easer: TextureTransitionAspectRatioEaser
+	duration: Duration,
+	opacity_easer: TextureTransitionOpacityEaser,
+	aspect_ratio_easer: TextureTransitionAspectRatioEaser
+}
+
+impl RemakeTransitionInfo {
+	pub fn new(duration: Duration, opacity_easer: TextureTransitionOpacityEaser, aspect_ratio_easer: TextureTransitionAspectRatioEaser) -> Self {
+		Self {duration, opacity_easer, aspect_ratio_easer}
+	}
 }
 
 //////////
@@ -799,14 +804,14 @@ impl<'a> TexturePool<'a> {
 
 	////////// TODO: implement these fully
 
-	pub fn set_color_mod_for(&mut self, handle: &TextureHandle, r: u8, g: u8, b: u8) {
+	pub fn set_color_mod_for(&mut self, _handle: &TextureHandle, _r: u8, _g: u8, _b: u8) {
 		unimplemented!("Texture color mod setting is currently not supported! In the future, it will \
 			be supported by carrying it over for transitioning/remade textures.");
 
 		// self.get_texture_from_handle_mut(handle).set_color_mod(r, g, b);
 	}
 
-	pub fn set_alpha_mod_for(&mut self, handle: &TextureHandle, a: u8) {
+	pub fn set_alpha_mod_for(&mut self, _handle: &TextureHandle, _a: u8) {
 		unimplemented!("Texture alpha mod setting is currently not supported! In the future, it will \
 			be supported by using it as a start/end interpolant for transitioning textures, \
 			and carrying it over for remade textures.");
@@ -814,7 +819,7 @@ impl<'a> TexturePool<'a> {
 		// self.get_texture_from_handle_mut(handle).set_alpha_mod(a);
 	}
 
-	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, blend_mode: BlendMode) {
+	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, _blend_mode: BlendMode) {
 		// TODO: specify a blend mode when making a transition? Or perhaps just do queueing logic internally here?
 		if self.remake_transitions.get_from_handle(handle).is_some() {
 			unimplemented!("Cannot set the blend mode during a remake transition! In The future, it will \

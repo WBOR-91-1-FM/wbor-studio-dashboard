@@ -3,10 +3,9 @@ use std::borrow::Cow;
 use crate::{
 	dashboard_defs::{
 		easing_fns,
+		funky_remake_transitions,
 		shared_window_state::SharedWindowState
 	},
-
-	spinitron::model::{SpinitronModelName, NUM_SPINITRON_MODEL_TYPES},
 
 	texture::{
 		DisplayText,
@@ -15,6 +14,7 @@ use crate::{
 	},
 
 	utility_types::{
+		time::*,
 		vec2f::Vec2f,
 		generic_result::*,
 		update_rate::UpdateRate,
@@ -27,7 +27,9 @@ use crate::{
 		WindowContents,
 		WindowUpdaterParams,
 		PossibleWindowUpdater
-	}
+	},
+
+	spinitron::model::{SpinitronModelName, NUM_SPINITRON_MODEL_TYPES}
 };
 
 struct SpinitronModelWindowState {
@@ -87,7 +89,6 @@ pub fn make_spinitron_windows(
 
 		//////////
 
-
 		let texture_creation_info = if is_text_window {
 			let model_text = spinitron_state.model_to_string(model_name);
 
@@ -112,11 +113,26 @@ pub fn make_spinitron_windows(
 			spinitron_state.get_cached_texture_creation_info(model_name)
 		};
 
-		params.window.get_contents_mut().update_as_texture(
-			true,
+		//////////
+
+		let default_duration = Duration::seconds(2);
+
+		let intermediate_info = funky_remake_transitions::IntermediateTextureTransitionInfo {
+			percent_chance_to_show_rand_intermediate_texture: 0.3,
+			rand_duration_range_for_intermediate: (0.4, 1.2),
+			max_random_transitions: 10
+		};
+
+		//////////
+
+		funky_remake_transitions::update_as_texture_with_funky_remake_transition(
+			params.window.get_contents_mut(),
 			params.texture_pool,
 			&texture_creation_info,
-			inner_shared_state.get_fallback_texture_creation_info
+			default_duration,
+			&mut inner_shared_state.rand_generator,
+			inner_shared_state.get_fallback_texture_creation_info,
+			intermediate_info
 		)
 	}
 

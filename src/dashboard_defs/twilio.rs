@@ -23,7 +23,7 @@ use crate::{
 	},
 
 	window_tree::{ColorSDL, Window, WindowContents, WindowUpdaterParams},
-	texture::{FontInfo, DisplayText, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool}
+	texture::{FontInfo, DisplayText, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool, RemakeTransitionInfo}
 };
 
 // TODO: split this file up into some smaller files
@@ -42,6 +42,7 @@ impl TextureSubpoolManager {
 	}
 
 	fn request_slot(&mut self, texture_creation_info: &TextureCreationInfo,
+		maybe_remake_transition_info: Option<&RemakeTransitionInfo>,
 		texture_pool: &mut TexturePool) -> GenericResult<TextureHandle> {
 
 		assert!(self.subpool.len() <= self.max_size);
@@ -52,7 +53,7 @@ impl TextureSubpoolManager {
 				if !*is_used {
 					// println!("(request) doing re-request, and setting {texture:?} to used");
 					*is_used = true;
-					texture_pool.remake_texture(texture_creation_info, texture, None)?;
+					texture_pool.remake_texture(texture_creation_info, texture, maybe_remake_transition_info)?;
 					return Ok(texture.clone());
 				}
 			}
@@ -75,13 +76,14 @@ impl TextureSubpoolManager {
 	fn re_request_slot(&mut self,
 		incoming_texture: &TextureHandle,
 		texture_creation_info: &TextureCreationInfo,
+		maybe_remake_transition_info: Option<&RemakeTransitionInfo>,
 		texture_pool: &mut TexturePool) -> MaybeError {
 
 		if let Some(is_used) = self.subpool.get(incoming_texture) {
 			// println!("(re-request) checking {incoming_texture:?} for being used before");
 			assert!(is_used);
 			// println!("(re-request) doing re-request for {incoming_texture:?}");
-			texture_pool.remake_texture(texture_creation_info, incoming_texture, None)
+			texture_pool.remake_texture(texture_creation_info, incoming_texture, maybe_remake_transition_info)
 		}
 		else {
 			panic!("Slot was not previously allocated in subpool!");
@@ -215,7 +217,8 @@ pub struct TwilioState {
 	newly computed data. */
 	texture_subpool_manager: TextureSubpoolManager,
 	id_to_texture_map: SyncedMessageMap<TextureHandle>, // TODO: integrate the subpool manager into this with the searching operations
-	historically_sorted_messages_by_id: Vec<MessageID> // TODO: avoid resorting with smart insertions and deletions?
+	historically_sorted_messages_by_id: Vec<MessageID>, // TODO: avoid resorting with smart insertions and deletions?
+	maybe_remake_transition_info: Option<RemakeTransitionInfo>
 }
 
 //////////
@@ -450,7 +453,8 @@ impl TwilioState {
 		account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
 		message_history_duration: Duration,
-		reveal_texter_identities: bool) -> GenericResult<Self> {
+		reveal_texter_identities: bool,
+		maybe_remake_transition_info: Option<RemakeTransitionInfo>) -> GenericResult<Self> {
 
 		let data = TwilioStateData::new(
 			account_sid, auth_token, max_num_messages_in_history,
@@ -461,7 +465,8 @@ impl TwilioState {
 			continually_updated: ContinuallyUpdated::new(&data, &(), "Twilio").await,
 			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
 			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
-			historically_sorted_messages_by_id: Vec::new()
+			historically_sorted_messages_by_id: Vec::new(),
+			maybe_remake_transition_info
 		})
 	}
 
@@ -511,7 +516,12 @@ impl TwilioState {
 						if offshore_message_info.just_updated {
 							// println!(">>> Update local texture");
 							update_texture_creation_info(offshore_message_info);
-							self.texture_subpool_manager.re_request_slot(local_texture, &texture_creation_info, texture_pool)?;
+
+							self.texture_subpool_manager.re_request_slot(
+								local_texture, &texture_creation_info,
+								self.maybe_remake_transition_info.as_ref(),
+								texture_pool
+							)?;
 						}
 					},
 
@@ -519,7 +529,12 @@ impl TwilioState {
 						// println!(">>> Allocate texture from base slot");
 						assert!(offshore_message_info.just_updated);
 						update_texture_creation_info(offshore_message_info);
-						return Ok(Some(self.texture_subpool_manager.request_slot(&texture_creation_info, texture_pool)?));
+
+						return Ok(Some(self.texture_subpool_manager.request_slot(
+							&texture_creation_info,
+							self.maybe_remake_transition_info.as_ref(),
+							texture_pool
+						)?));
 					}
 				}
 

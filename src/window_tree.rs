@@ -1,14 +1,19 @@
 use sdl2::{self, rect::FRect};
 
 use crate::{
+	texture::{
+		TexturePool,
+		TextureHandle,
+		TextureCreationInfo,
+		RemakeTransitionInfo
+	},
+
 	utility_types::{
 		vec2f::Vec2f,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
-		update_rate::{UpdateRate, FrameCounter}
-	},
-
-	texture::{TexturePool, TextureHandle, TextureCreationInfo}
+		update_rate::{FrameCounter, UpdateRate}
+	}
 };
 
 ////////// These are some general utility types
@@ -87,6 +92,7 @@ impl WindowContents {
 		should_remake: bool,
 		texture_pool: &mut TexturePool,
 		creation_info: &TextureCreationInfo,
+		maybe_remake_transition_info: Option<&RemakeTransitionInfo>,
 		get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>) -> MaybeError {
 
 		/* This is a macro for making or remaking a texture. If making or
@@ -105,7 +111,14 @@ impl WindowContents {
 		}
 
 		let updated_texture = if let Self::Texture(prev_texture) = self {
-			if should_remake {try_to_make_or_remake_texture!(|a, b| texture_pool.remake_texture(a, b, None), "remake an existing", prev_texture)?}
+			if should_remake {
+				try_to_make_or_remake_texture!(
+					|a, b| texture_pool.remake_texture(a, b, maybe_remake_transition_info),
+					"remake an existing",
+					prev_texture
+				)?
+			}
+
 			prev_texture.clone()
 		}
 		else {

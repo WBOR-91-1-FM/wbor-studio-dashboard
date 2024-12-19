@@ -2,8 +2,8 @@ use sdl2::{render::BlendMode, ttf::{FontStyle, Hinting}};
 
 use crate::{
 	themes::shared_utils::*,
-	texture::{FontInfo, TextureCreationInfo, TexturePool},
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
+	texture::{FontInfo, TextureCreationInfo, TexturePool, RemakeTransitionInfo},
 
 	utility_types::{
 		file_utils,
@@ -21,6 +21,7 @@ use crate::{
 	},
 
 	dashboard_defs::{
+		easing_fns,
 		credit::make_credit_window,
 		weather::make_weather_window,
 		error::{make_error_window, ErrorState},
@@ -64,7 +65,7 @@ pub async fn make_dashboard(
 	let main_windows_gap_size = 0.01;
 
 	let theme_color_1 = ColorSDL::RGB(255, 133, 133);
-	let shared_update_rate = update_rate_creator.new_instance(15.0);
+	let shared_update_rate = update_rate_creator.new_instance(10.0);
 	let api_keys: ApiKeys = file_utils::load_json_from_file("assets/api_keys.json").await?;
 
 	////////// Defining the Spinitron window extents
@@ -313,7 +314,13 @@ pub async fn make_dashboard(
 			&api_keys.twilio_auth_token,
 			11,
 			Duration::days(5),
-			false
+			false,
+
+			Some(RemakeTransitionInfo::new(
+				Duration::seconds(2),
+				easing_fns::transition::opacity::BURST_BLENDED_BOUNCE,
+				easing_fns::transition::aspect_ratio::BOUNCE
+			))
 		),
 
 		make_creation_info_for_static_texture_set(&background_static_texture_info),

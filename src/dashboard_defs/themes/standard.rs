@@ -2,8 +2,8 @@ use sdl2::{render::BlendMode, ttf::{FontStyle, Hinting}};
 
 use crate::{
 	themes::shared_utils::*,
-	texture::{FontInfo, TextureCreationInfo, TexturePool},
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
+	texture::{FontInfo, TextureCreationInfo, TexturePool, RemakeTransitionInfo},
 
 	utility_types::{
 		file_utils,
@@ -21,6 +21,7 @@ use crate::{
 	},
 
 	dashboard_defs::{
+		easing_fns,
 		credit::make_credit_window,
 		weather::make_weather_window,
 		error::{make_error_window, ErrorState},
@@ -315,7 +316,13 @@ pub async fn make_dashboard(
 			&api_keys.twilio_auth_token,
 			6,
 			Duration::days(5),
-			false
+			false,
+
+			Some(RemakeTransitionInfo::new(
+				Duration::seconds(2),
+				easing_fns::transition::opacity::BURST_BLENDED_BOUNCE,
+				easing_fns::transition::aspect_ratio::BOUNCE
+			))
 		),
 
 		TextureCreationInfo::from_path_async("assets/text_bubble.png"),

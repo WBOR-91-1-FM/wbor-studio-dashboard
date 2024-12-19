@@ -106,7 +106,7 @@ macro_rules! build_dashboard_theme {(
 //////////
 
 const STANDARD_BACKGROUND_COLOR: ColorSDL = ColorSDL::BLACK;
-const MAX_REMAKE_TRANSITION_QUEUE_SIZE: usize = 5; // This is to avoid unbounded memory consumption
+const MAX_REMAKE_TRANSITION_QUEUE_SIZE: usize = 10; // This is to avoid unbounded memory consumption
 
 #[tokio::main]
 async fn main() -> MaybeError {

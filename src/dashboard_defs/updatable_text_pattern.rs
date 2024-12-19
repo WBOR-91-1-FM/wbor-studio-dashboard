@@ -82,8 +82,13 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 			params.window.get_contents_mut()
 		);
 
-		texture_contents.update_as_texture(true, params.texture_pool,
-			&texture_creation_info, inner_shared_state.get_fallback_texture_creation_info)
+		texture_contents.update_as_texture(
+			true,
+			params.texture_pool,
+			&texture_creation_info,
+			None,
+			inner_shared_state.get_fallback_texture_creation_info
+		)
 	}
 
 	//////////

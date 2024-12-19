@@ -135,6 +135,7 @@ pub fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		true,
 		params.texture_pool,
 		&texture_creation_info,
+		None,
 		inner_shared_state.get_fallback_texture_creation_info
 	)
 }
