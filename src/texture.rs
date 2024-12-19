@@ -54,7 +54,7 @@ pub struct DisplayText<'a> {
 	text: Cow<'a, str>
 }
 
-impl<'a> DisplayText<'a> {
+impl DisplayText<'_> {
 	pub fn new(text: &str) -> Self {
 		// Indicates that emojis should be made colored; not rendered correctly on the Pi
 		const UNICODE_VARIATION_SELECTOR_16: char = '\u{FE0F}';
