@@ -118,7 +118,7 @@ pub fn make_spinitron_windows(
 		let default_duration = Duration::seconds(2);
 
 		let intermediate_info = funky_remake_transitions::IntermediateTextureTransitionInfo {
-			percent_chance_to_show_rand_intermediate_texture: 0.3,
+			percent_chance_to_show_rand_intermediate_texture: 0.15,
 			rand_duration_range_for_intermediate: (0.4, 1.2),
 			max_random_transitions: 10
 		};

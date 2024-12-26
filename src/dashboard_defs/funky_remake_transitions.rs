@@ -3,6 +3,7 @@ use std::borrow::Cow;
 
 use crate::{
 	utility_types::{
+		file_utils,
 		time::Duration,
 		generic_result::*
 	},
@@ -18,6 +19,11 @@ use crate::{
 	dashboard_defs::easing_fns,
 	window_tree::WindowContents
 };
+
+
+lazy_static::lazy_static!(
+	static ref INTERMEDIATE_TRANSITION_TEXTURE_PATHS: Vec<String> = file_utils::read_filenames_from_directory("assets/funky_transition_images");
+);
 
 pub struct IntermediateTextureTransitionInfo {
 	pub percent_chance_to_show_rand_intermediate_texture: f64,
@@ -58,38 +64,12 @@ pub fn update_as_texture_with_funky_remake_transition(
 	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>,
 	mut intermediate_info: IntermediateTextureTransitionInfo) -> MaybeError {
 
-	//////////
-
-	let path = |base| TextureCreationInfo::Path(Cow::Borrowed(base));
-
-	let all_intermediate_texture_creation_info = [
-		path("assets/business_expert.jpg"),
-		path("assets/house_1.jpg"),
-		path("assets/house_2.jpg"),
-
-		path("assets/bird.jpg"),
-		path("assets/brock.png"),
-		path("assets/dog.png"),
-		path("assets/horse_cop.png"),
-		path("assets/monks.png"),
-		path("assets/polar_board.png"),
-		path("assets/putin_kim.png"),
-
-		path("assets/willem.png"),
-		path("assets/deer_1.png"),
-		path("assets/deer_2.png"),
-		path("assets/waltuh.png"),
-		path("assets/bird_boots.png"),
-		path("assets/lobster.png")
-	];
-
-	//////////
-
 	// Randomly recurring to show intermediate textures before the final one
 	if  intermediate_info.max_random_transitions != 0 &&
 		rand_generator.gen_range(0.0..1.0) < intermediate_info.percent_chance_to_show_rand_intermediate_texture {
 
-		let intermediate_texture_creation_info = pick_from_slice(&all_intermediate_texture_creation_info, rand_generator);
+		let random_path = pick_from_slice(&INTERMEDIATE_TRANSITION_TEXTURE_PATHS, rand_generator);
+		let intermediate_texture_creation_info = TextureCreationInfo::from_path(&random_path);
 
 		let range = intermediate_info.rand_duration_range_for_intermediate;
 		let rand_duration_secs = rand_generator.gen_range(range.0..range.1);
@@ -98,7 +78,7 @@ pub fn update_as_texture_with_funky_remake_transition(
 		intermediate_info.max_random_transitions -= 1;
 
 		update_as_texture_with_funky_remake_transition(
-			window_contents, texture_pool, intermediate_texture_creation_info,
+			window_contents, texture_pool, &intermediate_texture_creation_info,
 			Duration::milliseconds(rand_duration_ms),
 			rand_generator,
 			get_fallback_texture_creation_info,

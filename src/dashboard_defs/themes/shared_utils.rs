@@ -6,6 +6,7 @@ use crate::{
 	texture::{TextureCreationInfo, TexturePool},
 
 	utility_types::{
+		file_utils,
 		vec2f::Vec2f,
 		generic_result::*,
 		dynamic_optional::DynamicOptional
@@ -27,14 +28,7 @@ pub struct ApiKeys {
 static FALLBACK_TEXTURE_CREATION_INFO_PATH_INDEX: AtomicUsize = AtomicUsize::new(0);
 
 lazy_static::lazy_static!(
-	static ref FALLBACK_TEXTURE_PATHS: Vec<String> =
-		std::fs::read_dir("assets/fallback_textures").unwrap()
-		.map(|maybe_dir_entry| maybe_dir_entry.map(|dir_entry| {
-			let path = dir_entry.path();
-			assert!(path.is_file());
-			path.to_str().unwrap().to_owned()
-		}))
-	   .collect::<Result<Vec<_>, _>>().unwrap();
+	static ref FALLBACK_TEXTURE_PATHS: Vec<String> = file_utils::read_filenames_from_directory("assets/fallback_textures");
 );
 
 //////////
