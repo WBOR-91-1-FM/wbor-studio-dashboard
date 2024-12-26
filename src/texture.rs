@@ -31,7 +31,7 @@ The needed structs + data can go there, and the text
 + font scaling metadata can then go in its own struct. */
 
 // TODO: make a constructor for this, instead of making everything `pub`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FontInfo {
 	/* TODO:
 	- Support non-static paths for these two
@@ -49,7 +49,7 @@ pub struct FontInfo {
 	pub maybe_outline_width: Option<u16>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DisplayText<'a> {
 	text: Cow<'a, str>
 }
@@ -127,7 +127,7 @@ The second item is the period of the function.
 pub type TextTextureScrollEaser = (fn(f64, bool) -> (f64, bool), f64);
 
 // TODO: make a constructor for this, instead of making everything `pub`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TextDisplayInfo<'a> {
 	pub text: DisplayText<'a>,
 	pub color: ColorSDL, // TODO: change the name of this to `text_color`, perhaps
@@ -257,7 +257,7 @@ impl<'a> RemakeTransitions<'a> {
 //////////
 
 // TODO: use `Cow` around the whole struct instead, if possible
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum TextureCreationInfo<'a> {
 	RawBytes(Cow<'a, [u8]>),
 	Path(Cow<'a, str>),
