@@ -68,7 +68,7 @@ pub fn update_as_texture_with_funky_remake_transition(
 		rand_generator.gen_range(0.0..1.0) < intermediate_info.percent_chance_to_show_rand_intermediate_texture {
 
 		let random_path = pick_from_slice(&INTERMEDIATE_TRANSITION_TEXTURE_PATHS, rand_generator);
-		let intermediate_texture_creation_info = TextureCreationInfo::from_path(&random_path);
+		let intermediate_texture_creation_info = TextureCreationInfo::from_path(random_path);
 
 		let range = intermediate_info.rand_duration_range_for_intermediate;
 		let rand_duration_secs = rand_generator.gen_range(range.0..range.1);
