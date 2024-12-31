@@ -102,7 +102,7 @@ impl WindowContents {
 				$make_or_remake(creation_info, $($extra_args),*).or_else(
 					|failure_reason| {
 						log::warn!("Unexpectedly failed while trying to {} texture, and reverting to a fallback \
-							texture. Reason: '{failure_reason}'.", $make_or_remake_description);
+							texture. Reason: '{failure_reason}'. Creation info: '{creation_info:?}'.", $make_or_remake_description);
 
 						$make_or_remake(&get_fallback_texture_creation_info(), $($extra_args),*)
 					}

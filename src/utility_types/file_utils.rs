@@ -21,3 +21,13 @@ pub async fn load_json_from_file<T: for <'de> serde::Deserialize<'de>>(path: &st
 	let contents = read_file_contents(path).await?;
 	serde_json::from_slice(&contents).to_generic()
 }
+
+pub fn read_filenames_from_directory(path: &str) -> Vec<String> {
+	std::fs::read_dir(path).unwrap()
+		.map(|maybe_dir_entry| maybe_dir_entry.map(|dir_entry| {
+			let path = dir_entry.path();
+			assert!(path.is_file());
+			path.to_str().unwrap().to_owned()
+		}))
+	   .collect::<Result<Vec<_>, _>>().unwrap()
+}

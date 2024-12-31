@@ -4,6 +4,8 @@
 - Runs on a little CRT monitor in the on-air studio.
 - Want to contribute, or have any questions? [Get in touch here.](https://wbor.org/contact)
 
+https://github.com/user-attachments/assets/8e64e88a-d347-480f-9769-66d297655cc8
+
 ---
 
 ## Dependencies
