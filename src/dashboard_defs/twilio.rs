@@ -203,7 +203,8 @@ struct TwilioStateData {
 
 	// Mutable fields:
 	curr_messages: SyncedMessageMap<MessageInfo>,
-	formatted_phone_number: String
+	unformatted_phone_number: String,
+	formatted_phone_number_with_title: String
 }
 
 // TODO: put the non-continually-updated fields in their own struct
@@ -242,7 +243,8 @@ impl TwilioStateData {
 			}),
 
 			curr_messages: SyncedMessageMap::new(max_num_messages_in_history),
-			formatted_phone_number: String::new()
+			unformatted_phone_number: String::new(),
+			formatted_phone_number_with_title: String::new()
 		};
 
 		////////// Finding the phone number
@@ -255,7 +257,8 @@ impl TwilioStateData {
 		assert!(phone_numbers.len() == 1);
 
 		let number = phone_numbers[0]["phone_number"].as_str().expect("Expected the phone number to be a string!");
-		data.formatted_phone_number = TwilioStateData::format_phone_number(number, "Messages to ", ":", "");
+		data.unformatted_phone_number = number.to_owned();
+		data.formatted_phone_number_with_title = TwilioStateData::format_phone_number(number, "Messages to ", ":", "");
 
 		//////////
 
@@ -347,10 +350,9 @@ impl Updatable for TwilioStateData {
 
 		let max_messages = self.immutable.max_num_messages_in_history;
 
-		/* TODO: re-request if not enough inbound messages were gotten. Filtering out outbound
-		messages will give you less messages than you requested if there are any outbound ones. */
 		let json = self.do_twilio_request("Messages", &[],
 			&[
+				("To", Cow::Borrowed(self.unformatted_phone_number.as_str())), // Adding this filters out all outbound messages
 				("PageSize", Cow::Borrowed(&max_messages.to_string())),
 				("DateSent%3E", Cow::Borrowed(&history_cutoff_day.to_string())) // Note: the '%3E' is a URL-encoded '>'
 			]
@@ -673,7 +675,7 @@ pub fn make_twilio_window(
 				Cow::Borrowed(inner_shared_state.font_info),
 
 				TextDisplayInfo {
-					text: DisplayText::new(&twilio_state.formatted_phone_number).with_padding(" ", ""),
+					text: DisplayText::new(&twilio_state.formatted_phone_number_with_title).with_padding(" ", ""),
 					color: text_color,
 					pixel_area: params.area_drawn_to_screen,
 					scroll_easer: easing_fns::scroll::STAY_PUT,

@@ -270,7 +270,7 @@ impl TextureCreationInfo<'_> {
 		Ok(TextureCreationInfo::RawBytes(Cow::Owned(contents)))
 	}
 
-	pub fn from_path(path: &str) -> TextureCreationInfo<'_> {
+	pub fn from_path(path: &str) -> TextureCreationInfo {
 		TextureCreationInfo::Path(Cow::Borrowed(path))
 	}
 

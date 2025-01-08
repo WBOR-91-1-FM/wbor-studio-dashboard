@@ -64,7 +64,3 @@ If you want to make a new theme, start off by modifying `standard`. Make sure th
 
 - To delete recent Twilio messages, use `delete_twilio_msgs.sh`. Change the number of messages to delete in the script, and it'll delete that number of messages one-by-one.
 - To send surprises to the dashboard (images that appear for a certain amount of time, with certain chances of appearing at any second), use `trigger_surprise.sh`. Just pass it the name of a surprise that you've set up in `dashboard.rs`, and it'll send it over a local socket which the dashboard reads from.
-
----
-
-## [TODO](https://github.com/orgs/WBOR-91-1-FM/projects/3/views/1)
