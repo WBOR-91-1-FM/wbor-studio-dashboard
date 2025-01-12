@@ -19,13 +19,13 @@ use crate::{
 
 #[derive(Clone)]
 struct ServerStatusChecker {
-	url: &'static str,
+	url: String,
 	num_retries: u8
 }
 
 impl ServerStatusChecker {
-	fn new(url: &'static str, num_retries: u8) -> Self {
-		Self {url, num_retries}
+	fn new(url: &str, num_retries: u8) -> Self {
+		Self {url: url.to_owned(), num_retries}
 	}
 }
 
@@ -34,7 +34,7 @@ impl Updatable for ServerStatusChecker {
 
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
 		for _ in 0..self.num_retries {
-			match request::get(self.url).await {
+			match request::get(&self.url).await {
 				Ok(_) => return Ok(()),
 				Err(_) => continue
 			}
@@ -51,7 +51,7 @@ fn server_status_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	Ok(())
 }
 
-pub async fn make_streaming_server_status_window(url: &'static str, ping_rate: UpdateRate, num_retries: u8) -> Window {
+pub async fn make_streaming_server_status_window(url: &str, ping_rate: UpdateRate, num_retries: u8) -> Window {
 	let pinger_updater = ContinuallyUpdated::new(
 		&ServerStatusChecker::new(url, num_retries),
 		&(),

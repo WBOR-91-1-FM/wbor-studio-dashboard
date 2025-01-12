@@ -2,5 +2,6 @@
 	"spinitron": "SPINITRON API KEY HERE",
 	"twilio_account_sid": "TWILIO ACCOUNT SID HERE",
 	"twilio_auth_token": "TWILIO AUTH TOKEN HERE",
-	"tomorrow_io": " TOMORROW.IO API KEY HERE"
+	"tomorrow_io": " TOMORROW.IO API KEY HERE",
+	"streaming_server_now_playing_url": "STREAMING SERVER URL HERE (PROBABLY 'https://azura.wbor.org/api/nowplaying/2' FOR THE NEAR FUTURE)"
 }

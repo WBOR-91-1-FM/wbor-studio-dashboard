@@ -167,7 +167,7 @@ pub async fn make_dashboard(
 	////////// Making a streaming server status window
 
 	let streaming_server_status_window = make_streaming_server_status_window(
-		"https://azura.wbor.org/api/nowplaying/2",
+		&api_keys.streaming_server_now_playing_url,
 		update_rate_creator.new_instance(5.0), 3
 	).await;
 
