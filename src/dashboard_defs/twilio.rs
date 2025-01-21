@@ -183,6 +183,7 @@ struct MessageInfo {
 	display_text: String,
 	maybe_from: Option<String>, // This is `None` if the message identity is hidden
 	body: String,
+	num_attachments: u32, // The amount of media attachments sent to the message
 	time_sent: ReferenceTimestamp,
 	time_loaded_by_app: ReferenceTimestamp, // This includes sub-second precision, while the time sent above does not
 	just_updated: bool
@@ -314,7 +315,13 @@ impl TwilioStateData {
 		format!("{before}{country_code} ({area_code}) {telephone_prefix}-{line_number}{after_1}{after_2}")
 	}
 
-	fn make_message_display_text(age_data: MessageAgeData, body: &str, maybe_from: Option<&str>) -> String {
+	fn make_message_display_text(age_data: MessageAgeData, body: &str, num_attachments: u32, maybe_from: Option<&str>) -> String {
+		if body.is_empty() && num_attachments != 0 {
+			let is_more_than_one = num_attachments > 1;
+			let maybe_plural_s = if is_more_than_one {"s"} else {""};
+			return format!("Media attachment{maybe_plural_s} sent! Not renderable at this time though, unfortunately.");
+		}
+
 		let display_text = if let Some((unit_name, plural_suffix, unit_amount)) = age_data {
 			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}'")
 		}
@@ -390,7 +397,10 @@ impl Updatable for TwilioStateData {
 						None
 					};
 
-					Some((id_on_heap, (maybe_from, message_field("body"), time_sent, time_loaded_by_app)))
+					let body = message_field("body");
+					let num_attachments = message_field("num_media").parse().unwrap();
+
+					Some((id_on_heap, (maybe_from, body, num_attachments, time_sent, time_loaded_by_app)))
 				}
 				else {
 					None
@@ -416,25 +426,27 @@ impl Updatable for TwilioStateData {
 
 						if curr_message.just_updated {
 							curr_message.display_text = Self::make_message_display_text(
-								age_data, &curr_message.body, curr_message.maybe_from.as_deref()
+								age_data, &curr_message.body, curr_message.num_attachments, curr_message.maybe_from.as_deref()
 							);
 
 							curr_message.age_data = age_data;
 						}
 					},
 
-					SyncedMessageMapAction::MakeLocalFromOffshore((maybe_from, body, wrongly_typed_time_sent, time_loaded_by_app)) => {
+					SyncedMessageMapAction::MakeLocalFromOffshore((maybe_from, body, num_attachments, wrongly_typed_time_sent, time_loaded_by_app)) => {
 						let time_sent = (*wrongly_typed_time_sent).into();
 						let age_data = Self::get_message_age_data(curr_time, time_sent);
 
+						let num_attachments = *num_attachments;
 						let trimmed_body = body.trim().to_string();
 						let boxed_maybe_from = maybe_from.map(|from| from.to_owned());
 
 						return Ok(Some(MessageInfo {
 							age_data,
-							display_text: Self::make_message_display_text(age_data, &trimmed_body, *maybe_from),
+							display_text: Self::make_message_display_text(age_data, &trimmed_body, num_attachments, *maybe_from),
 							maybe_from: boxed_maybe_from,
 							body: trimmed_body,
+							num_attachments,
 							time_sent,
 							time_loaded_by_app: *time_loaded_by_app,
 							just_updated: true
