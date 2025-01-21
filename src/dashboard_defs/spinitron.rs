@@ -7,7 +7,7 @@ use crate::{
 		shared_window_state::SharedWindowState
 	},
 
-	texture::{
+	texture::texture::{
 		DisplayText,
 		TextDisplayInfo,
 		TextureCreationInfo

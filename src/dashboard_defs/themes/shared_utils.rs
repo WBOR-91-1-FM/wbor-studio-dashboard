@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::{
 	error_msg,
 	window_tree::{Window, WindowContents},
-	texture::{TextureCreationInfo, TexturePool},
+	texture::texture::{TextureCreationInfo, TexturePool},
 
 	utility_types::{
 		file_utils,

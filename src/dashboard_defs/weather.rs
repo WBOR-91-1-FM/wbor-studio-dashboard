@@ -2,7 +2,7 @@ use std::{collections::HashMap, borrow::Cow};
 
 use crate::{
 	request,
-	texture::{DisplayText, TextDisplayInfo, TextureCreationInfo},
+	texture::texture::{DisplayText, TextDisplayInfo, TextureCreationInfo},
 
 	utility_types::{
 		vec2f::Vec2f,
@@ -82,6 +82,8 @@ impl Updatable for WeatherStateData {
 
 	// TODO: while the weather is fetched every 10 minutes, use the other 9 minutes' forecasts for more updated data
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
+		// return Ok(()); // Use this line when developing locally, and you don't want to rate-limit this API in the studio!
+
 		let all_info_json: serde_json::Value = request::as_type(request::get(&self.request_url)).await?;
 
 		let current_weather_json = &all_info_json["data"]["timelines"][0]["intervals"][0]["values"];

@@ -30,7 +30,7 @@ use crate::{
 		update_rate::{Seconds, UpdateRateCreator}
 	},
 
-	texture::{TexturePool, TextureCreationInfo},
+	texture::texture::{TexturePool, TextureCreationInfo},
 	dashboard_defs::shared_window_state::SharedWindowState
 
 };

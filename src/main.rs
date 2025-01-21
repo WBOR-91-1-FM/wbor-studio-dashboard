@@ -69,7 +69,7 @@ fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 }
 
 /*
-fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<usize>, texture_pool: &texture::TexturePool) {
+fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<usize>, texture_pool: &texture::texture::TexturePool) {
 	let num_textures_in_pool = texture_pool.size();
 
 	match initial_num_textures_in_pool {
@@ -79,7 +79,8 @@ fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<
 				panic!("Memory leak! Texture pool grew by {growth_amount} past the first frame.");
 			}
 		},
-		None => {
+
+		_ => {
 			*initial_num_textures_in_pool = Some(num_textures_in_pool);
 		}
 	}
@@ -203,7 +204,7 @@ async fn main() -> MaybeError {
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
 			sdl_canvas,
-			texture_pool: texture::TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size, MAX_REMAKE_TRANSITION_QUEUE_SIZE),
+			texture_pool: texture::texture::TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size, MAX_REMAKE_TRANSITION_QUEUE_SIZE),
 			frame_counter: FrameCounter::new(),
 			shared_window_state: DynamicOptional::NONE
 		};

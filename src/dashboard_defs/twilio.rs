@@ -23,7 +23,7 @@ use crate::{
 	},
 
 	window_tree::{ColorSDL, Window, WindowContents, WindowUpdaterParams},
-	texture::{FontInfo, DisplayText, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool, RemakeTransitionInfo}
+	texture::texture::{FontInfo, DisplayText, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool, RemakeTransitionInfo}
 };
 
 // TODO: split this file up into some smaller files
