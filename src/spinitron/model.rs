@@ -318,7 +318,7 @@ pub enum SpinitronModelName {
 // TODO: for any `String` field, if it equals the empty string, set it to `None`
 
 derive_spinitron_model_props!(
-#[allow(dead_code)] // TODO: remove
+#[allow(dead_code)]
 pub struct Spin {
 	// This does not cover all the spin fields; this is just the most useful subset of them.
 
@@ -349,7 +349,7 @@ pub struct Spin {
 });
 
 derive_spinitron_model_props!(
-#[allow(dead_code)] // TODO: remove
+#[allow(dead_code)]
 pub struct Playlist {
 	id: SpinitronModelId,
 	persona_id: SpinitronModelId, // TODO: why are all the persona ids the same?
@@ -374,7 +374,7 @@ pub struct Playlist {
 });
 
 derive_spinitron_model_props!(
-#[allow(dead_code)] // TODO: remove
+#[allow(dead_code)]
 pub struct Persona {
 	////////// These are fields that are officially supported by Spinitron
 
@@ -390,7 +390,7 @@ pub struct Persona {
 });
 
 derive_spinitron_model_props!(
-#[allow(dead_code)] // TODO: remove
+#[allow(dead_code)]
 pub struct Show {
 	id: SpinitronModelId, // Note: some shows will have the same IDS, but different times (e.g. WBOR's Commodore 64)
 

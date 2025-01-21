@@ -75,7 +75,6 @@ impl ErrorState {
 
 //////////
 
-// TODO: maybe replace this with the SDL message box?
 pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 	background_contents: WindowContents, text_color: ColorSDL) -> Window {
 

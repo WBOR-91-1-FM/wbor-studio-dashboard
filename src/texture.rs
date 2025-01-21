@@ -130,7 +130,7 @@ pub type TextTextureScrollEaser = (fn(f64, bool) -> (f64, bool), f64);
 #[derive(Clone, Debug)]
 pub struct TextDisplayInfo<'a> {
 	pub text: DisplayText<'a>,
-	pub color: ColorSDL, // TODO: change the name of this to `text_color`, perhaps
+	pub color: ColorSDL,
 	pub pixel_area: (u32, u32),
 	pub scroll_easer: TextTextureScrollEaser,
 	pub scroll_speed_multiplier: f64
