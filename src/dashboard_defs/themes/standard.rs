@@ -392,7 +392,7 @@ pub async fn make_dashboard(
 
 		WindowContents::Many(
 			background_static_texture_creation_info.iter().map(|info|
-				WindowContents::make_texture_contents(info, texture_pool).unwrap() // TODO: use some util fn here
+				WindowContents::make_texture_contents(info, texture_pool).unwrap()
 			).collect()
 		),
 
