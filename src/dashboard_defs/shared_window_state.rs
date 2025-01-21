@@ -1,7 +1,7 @@
 use crate::{
-    spinitron::state::SpinitronState,
-    texture::pool::{FontInfo, TextureCreationInfo},
-    dashboard_defs::{twilio::TwilioState, clock::ClockHands, error::ErrorState}
+	spinitron::state::SpinitronState,
+	texture::{text::FontInfo, pool::TextureCreationInfo},
+	dashboard_defs::{twilio::TwilioState, clock::ClockHands, error::ErrorState}
 };
 
 pub struct SharedWindowState<'a> {

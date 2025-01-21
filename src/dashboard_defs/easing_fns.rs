@@ -23,7 +23,7 @@ fn ease_out_bounce(mut x: f64) -> f64 {
 //////////
 
 pub mod scroll {
-	use crate::texture::pool::TextTextureScrollEaser;
+	use crate::texture::text::TextTextureScrollEaser;
 
 	pub const STAY_PUT: TextTextureScrollEaser = (|_, _| (0.0, true), 1.0);
 

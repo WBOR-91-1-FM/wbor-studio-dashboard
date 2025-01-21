@@ -1,12 +1,9 @@
 use std::borrow::Cow;
 
 use crate::{
-	texture::pool::{
-		FontInfo,
-		DisplayText,
-		TextDisplayInfo,
-		TextureCreationInfo,
-		TextTextureScrollEaser
+	texture::{
+		pool::TextureCreationInfo,
+		text::{FontInfo, DisplayText, TextDisplayInfo, TextTextureScrollEaser}
 	},
 
 	window_tree::{

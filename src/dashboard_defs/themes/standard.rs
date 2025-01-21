@@ -3,7 +3,11 @@ use sdl2::{render::BlendMode, ttf::{FontStyle, Hinting}};
 use crate::{
 	themes::shared_utils::*,
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
-	texture::pool::{FontInfo, TextureCreationInfo, TexturePool, RemakeTransitionInfo},
+
+	texture::{
+		text::FontInfo,
+		pool::{TextureCreationInfo, TexturePool, RemakeTransitionInfo}
+	},
 
 	utility_types::{
 		file_utils,

@@ -13,7 +13,8 @@ use sdl2::{
 
 use crate::{
 	request,
-	window_tree::{CanvasSDL, ColorSDL, PreciseRect},
+	texture::text,
+	window_tree::{CanvasSDL, PreciseRect},
 
 	utility_types::{
 		time::*,
@@ -22,119 +23,6 @@ use crate::{
 		vec2f::assert_in_unit_interval
 	}
 };
-
-//////////
-
-/* TODO: put a lot of the text-related code in its own file
-(this file can then import that one).
-The needed structs + data can go there, and the text
-+ font scaling metadata can then go in its own struct. */
-
-// TODO: make a constructor for this, instead of making everything `pub`.
-#[derive(Clone, Debug)]
-pub struct FontInfo {
-	/* TODO:
-	- Support non-static paths for these two
-	- Allow for a variable number of fallback fonts too
-	- Only load fallbacks when necessary
-	- Check if the entire Unicode supplementary multilingual plane is supported
-	*/
-	pub path: &'static str,
-	pub unusual_chars_fallback_path: &'static str,
-
-	pub font_has_char: fn(&ttf::Font, char) -> bool,
-
-	pub style: ttf::FontStyle,
-	pub hinting: ttf::Hinting,
-	pub maybe_outline_width: Option<u16>
-}
-
-#[derive(Clone, Debug)]
-pub struct DisplayText<'a> {
-	text: Cow<'a, str>
-}
-
-impl DisplayText<'_> {
-	pub fn new(text: &str) -> Self {
-		// Indicates that emojis should be made colored; not rendered correctly on the Pi
-		const UNICODE_VARIATION_SELECTOR_16: char = '\u{FE0F}';
-
-		const WHITESPACE_REPLACEMENT_PAIRS: [(char, &str); 4] = [
-			('\t', "    "),
-			('\n', " "),
-			('\r', " "),
-			(UNICODE_VARIATION_SELECTOR_16, "")
-		];
-
-		/* TODO:
-		- Should I add the rest of the blank characters (see https://invisible-characters.com/ for all), for better cleanup?
-		- The second reason for this is to stop 'nonavailable' character variants to appear - although this would be hard to verify
-		- Does character 157 have to be handled? It might crash the dashboard...
-		*/
-		const ALL_WHITESPACE_CHARS: [char; 5] = [
-			' ', '\t', '\n', '\r', UNICODE_VARIATION_SELECTOR_16
-		];
-
-		//////////
-
-		let trimmed_text = text.trim();
-		let is_whitespace = |c: char| ALL_WHITESPACE_CHARS.contains(&c);
-
-		/* If a string is only whitespace, make it empty.
-		This also implicitly covers completely empty strings,
-		and plenty of blank Unicode characters (that comes from `trim`).
-
-		Note that this does not return "<BLANK TEXT>" since the case for that
-		is based on if the rendered surface has zero width, not based on the contained
-		characters for the string (and the former should be more reliable). */
-		if trimmed_text.chars().all(is_whitespace) {
-			return Self {text: Cow::Borrowed("")};
-		}
-
-		////////// Replacing all replacable whitespace chars with a single space
-
-		// TODO: can I do this more efficiently (e.g. with regexps)?
-		let mut adjusted = trimmed_text.to_owned();
-
-		for (from, to) in WHITESPACE_REPLACEMENT_PAIRS {
-			if adjusted.contains(from) {
-				adjusted = adjusted.replace(from, to);
-			}
-		}
-
-		////////// Returning
-
-		Self {text: Cow::Owned(adjusted)}
-	}
-
-	// This assumes that the inputted padding characters should not be trimmed/preprocessed at all
-	pub fn with_padding(self, left: &str, right: &str) -> Self {
-		let mut text = self.text.to_string();
-		text.insert_str(0, left);
-		text.push_str(right);
-		Self {text: text.into()}
-	}
-}
-
-//////////
-
-/*
-The first item, the function itself:
-	Input: seed (some number of real-time fractional seconds), and if the text fits fully in the box.
-	Output: scroll amount (range: [0, 1]), and if the text should wrap or not.
-The second item is the period of the function.
-*/
-pub type TextTextureScrollEaser = (fn(f64, bool) -> (f64, bool), f64);
-
-// TODO: make a constructor for this, instead of making everything `pub`.
-#[derive(Clone, Debug)]
-pub struct TextDisplayInfo<'a> {
-	pub text: DisplayText<'a>,
-	pub color: ColorSDL,
-	pub pixel_area: (u32, u32),
-	pub scroll_easer: TextTextureScrollEaser,
-	pub scroll_speed_multiplier: f64
-}
 
 //////////
 
@@ -174,12 +62,12 @@ struct RemakeTransition<'a> {
 	end_time: Option<ReferenceTimestamp>,
 
 	transition_info: RemakeTransitionInfo,
-	maybe_text_metadata: Option<TextMetadataItem>
+	maybe_text_metadata: Option<text::TextMetadataItem>
 }
 
 impl<'a> RemakeTransition<'a> {
 	fn new(new_texture: Texture<'a>, transition_info: &RemakeTransitionInfo, creation_info: &TextureCreationInfo) -> Self {
-		let maybe_text_metadata = TextMetadataItem::maybe_new(&new_texture, creation_info);
+		let maybe_text_metadata = text::TextMetadataItem::maybe_new(&new_texture, creation_info);
 
 		Self {
 			new_texture,
@@ -262,7 +150,7 @@ pub enum TextureCreationInfo<'a> {
 	RawBytes(Cow<'a, [u8]>),
 	Path(Cow<'a, str>),
 	Url(Cow<'a, str>),
-	Text((Cow<'a, FontInfo>, TextDisplayInfo<'a>))
+	Text((Cow<'a, text::FontInfo>, text::TextDisplayInfo<'a>))
 }
 
 impl TextureCreationInfo<'_> {
@@ -311,69 +199,6 @@ pub struct TextureHandle {
 
 //////////
 
-#[derive(Clone)]
-struct TextMetadataItem {
-	size: (u32, u32),
-	scroll_speed: f64,
-	scroll_easer: TextTextureScrollEaser,
-	text: String
-}
-
-impl TextMetadataItem {
-	fn maybe_new(texture: &Texture, creation_info: &TextureCreationInfo) -> Option<Self> {
-		// Add/update the metadata key for this handle
-		if let TextureCreationInfo::Text((_, text_display_info)) = creation_info {
-			let texture_query = texture.query();
-			let display_width_to_texture_width_ratio = text_display_info.pixel_area.0 as f64 / texture_query.width as f64;
-
-			Some(TextMetadataItem {
-				size: (texture_query.width, texture_query.height),
-				scroll_speed: display_width_to_texture_width_ratio * text_display_info.scroll_speed_multiplier,
-				scroll_easer: text_display_info.scroll_easer,
-				text: text_display_info.text.text.to_string() // TODO: maybe copy it with a reference count instead?
-			})
-		}
-		else {
-			None
-		}
-	}
-}
-
-struct TextMetadata {
-	metadata: HashMap<TextureHandle, TextMetadataItem>
-}
-
-impl TextMetadata {
-	fn new() -> Self {
-		Self {metadata: HashMap::new()}
-	}
-
-	fn get(&self, handle: &TextureHandle) -> Option<&TextMetadataItem> {
-		self.metadata.get(handle)
-	}
-
-	fn contains_handle(&self, handle: &TextureHandle) -> bool {
-		self.metadata.contains_key(handle)
-	}
-
-	fn update(&mut self, handle: &TextureHandle, maybe_item: &Option<TextMetadataItem>) {
-		if let Some(item) = maybe_item {
-			// Add/update the metadata key for this handle
-			self.metadata.insert(handle.clone(), item.clone());
-		}
-		else {
-			/* If it is not text anymore, but text metadata still
-			exists for this handle, then remove that metadata.
-			TODO: perhaps I could do a font cache clearing here somehow? */
-			if self.metadata.contains_key(handle) {
-				self.metadata.remove(handle);
-			}
-		}
-	}
-}
-
-//////////
-
 /* TODO:
 - Later on, if I am using multiple texture pools,
 add an id to each texture handle that is meant to match the pool
@@ -403,7 +228,7 @@ pub struct TexturePool<'a> {
 	font_cache: HashMap<FontCacheKey, FontPair<'a>>,
 
 	// This maps texture handles of side-scrolling text textures to metadata about that scrolling text
-	text_metadata: TextMetadata,
+	text_metadata: text::TextMetadata,
 
 	// This maps texture handles to remake transitions (structs that define how textures should be rendered when remade)
 	remake_transitions: RemakeTransitions<'a>
@@ -433,7 +258,7 @@ impl<'a> TexturePool<'a> {
 
 			textures: Vec::new(),
 			font_cache: HashMap::new(),
-			text_metadata: TextMetadata::new(),
+			text_metadata: text::TextMetadata::new(),
 			remake_transitions: RemakeTransitions::new(max_remake_transition_queue_size)
 		}
 	}
@@ -642,7 +467,7 @@ impl<'a> TexturePool<'a> {
 
 	fn draw_text_texture_to_canvas(
 		&self, texture: &Texture,
-		text_metadata: &TextMetadataItem,
+		text_metadata: &text::TextMetadataItem,
 		canvas: &mut CanvasSDL, screen_dest: Rect) -> MaybeError {
 
 		// This can be extended later to allow for stuff like rotation
@@ -650,7 +475,7 @@ impl<'a> TexturePool<'a> {
 			canvas.copy(texture, src, dest).to_generic()
 		}
 
-		fn compute_time_seed(secs_fract: f64, text_metadata: &TextMetadataItem) -> f64 {
+		fn compute_time_seed(secs_fract: f64, text_metadata: &text::TextMetadataItem) -> f64 {
 			/* Note: any text that appears to scroll faster when compressed on the x-axis (during a transition)
 			is not scrolling faster; it's just getting 'pushed' rightwards (or 'pulled' leftwards);
 			so it is technically moving at a faster speed, but relative to the area of movement itself,
@@ -773,7 +598,7 @@ impl<'a> TexturePool<'a> {
 		let handle = TextureHandle {handle: self.textures.len() as InnerTextureHandle};
 		let texture = self.make_raw_texture(creation_info)?;
 
-		self.text_metadata.update(&handle, &TextMetadataItem::maybe_new(&texture, creation_info));
+		self.text_metadata.update(&handle, &text::TextMetadataItem::maybe_new(&texture, creation_info));
 		self.textures.push(texture);
 
 		Ok(handle)
@@ -793,7 +618,7 @@ impl<'a> TexturePool<'a> {
 			));
 		}
 		else {
-			self.text_metadata.update(handle, &TextMetadataItem::maybe_new(&new_texture, creation_info));
+			self.text_metadata.update(handle, &text::TextMetadataItem::maybe_new(&new_texture, creation_info));
 			*self.get_texture_from_handle_mut(handle) = new_texture;
 		}
 
@@ -842,7 +667,7 @@ impl<'a> TexturePool<'a> {
 
 	//////////
 
-	fn get_font_pair(&mut self, key: FontCacheKey, maybe_options: Option<&FontInfo>) -> &FontPair {
+	fn get_font_pair(&mut self, key: FontCacheKey, maybe_options: Option<&text::FontInfo>) -> &FontPair {
 		let fonts = self.font_cache.entry(key).or_insert_with( // TODO: should I use `or_insert_with_key` instead?
 			|| {
 				// TODO: don't unwrap
@@ -870,9 +695,9 @@ impl<'a> TexturePool<'a> {
 	}
 
 	fn get_point_and_surface_size_for_initial_font(initial_font: &ttf::Font,
-		text_display_info: &TextDisplayInfo) -> GenericResult<(FontPointSize, (u32, u32))> {
+		text_display_info: &text::TextDisplayInfo) -> GenericResult<(FontPointSize, (u32, u32))> {
 
-		let initial_output_size = initial_font.size_of(&text_display_info.text.text)?;
+		let initial_output_size = initial_font.size_of(&text_display_info.text.inner())?;
 
 		let height_ratio_from_expected_size = text_display_info.pixel_area.1 as f64 / initial_output_size.1 as f64;
 		let adjusted_point_size = Self::INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
@@ -885,11 +710,11 @@ impl<'a> TexturePool<'a> {
 
 	/* Assuming that the passed-in text will not result in a zero-width
 	surface (that is handled in `make_text_surface`). */
-	fn inner_make_text_surface(text_display_info: &TextDisplayInfo,
+	fn inner_make_text_surface(text_display_info: &text::TextDisplayInfo,
 		font_pair: &FontPair, font_has_char: fn(&ttf::Font, char) -> bool,
 		max_texture_width: u32) -> GenericResult<Surface<'a>> {
 
-		let chars: Vec<char> = text_display_info.text.text.chars().collect();
+		let chars: Vec<char> = text_display_info.text.inner().chars().collect();
 		let num_chars = chars.len();
 
 		let (default_font, fallback_font) = font_pair;
@@ -1055,8 +880,8 @@ impl<'a> TexturePool<'a> {
 		Ok(joined_surface)
 	}
 
-	fn make_text_surface(&mut self, font_info: &FontInfo,
-		text_display_info: &TextDisplayInfo) -> GenericResult<Surface<'a>> {
+	fn make_text_surface(&mut self, font_info: &text::FontInfo,
+		text_display_info: &text::TextDisplayInfo) -> GenericResult<Surface<'a>> {
 
 		////////// First, getting a point size
 
