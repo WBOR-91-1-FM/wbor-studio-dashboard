@@ -43,8 +43,6 @@ impl From<PreciseRect> for FRect {
 	}
 }
 
-/* TODO: can I pass a current time parameter in here,
-in order to allow for timing-based effects like texture fade-in? */
 pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
 	pub window: &'a mut Window,
 	pub texture_pool: &'b mut TexturePool<'c>,
@@ -57,7 +55,7 @@ pub type PossibleWindowUpdater = Option<(
 	UpdateRate
 )>;
 
-// This data remains constant over a recursive rendering call (TODO: make a constructor for this)
+// This data remains constant over a recursive rendering call
 pub struct PerFrameConstantRenderingParams<'a> {
 	pub sdl_canvas: CanvasSDL,
 	pub texture_pool: TexturePool<'a>,

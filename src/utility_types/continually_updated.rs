@@ -8,8 +8,6 @@ use crate::{
 	dashboard_defs::error::ErrorState
 };
 
-// TODO: could I model this better as an infinite stream instead?
-
 //////////
 
 pub trait Updatable: Clone + Send {
@@ -56,7 +54,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 				let param = match param_receiver.recv().await {
 					Some(inner_param) => inner_param,
 
-					None => {
+					_ => {
 						return; // Bottom message is not printed since it happens almost every time
 
 						/*

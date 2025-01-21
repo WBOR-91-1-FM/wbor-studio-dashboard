@@ -271,7 +271,7 @@ impl TwilioStateData {
 		let request_url = request::build_url(&base_url, path_params, query_params);
 
 		request::as_type(request::get_with_maybe_header(
-			&request_url, // TODO: cache the requests, and why is there a 11200 error in the response for messages?
+			&request_url, // TODO: cache the constructed requests, and why is there a 11200 error in the response for messages?
 			Some(("Authorization", &self.immutable.request_auth))
 		)).await
 	}

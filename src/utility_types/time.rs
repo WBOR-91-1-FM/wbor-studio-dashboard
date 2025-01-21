@@ -10,7 +10,6 @@ pub type Duration = chrono::Duration;
 pub type ReferenceTimezone = chrono::Utc;
 pub type LocalTimezone = chrono::Local;
 
-// TODO: remove all raw `chrono` referecnes
 pub type ReferenceTimestamp = DateTime<ReferenceTimezone>;
 type LocalTimestamp = DateTime<LocalTimezone>;
 type AnyZoneTimestamp = DateTime<chrono::FixedOffset>;

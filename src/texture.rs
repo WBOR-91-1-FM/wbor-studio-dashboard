@@ -877,7 +877,7 @@ impl<'a> TexturePool<'a> {
 		let height_ratio_from_expected_size = text_display_info.pixel_area.1 as f64 / initial_output_size.1 as f64;
 		let adjusted_point_size = Self::INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
 
-		// TODO: would it work better if I used `round` or `ceil` for the adjsuted point size instead?
+		// This seems to generally work better than `round` or `ceil` for the adjusted point size instead.
 		Ok((adjusted_point_size as FontPointSize, initial_output_size))
 	}
 
