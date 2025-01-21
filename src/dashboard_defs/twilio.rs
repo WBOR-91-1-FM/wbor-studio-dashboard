@@ -28,6 +28,32 @@ use crate::{
 
 // TODO: split this file up into some smaller files
 
+////////// This is used for deferred texture creation
+
+// TODO: put this in `texture.rs` later (for use with lazy texture loading)
+#[derive(Clone)]
+enum LazyTextureHandle<'a> {
+	NotLoadedYet(TextureCreationInfo<'a>),
+	Loaded(TextureHandle)
+}
+
+impl<'a> LazyTextureHandle<'a> {
+	fn new(info: TextureCreationInfo<'a>) -> Self {
+		Self::NotLoadedYet(info)
+	}
+
+	fn access(&mut self, texture_pool: &mut TexturePool) -> TextureHandle {
+		match self {
+			Self::NotLoadedYet(info) => {
+				let handle = texture_pool.make_texture(info).unwrap(); // TODO: handle the reloading/reuse stuff for this too
+				*self = Self::Loaded(handle.clone());
+				handle
+			}
+			Self::Loaded(handle) => handle.clone()
+		}
+	}
+}
+
 ////////// This is used for managing a subset of textures used in the texture pool
 
 // TODO: could I keep 2 piles instead (one for unused, and one for used)?
@@ -182,6 +208,9 @@ struct MessageInfo {
 	age_data: MessageAgeData,
 	display_text: String,
 	maybe_from: Option<String>, // This is `None` if the message identity is hidden
+
+	maybe_media_texture: Option<LazyTextureHandle<'static>>,
+
 	body: String,
 	time_sent: ReferenceTimestamp,
 	time_loaded_by_app: ReferenceTimestamp, // This includes sub-second precision, while the time sent above does not
@@ -315,6 +344,10 @@ impl TwilioStateData {
 	}
 
 	fn make_message_display_text(age_data: MessageAgeData, body: &str, maybe_from: Option<&str>) -> String {
+		if body.is_empty() {
+			println!("Empty body!");
+		}
+
 		let display_text = if let Some((unit_name, plural_suffix, unit_amount)) = age_data {
 			format!("{unit_amount} {unit_name}{plural_suffix} ago: '{body}'")
 		}
@@ -331,6 +364,84 @@ impl TwilioStateData {
 			display_text
 		}
 	}
+}
+
+////////////////////// TODO: PUT THIS IN A BETTER PLACE!
+
+async fn try_to_get_media_from_text_json(message: &serde_json::Value, request_auth: &str) -> GenericResult<Option<LazyTextureHandle<'static>>> {
+	// TODO: no repeating of this helper fn!
+	let message_field = |name| message[name].as_str().unwrap();
+
+	let num_media_str = message_field("num_media");
+	let num_media = num_media_str.parse::<i32>().unwrap();
+
+	if num_media <= 0 {
+		return Ok(None);
+	}
+
+	//////////
+
+	let request_header = Some(("Authorization", request_auth));
+
+	println!("Before");
+
+	let partial_media_uri = message["subresource_uris"].as_object().map(|uris| uris["media"].as_str()).unwrap().unwrap();
+	let full_media_uri = format!("https://api.twilio.com/{partial_media_uri}");
+
+	let before_media_get = std::time::Instant::now();
+	let media_response_json: serde_json::Value = request::as_type(request::get_with_maybe_header(&full_media_uri, request_header)).await?;
+	println!("Took this long for media get: {}", before_media_get.elapsed().as_millis());
+
+	let media_list = media_response_json["media_list"].as_array().unwrap();
+
+	// TODO: no media reparsing per each time!
+	// TODO: if one render fails, then try another attachment
+
+	// TODO: try to make a long texture with the media together
+	for media_item in media_list {
+		let content_type = media_item["content_type"].as_str().unwrap();
+		if !content_type.starts_with("image") {continue;} // Only work with images sent
+
+		// Trimming the `.json` end to get the proper image url out
+		let partial_content_uri = media_item["uri"].as_str().unwrap().trim_end_matches(".json");
+		let full_content_uri = format!("https://api.twilio.com{partial_content_uri}");
+
+		let before_content_get = std::time::Instant::now();
+		let content_response = request::get_with_maybe_header(&full_content_uri, request_header).await;
+		println!("Took this long for content response ({full_content_uri}): {}", before_content_get.elapsed().as_millis());
+
+		match content_response {
+			Ok(content) => { // TODO: remove the ref
+				println!("Before bytes!");
+				// println!("Content response: {:?}", content_response);
+				// let bytes = content.bytes().await?;
+				// return Ok(None);
+
+				let bytes = match content.bytes().await {
+					Ok(bytes) => bytes,
+					Err(err) => {
+						log::error!("Error with getting media bytes: '{err}'. Trying the next one now.");
+						continue;
+					}
+				};
+
+				let deferred = LazyTextureHandle::new(TextureCreationInfo::RawBytes(Cow::Owned(bytes.to_vec())));
+				return Ok(Some(deferred));
+
+				/*
+				println!("After bytes");
+				let deferred = LazyTextureHandle::new(TextureCreationInfo::RawBytes(Cow::Owned(bytes.to_vec())));
+				println!("Got deferred texture handle now!");
+				*/
+			}
+			Err(err) => {
+				log::error!("Error with fetching media content: '{err}'. Trying the next one now.");
+				continue;
+			}
+		}
+	}
+
+	Ok(None)
 }
 
 impl Updatable for TwilioStateData {
@@ -363,40 +474,47 @@ impl Updatable for TwilioStateData {
 		// This will always be in the range of 0 <= num_messages <= self.num_messages_in_history
 		let json_messages = json["messages"].as_array().unwrap();
 
-		let incoming_message_map = HashMap::from_iter(
-			json_messages.iter().filter_map(|message| {
-				let message_field = |name| message[name].as_str().unwrap();
+		let mut incoming_message_map = HashMap::new();
 
-				// Using the date created instead, since it is never null at the beginning (unlike the date sent)
-				let unparsed_time_sent = message_field("date_created");
-				let time_sent = parse_time_from_rfc2822(unparsed_time_sent).unwrap();
+		for message in json_messages {
+			let message_field = |name| message[name].as_str().unwrap();
 
-				if time_sent >= history_cutoff_time {
-					let id = message_field("uri");
+			// Using the date created instead, since it is never null at the beginning (unlike the date sent)
+			let unparsed_time_sent = message_field("date_created");
+			let time_sent = parse_time_from_rfc2822(unparsed_time_sent).unwrap();
 
-					// If a key on the heap already existed, reuse it
-					let (id_on_heap, time_loaded_by_app) =
-						if let Some((already_id, already_message)) = self.curr_messages.map.get_key_value(id) {
-							(already_id.clone(), already_message.time_loaded_by_app)
-						}
-						else {
-							(id.into(), ReferenceTimezone::now())
-						};
+			if time_sent >= history_cutoff_time {
+				//////////
 
-					let maybe_from = if self.immutable.reveal_texter_identities {
-						Some(message_field("from"))
+				// TODO: should I use the `sid` field instead? I am not sure.
+				let id = message_field("uri");
+
+				// If a key on the heap already existed, reuse it
+				let (id_on_heap, time_loaded_by_app, maybe_media_texture) =
+					if let Some((already_id, already_message)) = self.curr_messages.map.get_key_value(id) {
+						println!("Grab old media");
+						(already_id.clone(), already_message.time_loaded_by_app, already_message.maybe_media_texture.clone())
 					}
 					else {
-						None
+						println!("New media");
+						let maybe_media = try_to_get_media_from_text_json(message, &self.immutable.request_auth).await?;
+						(id.into(), ReferenceTimezone::now(), maybe_media)
 					};
 
-					Some((id_on_heap, (maybe_from, message_field("body"), time_sent, time_loaded_by_app)))
+				//////////
+
+				let maybe_from = if self.immutable.reveal_texter_identities {
+					Some(message_field("from"))
 				}
 				else {
 					None
-				}
-			})
-		);
+				};
+
+				//////////
+
+				incoming_message_map.insert(id_on_heap, (maybe_from, message_field("body"), maybe_media_texture, time_sent, time_loaded_by_app));
+			}
+		}
 
 		//////////
 
@@ -423,7 +541,7 @@ impl Updatable for TwilioStateData {
 						}
 					},
 
-					SyncedMessageMapAction::MakeLocalFromOffshore((maybe_from, body, wrongly_typed_time_sent, time_loaded_by_app)) => {
+					SyncedMessageMapAction::MakeLocalFromOffshore((maybe_from, body, maybe_media_texture, wrongly_typed_time_sent, time_loaded_by_app)) => {
 						let time_sent = (*wrongly_typed_time_sent).into();
 						let age_data = Self::get_message_age_data(curr_time, time_sent);
 
@@ -434,6 +552,9 @@ impl Updatable for TwilioStateData {
 							age_data,
 							display_text: Self::make_message_display_text(age_data, &trimmed_body, *maybe_from),
 							maybe_from: boxed_maybe_from,
+
+							maybe_media_texture: maybe_media_texture.clone(),
+
 							body: trimmed_body,
 							time_sent,
 							time_loaded_by_app: *time_loaded_by_app,
@@ -482,7 +603,7 @@ impl TwilioState {
 		let curr_continual_data = self.continually_updated.get_data();
 
 		let local = &mut self.id_to_texture_map;
-		let offshore = &curr_continual_data.curr_messages;
+		let offshore: &SyncedMessageMap<MessageInfo> = &curr_continual_data.curr_messages;
 
 		let mut texture_creation_info = TextureCreationInfo::Text((
 			Cow::Borrowed(font_info),
@@ -532,8 +653,15 @@ impl TwilioState {
 						assert!(offshore_message_info.just_updated);
 						update_texture_creation_info(offshore_message_info);
 
+						let mut tci = &texture_creation_info;
+
+						if let Some(LazyTextureHandle::NotLoadedYet(tci_image)) = offshore_message_info.maybe_media_texture.as_ref() {
+							tci = tci_image;
+						}
+
 						return Ok(Some(self.texture_subpool_manager.request_slot(
-							&texture_creation_info,
+							tci,
+							// &texture_creation_info,
 							self.maybe_remake_transition_info.as_ref(),
 							texture_pool
 						)?));
