@@ -98,15 +98,14 @@ async fn do_request<T: SpinitronModelWithProps>(api_key: &str, possible_model_id
 }
 
 /*
-fn do_plural_request<T: SpinitronModelWithProps>(api_key: &str, possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
-	let response_json = get_json_from_spinitron_request::<T>(api_key, None, possible_item_count)?;
+async fn do_plural_request<T: SpinitronModelWithProps>(api_key: &str, possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
+	let response_json = get_json_from_spinitron_request::<T>(api_key, None, possible_item_count).await?;
 	get_vec_from_spinitron_json(&response_json)
 }
 */
 
 //////////
 
-// TODO: can I make `id` non-optional?
 pub async fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: MaybeSpinitronModelId) -> GenericResult<T> {
 	do_request(api_key, id).await // TODO: stop using this as a wrapper?
 }
