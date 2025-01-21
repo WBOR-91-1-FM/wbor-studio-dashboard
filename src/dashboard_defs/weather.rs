@@ -2,7 +2,7 @@ use std::{collections::HashMap, borrow::Cow};
 
 use crate::{
 	request,
-	texture::texture::{DisplayText, TextDisplayInfo, TextureCreationInfo},
+	texture::pool::{DisplayText, TextDisplayInfo, TextureCreationInfo},
 
 	utility_types::{
 		vec2f::Vec2f,

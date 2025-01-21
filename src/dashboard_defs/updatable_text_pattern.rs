@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use crate::{
-	texture::texture::{
+	texture::pool::{
 		FontInfo,
 		DisplayText,
 		TextDisplayInfo,

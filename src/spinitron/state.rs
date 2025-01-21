@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
 	request,
-	texture::texture::TextureCreationInfo,
+	texture::pool::TextureCreationInfo,
 	dashboard_defs::error::ErrorState,
 
 	utility_types::{

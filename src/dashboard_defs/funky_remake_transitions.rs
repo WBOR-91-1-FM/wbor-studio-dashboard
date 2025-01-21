@@ -7,7 +7,7 @@ use crate::{
 		generic_result::*
 	},
 
-	texture::texture::{
+	texture::pool::{
 		TexturePool,
 		TextureCreationInfo,
 		RemakeTransitionInfo,

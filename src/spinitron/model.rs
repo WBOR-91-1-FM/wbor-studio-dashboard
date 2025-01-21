@@ -6,7 +6,7 @@ use derive_alias::derive_alias;
 use serde::{Serialize, Deserialize};
 
 use crate::{
-	texture::texture::TextureCreationInfo,
+	texture::pool::TextureCreationInfo,
 
 	utility_types::{
 		time::*,

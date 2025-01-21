@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
 	utility_types::generic_result::*,
 
-	texture::texture::{
+	texture::pool::{
 		TextureHandle, TextureCreationInfo,
 		RemakeTransitionInfo, TexturePool
 	}

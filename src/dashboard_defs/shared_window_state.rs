@@ -1,6 +1,6 @@
 use crate::{
     spinitron::state::SpinitronState,
-    texture::texture::{FontInfo, TextureCreationInfo},
+    texture::pool::{FontInfo, TextureCreationInfo},
     dashboard_defs::{twilio::TwilioState, clock::ClockHands, error::ErrorState}
 };
 

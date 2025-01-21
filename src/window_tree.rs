@@ -1,7 +1,7 @@
 use sdl2::{self, rect::FRect};
 
 use crate::{
-	texture::texture::{
+	texture::pool::{
 		TexturePool,
 		TextureHandle,
 		TextureCreationInfo,

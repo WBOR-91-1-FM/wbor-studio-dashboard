@@ -23,7 +23,7 @@ fn ease_out_bounce(mut x: f64) -> f64 {
 //////////
 
 pub mod scroll {
-	use crate::texture::texture::TextTextureScrollEaser;
+	use crate::texture::pool::TextTextureScrollEaser;
 
 	pub const STAY_PUT: TextTextureScrollEaser = (|_, _| (0.0, true), 1.0);
 
@@ -54,7 +54,7 @@ pub mod scroll {
 pub mod transition {
 	pub mod opacity {
 		use crate::{
-			texture::texture::TextureTransitionOpacityEaser,
+			texture::pool::TextureTransitionOpacityEaser,
 
 			dashboard_defs::easing_fns::{
 				ease_out_bounce,
@@ -92,7 +92,7 @@ pub mod transition {
 	pub mod aspect_ratio {
 		use crate::{
 			dashboard_defs::easing_fns::ease_out_bounce,
-			texture::texture::TextureTransitionAspectRatioEaser
+			texture::pool::TextureTransitionAspectRatioEaser
 		};
 
 		pub const LINEAR: TextureTransitionAspectRatioEaser = |percent_done| percent_done;

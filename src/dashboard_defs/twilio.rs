@@ -26,7 +26,7 @@ use crate::{
 
 	texture::{
 		subpool_manager::TextureSubpoolManager,
-		texture::{FontInfo, DisplayText, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool, RemakeTransitionInfo}
+		pool::{FontInfo, DisplayText, TextDisplayInfo, TextureCreationInfo, TextureHandle, TexturePool, RemakeTransitionInfo}
 	}
 };
 
