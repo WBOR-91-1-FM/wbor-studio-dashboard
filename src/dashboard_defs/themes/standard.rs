@@ -29,6 +29,7 @@ use crate::{
 		twilio::{make_twilio_window, TwilioState},
 		surprise::{make_surprise_window, SurpriseCreationInfo},
 		clock::{ClockHandConfig, ClockHandConfigs, ClockHands},
+		streaming_server_status::make_streaming_server_status_window,
 		spinitron::{make_spinitron_windows, SpinitronModelWindowInfo, SpinitronModelWindowsInfo}
 	}
 };
@@ -162,6 +163,13 @@ pub async fn make_dashboard(
 	let spinitron_windows = make_spinitron_windows(
 		&all_model_windows_info, shared_update_rate
 	);
+
+	////////// Making a streaming server status window
+
+	let streaming_server_status_window = make_streaming_server_status_window(
+		&api_keys.streaming_server_now_playing_url,
+		update_rate_creator.new_instance(5.0), 3
+	).await;
 
 	////////// Making an error window
 
@@ -352,7 +360,7 @@ pub async fn make_dashboard(
 
 	////////// Making some static texture windows
 
-	let mut all_main_windows = vec![twilio_window, credit_window];
+	let mut all_main_windows = vec![twilio_window, credit_window, streaming_server_status_window];
 	all_main_windows.extend(spinitron_windows);
 	add_static_texture_set(&mut all_main_windows, &main_static_texture_info, &main_static_texture_creation_info, texture_pool);
 

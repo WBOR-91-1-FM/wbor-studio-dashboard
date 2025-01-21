@@ -18,9 +18,10 @@ use crate::{
 #[derive(serde::Deserialize)]
 pub struct ApiKeys {
 	pub spinitron: String,
-	pub tomorrow_io: String,
 	pub twilio_account_sid: String,
-	pub twilio_auth_token: String
+	pub twilio_auth_token: String,
+	pub tomorrow_io: String,
+	pub streaming_server_now_playing_url: String // Not really an API key, but this is the best place to put it anyways
 }
 
 //////////

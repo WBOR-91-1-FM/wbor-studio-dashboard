@@ -60,7 +60,7 @@ impl ErrorState {
 			let (subsection_ending, maybe_and) = if is_last_source {(".", "and ")} else {("", "")};
 
 			let subsection = if is_first_source {
-				format!("Internal dashboard error{plural_suffix} from '{source}'{subsection_ending}")
+				format!("Error{plural_suffix} encountered from '{source}'{subsection_ending}")
 			}
 			else {
 				format!(", {maybe_and}'{source}'{subsection_ending}")
