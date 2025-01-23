@@ -697,7 +697,7 @@ impl<'a> TexturePool<'a> {
 	fn get_point_and_surface_size_for_initial_font(initial_font: &ttf::Font,
 		text_display_info: &text::TextDisplayInfo) -> GenericResult<(FontPointSize, (u32, u32))> {
 
-		let initial_output_size = initial_font.size_of(&text_display_info.text.inner())?;
+		let initial_output_size = initial_font.size_of(text_display_info.text.inner())?;
 
 		let height_ratio_from_expected_size = text_display_info.pixel_area.1 as f64 / initial_output_size.1 as f64;
 		let adjusted_point_size = Self::INITIAL_POINT_SIZE as f64 * height_ratio_from_expected_size;
