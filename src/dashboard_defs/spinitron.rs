@@ -25,7 +25,7 @@ use crate::{
 		ColorSDL,
 		WindowContents,
 		WindowUpdaterParams,
-		PossibleWindowUpdater
+		MaybeWindowUpdater
 	},
 
 	spinitron::model::{SpinitronModelName, NUM_SPINITRON_MODEL_TYPES}
@@ -137,7 +137,7 @@ pub fn make_spinitron_windows(
 
 	////////// Making the model windows
 
-	let spinitron_model_window_updater: PossibleWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
+	let spinitron_model_window_updater: MaybeWindowUpdater = Some((spinitron_model_window_updater_fn, model_update_rate));
 
 	// TODO: perhaps for making multiple model windows, allow for an option to have sub-model-windows
 	all_model_windows_info.iter().flat_map(|general_info| {

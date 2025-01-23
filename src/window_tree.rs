@@ -50,7 +50,7 @@ pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
 	pub area_drawn_to_screen: (u32, u32)
 }
 
-pub type PossibleWindowUpdater = Option<(
+pub type MaybeWindowUpdater = Option<(
 	fn(WindowUpdaterParams) -> MaybeError,
 	UpdateRate
 )>;
@@ -134,7 +134,7 @@ impl WindowContents {
 //////////
 
 pub struct Window {
-	possible_updater: PossibleWindowUpdater,
+	maybe_updater: MaybeWindowUpdater,
 	state: DynamicOptional,
 	contents: WindowContents,
 
@@ -181,7 +181,7 @@ pub struct Window {
 
 impl Window {
 	pub fn new(
-		possible_updater: PossibleWindowUpdater,
+		maybe_updater: MaybeWindowUpdater,
 		state: DynamicOptional,
 		contents: WindowContents,
 		maybe_border_color: Option<ColorSDL>,
@@ -196,7 +196,7 @@ impl Window {
 		};
 
 		Self {
-			possible_updater, state, contents,
+			maybe_updater, state, contents,
 			skip_drawing: false,
 			skip_aspect_ratio_correction: false,
 			maybe_border_color,
@@ -277,7 +277,7 @@ impl Window {
 		- If no updaters are called, don't redraw anything.
 		- For any specific node, if that updater doesn't have an effect, then don't draw for that node. */
 
-		if let Some((updater, update_rate)) = self.possible_updater {
+		if let Some((updater, update_rate)) = self.maybe_updater {
 			if update_rate.is_time_to_update(rendering_params.frame_counter) {
 				//////////
 
