@@ -576,24 +576,24 @@ pub fn make_twilio_window(
 	let all_subwindows = (0..max_num_messages_in_history).map(|i| {
 		// Note: I can't directly put the background contents into the history windows since it's sized differently
 		let history_window = Window::new(
-			Some((history_updater_fn, update_rate)),
+			vec![(history_updater_fn, update_rate)],
 			DynamicOptional::new(TwilioHistoryWindowState {message_index: i, text_color}),
 			WindowContents::Nothing,
 			None,
 			cropped_text_tl_in_history_window,
 			cropped_text_size_in_history_window,
-			None
+			vec![]
 		);
 
 		// This is just the history window with the background contents
 		let mut with_background_contents = Window::new(
-			None,
+			vec![],
 			DynamicOptional::NONE,
 			message_background_contents.clone(),
 			None,
 			Vec2f::new(0.0, i as f64 * history_window_height),
 			Vec2f::new(1.0, history_window_height),
-			Some(vec![history_window])
+			vec![history_window]
 		);
 
 		// Don't want to not stretch the message bubbles
@@ -633,33 +633,33 @@ pub fn make_twilio_window(
 	//////////
 
 	let top_box = Window::new(
-		Some((top_box_updater_fn, update_rate)),
+		vec![(top_box_updater_fn, update_rate)],
 		DynamicOptional::new(text_color),
 		WindowContents::Many(vec![top_box_contents, WindowContents::Nothing]),
 		None,
 		Vec2f::new(top_left.x(), top_left.y() - top_box_height),
 		Vec2f::new(size.x(), top_box_height),
-		None
+		vec![]
 	);
 
 	// This just contains the history windows
 	let history_window_container = Window::new(
-		None,
+		vec![],
 		DynamicOptional::NONE,
 		WindowContents::Nothing,
 		overall_border_color,
 		top_left,
 		size,
-		Some(all_subwindows)
+		all_subwindows
 	);
 
 	Window::new(
-		None,
+		vec![],
 		DynamicOptional::NONE,
 		WindowContents::Nothing,
 		None,
 		Vec2f::ZERO,
 		Vec2f::ONE,
-		Some(vec![history_window_container, top_box])
+		vec![history_window_container, top_box]
 	)
 }

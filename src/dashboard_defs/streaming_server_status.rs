@@ -59,12 +59,12 @@ pub async fn make_streaming_server_status_window(url: &str, ping_rate: UpdateRat
 	).await;
 
 	Window::new(
-		Some((server_status_updater_fn, ping_rate)),
+		vec![(server_status_updater_fn, ping_rate)],
 		DynamicOptional::new(pinger_updater),
 		WindowContents::Nothing,
 		None,
 		Vec2f::ZERO,
 		Vec2f::ZERO,
-		None
+		vec![]
 	)
 }

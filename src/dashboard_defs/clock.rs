@@ -141,13 +141,13 @@ impl ClockHands {
 			}).collect());
 
 		let clock_window = Window::new(
-			Some((updater_fn, update_rate)),
+			vec![(updater_fn, update_rate)],
 			DynamicOptional::NONE,
 			WindowContents::Many(vec![dial_contents, line_contents]),
 			None,
 			top_left,
 			size,
-			None
+			vec![]
 		);
 
 		Ok((

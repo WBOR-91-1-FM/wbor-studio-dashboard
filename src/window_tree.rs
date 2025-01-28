@@ -50,7 +50,7 @@ pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
 	pub area_drawn_to_screen: (u32, u32)
 }
 
-pub type MaybeWindowUpdater = Option<(
+pub type WindowUpdaters = Vec<(
 	fn(WindowUpdaterParams) -> MaybeError,
 	UpdateRate
 )>;
@@ -134,7 +134,7 @@ impl WindowContents {
 //////////
 
 pub struct Window {
-	maybe_updater: MaybeWindowUpdater,
+	updaters: WindowUpdaters,
 	state: DynamicOptional,
 	contents: WindowContents,
 
@@ -176,32 +176,27 @@ pub struct Window {
 	Maybe a K-D-B tree is the solution?
 	*/
 
-	children: Option<Vec<Self>>
+	children: Vec<Self>
 }
 
 impl Window {
 	pub fn new(
-		maybe_updater: MaybeWindowUpdater,
+		updaters: WindowUpdaters,
 		state: DynamicOptional,
 		contents: WindowContents,
 		maybe_border_color: Option<ColorSDL>,
 		top_left: Vec2f, size: Vec2f,
-		children: Option<Vec<Self>>) -> Self {
+		children: Vec<Self>) -> Self {
 
 		let _bottom_right = top_left + size;
 
-		let none_if_children_vec_is_empty = match &children {
-			Some(inner_children) => {if inner_children.is_empty() {None} else {children}},
-			None => None
-		};
-
 		Self {
-			maybe_updater, state, contents,
+			updaters, state, contents,
 			skip_drawing: false,
 			skip_aspect_ratio_correction: false,
 			maybe_border_color,
 			top_left, size,
-			children: none_if_children_vec_is_empty
+			children
 		}
 	}
 
@@ -277,7 +272,8 @@ impl Window {
 		- If no updaters are called, don't redraw anything.
 		- For any specific node, if that updater doesn't have an effect, then don't draw for that node. */
 
-		if let Some((updater, update_rate)) = self.maybe_updater {
+		// TODO: figure out how to avoid cloning the updater vec
+		for (updater, update_rate) in self.updaters.clone() {
 			if update_rate.is_time_to_update(rendering_params.frame_counter) {
 				//////////
 
@@ -306,10 +302,8 @@ impl Window {
 
 		////////// Updating all child windows
 
-		if let Some(children) = &mut self.children {
-			for child in children {
-				child.inner_render(rendering_params, screen_dest);
-			}
+		for child in &mut self.children {
+			child.inner_render(rendering_params, screen_dest);
 		}
 	}
 

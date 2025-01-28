@@ -9,6 +9,7 @@ use crate::{
 	},
 
 	utility_types::{
+		time::*,
 		vec2f::Vec2f,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
@@ -70,39 +71,47 @@ lazy_static::lazy_static!(
 
 //////////
 
+/* Note: an 'interval' is a piece of weather data predicted for some point into the future.
+This type constitutes a timestamp, a temperature, a weather code descriptor, and an associated emoji. */
+type WeatherIntervalDatum = (ReferenceTimestamp, f32, &'static str, &'static str);
+
 #[derive(Clone)]
 struct WeatherStateData {
 	text_color: ColorSDL,
 
 	request_url: String,
-	weather_changed: bool,
+	weather_unit_symbol: char,
 
-	// Rounded temperature, weather code descriptor, and associated emoji
-	curr_weather_info: Option<(i16, &'static str, &'static str)>
+	// Info for different timestamps.
+	curr_weather_info: Vec<WeatherIntervalDatum>
 }
 
 impl Updatable for WeatherStateData {
 	type Param = ();
 
-	// TODO: while the weather is fetched every 10 minutes, use the other 9 minutes' forecasts for more updated data
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
 		// return Ok(()); // Use this line when developing locally, and you don't want to rate-limit this API in the studio!
 
 		let all_info_json: serde_json::Value = request::as_type(request::get(&self.request_url)).await?;
 
-		let current_weather_json = &all_info_json["data"]["timelines"][0]["intervals"][0]["values"];
+		// Note: the intervals are a series of weather predictions from this point on, spaced per some time amount.
+		let intervals = &all_info_json["data"]["timelines"][0]["intervals"];
 
-		let associated_code = current_weather_json["weatherCode"].as_i64().unwrap() as u16;
-		let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code)).unwrap();
+		// Unwrapping, just to make sure that critical errors resulting from here are never ignored
+		self.curr_weather_info = intervals.as_array().unwrap().iter().map(|interval| {
+			let values = &interval["values"];
 
-		let rounded_temperature = current_weather_json["temperature"].as_f64().unwrap().round() as i16;
+			let (timestamp, temperature, associated_code) = (
+				interval["startTime"].as_str().unwrap(),
+				values["temperature"].as_f64().unwrap() as f32,
+				values["weatherCode"].as_i64().unwrap() as u16
+			);
 
-		let new_info = Some((rounded_temperature, weather_code_descriptor as &str, associated_emoji as &str));
-		self.weather_changed = new_info != self.curr_weather_info;
+			let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code)).unwrap();
+			let timestamp: ReferenceTimestamp = parse_time_from_rfc3339(timestamp).unwrap().into();
 
-		if self.weather_changed {
-			self.curr_weather_info = new_info;
-		}
+			(timestamp, temperature, *weather_code_descriptor, *associated_emoji)
+		}).collect();
 
 		Ok(())
 	}
@@ -110,20 +119,42 @@ impl Updatable for WeatherStateData {
 
 //////////
 
-// TODO: use the updatable text pattern here
-fn weather_updater_fn(params: WindowUpdaterParams) -> MaybeError {
+// This updates the weather API results every X minutes. Predictions are gathered for Y minutes forward.
+fn weather_api_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<WeatherStateData>>();
-
 	individual_window_state.update(&(), &mut inner_shared_state.error_state)?;
+	Ok(())
+}
+
+/* This updates the weather string displayed on the dashboard, given the prediction
+data gathered every X minutes from the API. TODO: use the updatable text pattern here. */
+fn realtime_weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError {
+	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
+	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<WeatherStateData>>();
 	let inner = individual_window_state.get_data();
 
-	if !inner.weather_changed || inner.curr_weather_info.is_none() {
-		return Ok(());
-	}
+	let weather_string = match inner.curr_weather_info.len() {
+		0 => "No weather info available!".to_owned(),
 
-	let (rounded_temperature, weather_code_descriptor, associated_emoji) = inner.curr_weather_info.unwrap();
-	let weather_string = format!("Weather: {rounded_temperature}° and {weather_code_descriptor} {associated_emoji}");
+		_ => {
+			let curr_time = get_reference_time();
+
+			/* This snippet finds the closest weather prediction interval to the current time.
+			TODO: perhaps interpolate to update the weather even more in real-time?
+			TODO: perhaps just index directly into the interval array, assuming that enough entries exist
+			for that to be possible, and that all of the intervals are spaced evenly timewise? */
+			let closest_interval = inner.curr_weather_info
+				.iter().min_by_key(|(interval_time, ..)| {
+					let duration = interval_time.signed_duration_since(curr_time);
+					duration.num_seconds().abs()
+				})
+				.unwrap();
+
+			let (temperature, weather_code_descriptor, associated_emoji) = (closest_interval.1, closest_interval.2, closest_interval.3);
+			format!("Weather: {temperature}°{} and {weather_code_descriptor} {associated_emoji}", inner.weather_unit_symbol)
+		}
+	};
 
 	let texture_creation_info = TextureCreationInfo::Text((
 		Cow::Borrowed(inner_shared_state.font_info),
@@ -152,14 +183,11 @@ pub async fn make_weather_window(
 	background_contents: WindowContents,
 	text_color: ColorSDL, border_color: ColorSDL) -> GenericResult<Window> {
 
+	const API_UPDATE_RATE_SECS: Seconds = 60.0 * 15.0; // Once every 15 minutes
+	const REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS: Seconds = 60.0; // Once per minute (this works in accordance with the timestep below)
+
 	let curr_location_json: serde_json::Value = request::as_type(request::get("https://ipinfo.io/json")).await?;
-
 	let location = &curr_location_json["loc"].as_str().context("No location field available!")?;
-
-	const UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes
-
-	// TODO: put the weather changes into the shared state, for proper on-screen error reporting; or remove all of the shared state somehow
-	let weather_update_rate = update_rate_creator.new_instance(UPDATE_RATE_SECS);
 
 	let request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
 		&[],
@@ -167,8 +195,8 @@ pub async fn make_weather_window(
 		&[
 			("apikey", Cow::Borrowed(api_key)),
 			("location", Cow::Borrowed(location)),
-			("timesteps", Cow::Borrowed("1m")),
-			("units", Cow::Borrowed("imperial")),
+			("timesteps", Cow::Borrowed("1m")), // Timesteps of 1 minute, which is the highest allowed
+			("units", Cow::Borrowed("imperial")), // Using degrees!
 			("fields", Cow::Borrowed("temperature,weatherCode"))
 		]
 	);
@@ -176,19 +204,23 @@ pub async fn make_weather_window(
 	let data = WeatherStateData {
 		text_color,
 		request_url,
-		weather_changed: false,
-		curr_weather_info: None
+		weather_unit_symbol: 'F', // `F` for Fahrenheit (since we're using degrees)
+		curr_weather_info: Vec::new()
 	};
 
 	let continually_updated = ContinuallyUpdated::new(&data, &(), "Weather").await;
 
 	Ok(Window::new(
-		Some((weather_updater_fn, weather_update_rate)),
+		vec![
+			(weather_api_updater_fn, update_rate_creator.new_instance(API_UPDATE_RATE_SECS)),
+			(realtime_weather_string_updater_fn, update_rate_creator.new_instance(REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS))
+		],
+
 		DynamicOptional::new(continually_updated),
 		background_contents,
 		Some(border_color),
 		top_left,
 		size,
-		None
+		vec![]
 	))
 }

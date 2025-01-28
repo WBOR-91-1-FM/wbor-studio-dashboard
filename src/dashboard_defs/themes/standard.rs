@@ -381,17 +381,17 @@ pub async fn make_dashboard(
 	let top_bar_tl = Vec2f::new_scalar(main_windows_gap_size);
 
 	let top_bar_window = Window::new(
-		None,
+		vec![],
 		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(128, 0, 32)),
 		None,
 		top_bar_tl,
 		Vec2f::new(x_width_from_main_window_gap_size, top_bar_window_size_y),
-		Some(vec![clock_window, weather_window])
+		vec![clock_window, weather_window]
 	);
 
 	let mut main_window = Window::new(
-		None,
+		vec![],
 		DynamicOptional::NONE,
 
 		WindowContents::Many(
@@ -403,7 +403,7 @@ pub async fn make_dashboard(
 		Some(theme_color_1),
 		Vec2f::new(main_windows_gap_size, main_window_tl_y),
 		Vec2f::new(x_width_from_main_window_gap_size, main_window_size_y),
-		Some(all_main_windows)
+		all_main_windows
 	);
 
 	main_window.set_aspect_ratio_correction_skipping(true);
@@ -415,13 +415,13 @@ pub async fn make_dashboard(
 	all_windows.push(surprise_window);
 
 	let all_windows_window = Window::new(
-		None,
+		vec![],
 		DynamicOptional::NONE,
 		WindowContents::Color(ColorSDL::RGB(0, 128, 128)),
 		None,
 		Vec2f::ZERO,
 		Vec2f::ONE,
-		Some(all_windows)
+		all_windows
 	);
 
 	////////// Defining the shared state

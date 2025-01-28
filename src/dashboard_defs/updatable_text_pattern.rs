@@ -91,12 +91,12 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 	//////////
 
 	Window::new(
-		Some((updater_fn::<IndividualState>, fields.update_rate)),
+		vec![(updater_fn::<IndividualState>, fields.update_rate)],
 		DynamicOptional::new(fields.clone()),
 		initial_contents,
 		fields.maybe_border_color,
 		top_left,
 		size,
-		None
+		vec![]
 	)
 }

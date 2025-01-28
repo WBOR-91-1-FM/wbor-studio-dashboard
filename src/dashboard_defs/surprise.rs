@@ -261,7 +261,7 @@ pub async fn make_surprise_window(
 			texture_pool.set_blend_mode_for(&texture, creation_info.texture_blend_mode);
 
 			let mut window = Window::new(
-				Some((updater_fn, update_rate)),
+				vec![(updater_fn, update_rate)],
 
 				DynamicOptional::new(SurpriseInfo {
 					path: surprise_paths[index].clone(),
@@ -281,7 +281,7 @@ pub async fn make_surprise_window(
 				None,
 				Vec2f::ZERO,
 				Vec2f::ONE,
-				None
+				vec![]
 			);
 
 			window.set_draw_skipping(true);
@@ -291,12 +291,12 @@ pub async fn make_surprise_window(
 	).collect::<GenericResult<Vec<_>>>()?;
 
 	Ok(Window::new(
-		None,
+		vec![],
 		DynamicOptional::NONE,
 		WindowContents::Nothing,
 		None,
 		top_left,
 		size,
-		Some(surprise_windows)
+		surprise_windows
 	))
 }

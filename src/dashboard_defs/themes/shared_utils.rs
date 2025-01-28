@@ -76,13 +76,13 @@ pub fn add_static_texture_set(set: &mut Vec<Window>, all_info: &StaticTextureSet
 		|(&(_, tl, size, skip_ar_correction), creation_info)| {
 
 		let mut window = Window::new(
-			None,
+			vec![],
 			DynamicOptional::NONE,
 			WindowContents::make_texture_contents(creation_info, texture_pool).unwrap(),
 			None,
 			tl,
 			size,
-			None
+			vec![]
 		);
 
 		window.set_aspect_ratio_correction_skipping(skip_ar_correction);
