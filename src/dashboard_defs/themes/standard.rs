@@ -265,6 +265,20 @@ pub async fn make_dashboard(
 			local_hours_24_end: 23,
 
 			flicker_window: true
+		},
+
+		SurpriseCreationInfo {
+			texture_path: "assets/hintze.jpg",
+			texture_blend_mode: BlendMode::None,
+
+			update_rate: Duration::milliseconds(800),
+			num_update_steps_to_appear_for: 10,
+			chance_of_appearing_when_updating: 0.00001,
+
+			local_hours_24_start: 10,
+			local_hours_24_end: 20,
+
+			flicker_window: true
 		}
 	];
 
