@@ -302,13 +302,20 @@ pub async fn make_dashboard(
 		main_static_texture_creation_info) = tokio::try_join!(
 
 		make_weather_window(
+			&api_keys.tomorrow_io,
+			update_rate_creator,
+
 			Vec2f::new(0.0, 1.0 - weather_and_credit_window_size.y()),
 			weather_and_credit_window_size,
-			update_rate_creator,
-			&api_keys.tomorrow_io,
+
+			theme_color_1, theme_color_1,
 			WindowContents::Nothing,
-			theme_color_1,
-			theme_color_1
+
+			Some(RemakeTransitionInfo::new(
+				Duration::seconds(1),
+				easing_fns::transition::opacity::STRAIGHT_WAVY,
+				easing_fns::transition::aspect_ratio::STRAIGHT_WAVY
+			))
 		),
 
 		make_surprise_window(

@@ -4,8 +4,8 @@ use crate::{
 	request,
 
 	texture::{
-		pool::TextureCreationInfo,
-		text::{DisplayText, TextDisplayInfo}
+		text::{DisplayText, TextDisplayInfo},
+		pool::{TextureCreationInfo, RemakeTransitionInfo}
 	},
 
 	utility_types::{
@@ -72,21 +72,26 @@ lazy_static::lazy_static!(
 //////////
 
 /* Note: an 'interval' is a piece of weather data predicted for some point into the future.
-This type constitutes a timestamp, a temperature, a weather code descriptor, and an associated emoji. */
-type WeatherIntervalDatum = (ReferenceTimestamp, f32, &'static str, &'static str);
+This type constitutes a temperature, a weather code descriptor, and an associated emoji. */
+type WeatherInterval = (f32, &'static str, &'static str);
+type TimestampedWeatherInterval = (ReferenceTimestamp, WeatherInterval);
 
-#[derive(Clone)]
-struct WeatherStateData {
-	text_color: ColorSDL,
-
+#[derive(Clone)] // This is used for the `ContinuallyUpdated` bit
+struct WeatherApiState {
 	request_url: String,
-	weather_unit_symbol: char,
-
-	// Info for different timestamps.
-	curr_weather_info: Vec<WeatherIntervalDatum>
+	curr_weather_info: Vec<TimestampedWeatherInterval> // Info for different timestamps
 }
 
-impl Updatable for WeatherStateData {
+struct WeatherState {
+	continually_updated: ContinuallyUpdated<WeatherApiState>,
+
+	text_color: ColorSDL,
+	weather_unit_symbol: char,
+	curr_weather_interval: Option<(f32, &'static str, &'static str)>, // This is a weather interval, but without the timestamp
+	maybe_remake_transition_info: Option<RemakeTransitionInfo>
+}
+
+impl Updatable for WeatherApiState {
 	type Param = ();
 
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
@@ -110,7 +115,7 @@ impl Updatable for WeatherStateData {
 			let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code)).unwrap();
 			let timestamp: ReferenceTimestamp = parse_time_from_rfc3339(timestamp).unwrap().into();
 
-			(timestamp, temperature, *weather_code_descriptor, *associated_emoji)
+			(timestamp, (temperature, *weather_code_descriptor, *associated_emoji))
 		}).collect();
 
 		Ok(())
@@ -122,19 +127,19 @@ impl Updatable for WeatherStateData {
 // This updates the weather API results every X minutes. Predictions are gathered for Y minutes forward.
 fn weather_api_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
-	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<WeatherStateData>>();
-	individual_window_state.update(&(), &mut inner_shared_state.error_state)?;
+	let individual_window_state = params.window.get_state_mut::<WeatherState>();
+	individual_window_state.continually_updated.update(&(), &mut inner_shared_state.error_state)?;
 	Ok(())
 }
 
 /* This updates the weather string displayed on the dashboard, given the prediction
 data gathered every X minutes from the API. TODO: use the updatable text pattern here. */
 fn realtime_weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError {
-	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
-	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<WeatherStateData>>();
-	let inner = individual_window_state.get_data();
+	let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
+	let individual_window_state = params.window.get_state_mut::<WeatherState>();
+	let api_state = individual_window_state.continually_updated.get_data();
 
-	let weather_string = match inner.curr_weather_info.len() {
+	let weather_string = match api_state.curr_weather_info.len() {
 		0 => "No weather info available!".to_owned(),
 
 		_ => {
@@ -144,15 +149,26 @@ fn realtime_weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError
 			TODO: perhaps interpolate to update the weather even more in real-time?
 			TODO: perhaps just index directly into the interval array, assuming that enough entries exist
 			for that to be possible, and that all of the intervals are spaced evenly timewise? */
-			let closest_interval = inner.curr_weather_info
+			let closest_interval = api_state.curr_weather_info
 				.iter().min_by_key(|(interval_time, ..)| {
 					let duration = interval_time.signed_duration_since(curr_time);
 					duration.num_seconds().abs()
 				})
-				.unwrap();
+				.unwrap().1;
 
-			let (temperature, weather_code_descriptor, associated_emoji) = (closest_interval.1, closest_interval.2, closest_interval.3);
-			format!("Weather: {temperature}°{} and {weather_code_descriptor} {associated_emoji}", inner.weather_unit_symbol)
+			//////////
+
+			if individual_window_state.curr_weather_interval == Some(closest_interval) {
+				return Ok(());
+			}
+			else {
+				individual_window_state.curr_weather_interval = Some(closest_interval);
+			}
+
+			//////////
+
+			let (temperature, weather_code_descriptor, associated_emoji) = closest_interval;
+			format!("Weather: {temperature}°{} and {weather_code_descriptor} {associated_emoji}", individual_window_state.weather_unit_symbol)
 		}
 	};
 
@@ -161,29 +177,33 @@ fn realtime_weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError
 
 		TextDisplayInfo {
 			text: DisplayText::new(&weather_string).with_padding("", " "),
-			color: inner.text_color,
+			color: individual_window_state.text_color,
 			pixel_area: params.area_drawn_to_screen,
 			scroll_easer: easing_fns::scroll::LEFT_LINEAR,
 			scroll_speed_multiplier: 1.0 / 3.0
 		}
 	));
 
+	let maybe_remake_transition_info = individual_window_state.maybe_remake_transition_info.clone();
+
 	params.window.get_contents_mut().update_as_texture(
 		true,
 		params.texture_pool,
 		&texture_creation_info,
-		None,
+		maybe_remake_transition_info.as_ref(),
 		inner_shared_state.get_fallback_texture_creation_info
 	)
 }
 
 pub async fn make_weather_window(
+	api_key: &str, update_rate_creator: UpdateRateCreator,
 	top_left: Vec2f, size: Vec2f,
-	update_rate_creator: UpdateRateCreator, api_key: &str,
+	text_color: ColorSDL, border_color: ColorSDL,
 	background_contents: WindowContents,
-	text_color: ColorSDL, border_color: ColorSDL) -> GenericResult<Window> {
+	maybe_remake_transition_info: Option<RemakeTransitionInfo>
+) -> GenericResult<Window> {
 
-	const API_UPDATE_RATE_SECS: Seconds = 60.0 * 15.0; // Once every 15 minutes
+	const API_UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes
 	const REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS: Seconds = 60.0; // Once per minute (this works in accordance with the timestep below)
 
 	let curr_location_json: serde_json::Value = request::as_type(request::get("https://ipinfo.io/json")).await?;
@@ -201,14 +221,22 @@ pub async fn make_weather_window(
 		]
 	);
 
-	let data = WeatherStateData {
-		text_color,
+	//////////
+
+	let api_state = WeatherApiState {
 		request_url,
-		weather_unit_symbol: 'F', // `F` for Fahrenheit (since we're using degrees)
 		curr_weather_info: Vec::new()
 	};
 
-	let continually_updated = ContinuallyUpdated::new(&data, &(), "Weather").await;
+	let weather_state = WeatherState {
+		continually_updated: ContinuallyUpdated::new(&api_state, &(), "Weather").await,
+		text_color,
+		weather_unit_symbol: 'F',
+		curr_weather_interval: None,
+		maybe_remake_transition_info
+	};
+
+	//////////
 
 	Ok(Window::new(
 		vec![
@@ -216,7 +244,7 @@ pub async fn make_weather_window(
 			(realtime_weather_string_updater_fn, update_rate_creator.new_instance(REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS))
 		],
 
-		DynamicOptional::new(continually_updated),
+		DynamicOptional::new(weather_state),
 		background_contents,
 		Some(border_color),
 		top_left,
