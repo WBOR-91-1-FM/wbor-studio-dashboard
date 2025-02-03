@@ -51,11 +51,13 @@ struct AppConfig {
 	title: String,
 	theme_name: String,
 	icon_path: String,
+
+	hide_cursor: bool,
+	use_linear_filtering: bool,
+	window_always_on_top: bool,
 	maybe_pause_subduration_ms_when_window_unfocused: Option<u32>,
 
 	screen_option: ScreenOption,
-	hide_cursor: bool,
-	use_linear_filtering: bool
 }
 
 //////////
@@ -160,6 +162,8 @@ async fn main() -> MaybeError {
 			log::warn!("Window translucency not supported by your current platform! Official error: '{err}'.");
 		}
 	}
+
+	sdl_window.set_always_on_top(app_config.window_always_on_top);
 
 	sdl_window.set_icon(Surface::from_file(app_config.icon_path).to_generic()?);
 

@@ -2,12 +2,13 @@
 	"title": "WBOR Studio Dashboard",
 	"theme_name": "barebones",
 	"icon_path": "assets/plane.bmp",
-	"maybe_pause_subduration_ms_when_window_unfocused": 250,
+
+	"hide_cursor": true,
+	"use_linear_filtering": true,
+	"window_always_on_top": true,
+	"maybe_pause_subduration_ms_when_window_unfocused": null,
 
 	"o1": {"Windowed": [1024, 768, false, null]},
 	"o2": "FullscreenDesktop",
-	"screen_option": "Fullscreen",
-
-	"hide_cursor": true,
-	"use_linear_filtering": true
+	"screen_option": "Fullscreen"
 }
