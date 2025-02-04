@@ -154,7 +154,9 @@ async fn main() -> MaybeError {
 		}
 	}?;
 
-	////////// Setting the window opacity and icon
+	////////// Setting the window always-on-top state, opacity, and icon
+
+	sdl_window.set_always_on_top(app_config.window_always_on_top);
 
 	// TODO: why does not setting the opacity result in broken fullscreen screen clearing?
 	if let ScreenOption::Windowed(.., Some(opacity)) = app_config.screen_option {
@@ -162,8 +164,6 @@ async fn main() -> MaybeError {
 			log::warn!("Window translucency not supported by your current platform! Official error: '{err}'.");
 		}
 	}
-
-	sdl_window.set_always_on_top(app_config.window_always_on_top);
 
 	sdl_window.set_icon(Surface::from_file(app_config.icon_path).to_generic()?);
 
