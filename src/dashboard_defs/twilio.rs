@@ -419,7 +419,7 @@ impl TwilioState {
 		pixel_area: (u32, u32), font_info: &FontInfo,
 		text_color: ColorSDL) -> GenericResult<bool> {
 
-		let continual_updater_succeeded = self.continually_updated.update(&(), error_state)?;
+		let continual_updater_succeeded = self.continually_updated.update(&(), error_state);
 		let curr_continual_data = self.continually_updated.get_data();
 
 		let local = &mut self.id_to_texture_map;

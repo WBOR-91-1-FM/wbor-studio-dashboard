@@ -128,7 +128,7 @@ impl Updatable for WeatherApiState {
 fn weather_api_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 	let individual_window_state = params.window.get_state_mut::<WeatherState>();
-	individual_window_state.continually_updated.update(&(), &mut inner_shared_state.error_state)?;
+	individual_window_state.continually_updated.update(&(), &mut inner_shared_state.error_state);
 	Ok(())
 }
 

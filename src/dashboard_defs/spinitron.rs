@@ -73,7 +73,7 @@ pub fn make_spinitron_windows(
 		if model_name == SpinitronModelName::Spin && !is_text_window {
 			let spin_texture_window_size = window_size_pixels.0.min(window_size_pixels.1);
 			let size_2d = (spin_texture_window_size, spin_texture_window_size);
-			inner_shared_state.spinitron_state.update(size_2d, &mut inner_shared_state.error_state)?;
+			inner_shared_state.spinitron_state.update(size_2d, &mut inner_shared_state.error_state);
 		}
 
 		//////////

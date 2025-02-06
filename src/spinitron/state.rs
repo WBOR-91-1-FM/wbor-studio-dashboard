@@ -354,7 +354,7 @@ impl SpinitronState {
 		TextureCreationInfo::RawBytes(Cow::Borrowed(bytes))
 	}
 
-	pub fn update(&mut self, spin_texture_size: WindowSize, error_state: &mut ErrorState) -> GenericResult<bool> {
+	pub fn update(&mut self, spin_texture_size: WindowSize, error_state: &mut ErrorState) -> bool {
 		self.continually_updated.update(&spin_texture_size, error_state)
 	}
 }

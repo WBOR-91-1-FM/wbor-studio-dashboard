@@ -105,7 +105,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 	}
 
 	// This returns false if a task failed to complete its operation on its current iteration.
-	pub fn update(&mut self, param: &T::Param, error_state: &mut ErrorState) -> GenericResult<bool> {
+	pub fn update(&mut self, param: &T::Param, error_state: &mut ErrorState) -> bool {
 		let mut error: Option<String> = None;
 
 		match self.data_receiver.try_recv() {
@@ -130,13 +130,13 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		if let Some(err) = error {
 			error_state.report(self.name, &err);
 			self.run_new_update_iteration(param);
-			return Ok(false);
+			return false;
 		}
 		else {
 			error_state.unreport(self.name);
 		}
 
-		Ok(true)
+		true
 	}
 
 	pub const fn get_data(&self) -> &T {
