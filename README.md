@@ -56,11 +56,11 @@ The current themes are:
 - `retro_room`
 
 You can change the theme in `app_config.json`.
-If you want to make a new theme, start off by modifying `standard`. Make sure that it doesn't differ too much by running `diff standard.rs <YOUR_NEW_THEME.rs> --color=auto`.
+If you want to make a new theme, start off by copying `standard.rs`, and make your changes from there. Make sure that it doesn't differ too much by running `diff standard.rs <YOUR_NEW_THEME.rs> --color=auto`.
 
 ---
 
 ## Scripts
 
 - To delete recent Twilio messages, use `delete_twilio_msgs.sh`. Change the number of messages to delete in the script, and it'll delete that number of messages one-by-one.
-- To send surprises to the dashboard (images that appear for a certain amount of time, with certain chances of appearing at any second), use `trigger_surprise.sh`. Just pass it the name of a surprise that you've set up in `dashboard.rs`, and it'll send it over a local socket which the dashboard reads from.
+- To send surprises to the dashboard (images that appear for a certain amount of time, with certain chances of appearing at any second), use `trigger_surprise.sh`. Just pass it the name of a surprise that you've set up in one of your theme files (e.g. `standard.rs`), and it'll send it over a local socket which the dashboard reads from.
