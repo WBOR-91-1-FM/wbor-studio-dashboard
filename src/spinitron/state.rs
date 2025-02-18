@@ -162,7 +162,7 @@ impl SpinitronStateData {
 
 		////////// Getting the precached texture bytes
 
-		let model_names = data.get_model_names();
+		let model_names = Self::get_model_names();
 
 		let futures = model_names.iter().map(
 			|model_name| data.get_model_texture_bytes(*model_name, spin_texture_size)
@@ -225,7 +225,7 @@ impl SpinitronStateData {
 		[&self.spin, &self.playlist, &self.persona, &self.show]
 	}
 
-	const fn get_model_names(&self) -> [SpinitronModelName; NUM_SPINITRON_MODEL_TYPES] {
+	const fn get_model_names() -> [SpinitronModelName; NUM_SPINITRON_MODEL_TYPES] {
 		[SpinitronModelName::Spin, SpinitronModelName::Playlist, SpinitronModelName::Persona, SpinitronModelName::Show]
 	}
 
@@ -294,7 +294,7 @@ impl Updatable for SpinitronStateData {
 		////////// Update the model textures
 
 		// TODO: how to do this without all the indexing?
-		for model_name in self.get_model_names() {
+		for model_name in Self::get_model_names() {
 			let i = model_name as usize;
 			self.age_data[i] = self.age_data[i].clone().update(self.get_model_by_name(model_name))?;
 
