@@ -301,6 +301,36 @@ pub async fn make_dashboard(
 			local_hours_24_end: 23,
 
 			flicker_window: true
+		},
+
+		SurpriseCreationInfo {
+			texture_path: "assets/freaky_musk.jpg",
+			texture_blend_mode: BlendMode::None,
+
+			update_rate: Duration::milliseconds(1500),
+			num_update_steps_to_appear_for: 4,
+			chance_of_appearing_when_updating: 0.00005,
+
+			// Musk being freaky is more of an evening thing
+			local_hours_24_start: 18,
+			local_hours_24_end: 23,
+
+			flicker_window: true
+		},
+
+		SurpriseCreationInfo {
+			texture_path: "assets/freaky_zuck.jpg",
+			texture_blend_mode: BlendMode::None,
+
+			update_rate: Duration::milliseconds(500),
+			num_update_steps_to_appear_for: 12,
+			chance_of_appearing_when_updating: 0.00003,
+
+			// But Zuck starts early
+			local_hours_24_start: 12,
+			local_hours_24_end: 23,
+
+			flicker_window: true
 		}
 	];
 
