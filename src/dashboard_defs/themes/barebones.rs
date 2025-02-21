@@ -253,10 +253,10 @@ pub async fn make_dashboard(
 
 			update_rate: Duration::milliseconds(35),
 			num_update_steps_to_appear_for: 20,
-			chance_of_appearing_when_updating: 0.000003,
+			chance_of_appearing_when_updating: 0.000002,
 
-			local_hours_24_start: 0,
-			local_hours_24_end: 5,
+			local_hours_24_start: 1,
+			local_hours_24_end: 7,
 
 			flicker_window: true
 		},
