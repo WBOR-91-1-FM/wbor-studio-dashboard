@@ -102,20 +102,23 @@ impl Updatable for WeatherApiState {
 		// Note: the intervals are a series of weather predictions from this point on, spaced per some time amount.
 		let intervals = &all_info_json["data"]["timelines"][0]["intervals"];
 
-		// Unwrapping, just to make sure that critical errors resulting from here are never ignored
-		self.curr_weather_info = intervals.as_array().unwrap().iter().map(|interval| {
+		self.curr_weather_info = intervals.as_array().unwrap().iter().filter_map(|interval| {
 			let values = &interval["values"];
 
-			let (timestamp, temperature, associated_code) = (
-				interval["startTime"].as_str().unwrap(),
-				values["temperature"].as_f64().unwrap() as f32,
-				values["weatherCode"].as_i64().unwrap() as u16
+			let maybe_interval_fields = (
+				interval["startTime"].as_str(), values["temperature"].as_f64(), values["weatherCode"].as_i64()
 			);
 
-			let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code)).unwrap();
-			let timestamp: ReferenceTimestamp = parse_time_from_rfc3339(timestamp).unwrap().into();
-
-			(timestamp, (temperature, *weather_code_descriptor, *associated_emoji))
+			if let (Some(timestamp), Some(temperature), Some(associated_code)) = maybe_interval_fields {
+				let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code as u16)).unwrap();
+				let timestamp: ReferenceTimestamp = parse_time_from_rfc3339(timestamp).unwrap().into();
+				Some((timestamp, (temperature as f32, *weather_code_descriptor, *associated_emoji)))
+			}
+			else {
+				// This happened once, and I don't know why. I'm trying to catch the bug like this!
+				log::error!("The weather API didn't give back the needed fields, for some weird reason. Here are the fields: {maybe_interval_fields:?}. Here's the whole intervval: {interval:?}.");
+				None
+			}
 		}).collect();
 
 		Ok(())
