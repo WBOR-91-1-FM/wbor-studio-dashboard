@@ -287,7 +287,7 @@ pub async fn make_dashboard(
 
 			update_rate: Duration::milliseconds(500),
 			num_update_steps_to_appear_for: 8,
-			chance_of_appearing_when_updating: 0.00003,
+			chance_of_appearing_when_updating: 0.00001,
 
 			local_hours_24_start: 0,
 			local_hours_24_end: 23,
@@ -301,7 +301,7 @@ pub async fn make_dashboard(
 
 			update_rate: Duration::milliseconds(1500),
 			num_update_steps_to_appear_for: 4,
-			chance_of_appearing_when_updating: 0.00005,
+			chance_of_appearing_when_updating: 0.00007,
 
 			// Musk being freaky is more of an evening thing
 			local_hours_24_start: 18,
@@ -316,7 +316,7 @@ pub async fn make_dashboard(
 
 			update_rate: Duration::milliseconds(500),
 			num_update_steps_to_appear_for: 12,
-			chance_of_appearing_when_updating: 0.00003,
+			chance_of_appearing_when_updating: 0.000016,
 
 			// But Zuck starts early
 			local_hours_24_start: 12,
