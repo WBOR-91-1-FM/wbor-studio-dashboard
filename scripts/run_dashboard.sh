@@ -7,4 +7,4 @@ PROJECT_DIR="/Users/wborguest/wbor-studio-dashboard"
 cd "$PROJECT_DIR" || exit
 
 # Run the project with cargo
-/usr/local/bin/cargo run --release >>"$PROJECT_DIR/project.log" 2>&1
+RUST_LOG=wbor_studio_dashboard cargo run --release >>"$PROJECT_DIR/project.log" 2>&1
