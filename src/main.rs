@@ -55,6 +55,7 @@ struct AppConfig {
 	hide_cursor: bool,
 	use_linear_filtering: bool,
 	window_always_on_top: bool,
+	pause_subduration_ms_when_retrying_window_info_init: u32,
 	maybe_pause_subduration_ms_when_window_unfocused: Option<u32>,
 
 	screen_option: ScreenOption,
@@ -191,12 +192,10 @@ async fn main() -> MaybeError {
 		sdl_context.mouse().show_cursor(false);
 	}
 
-	////////// Setting up the SDL timer, the TTF context, the core init info, and more
+	////////// Setting up the SDL timer, the TTF context, and more
 
 	let sdl_ttf_context = sdl2::ttf::init()?;
-
 	let texture_creator = sdl_canvas.texture_creator();
-
 	let fps = sdl_video_subsystem.current_display_mode(0).to_generic()?.refresh_rate as u32;
 
 	let sdl_renderer_info = sdl_canvas.info();
@@ -213,30 +212,20 @@ async fn main() -> MaybeError {
 			shared_window_state: DynamicOptional::NONE
 		};
 
-
-	let core_init_info = build_dashboard_theme!(
-		app_config.theme_name.as_str(), &mut rendering_params.texture_pool,
-		UpdateRateCreator::new(fps), [standard, barebones, retro_room]
-	);
-
-	let (mut top_level_window, shared_window_state) = match core_init_info {
-		Ok(info) => info,
-		Err(err) => panic!("An error arose when initializing the application: '{err}'."),
-	};
-
-	rendering_params.shared_window_state = shared_window_state;
-
 	log::info!("Canvas size: {:?}. Renderer info: {sdl_renderer_info:?}.", rendering_params.sdl_canvas.output_size().to_generic()?);
 	log::info!("Finished setting up window. Launch time: {:?} ms.", (get_timestamp()? - time_before_launch).as_millis());
 
 	//////////
 
 	let mut pausing_window = false;
+	let mut maybe_top_level_window = None;
 	// let mut initial_num_textures_in_pool = None;
 
 	//////////
 
 	'running: loop {
+		////////// Doing some event polling.
+
 		for sdl_event in sdl_event_pump.poll_iter() {
 			match sdl_event {
 				Event::Quit {..} | Event::KeyDown {keycode: Some(Keycode::Escape), ..} => break 'running,
@@ -260,7 +249,33 @@ async fn main() -> MaybeError {
 			}
 		}
 
-		//////////
+		////////// Initializing the top-level window and shared window state when needed. This also handles cases when the network is down upon launch.
+
+		if maybe_top_level_window.is_none() {
+			let time_before_making_core_init_info = get_timestamp()?;
+
+			let core_init_info = build_dashboard_theme!(
+				app_config.theme_name.as_str(), &mut rendering_params.texture_pool,
+				UpdateRateCreator::new(fps), [standard, barebones, retro_room]
+			);
+
+			match core_init_info {
+				Ok((inited_top_level_window, shared_window_state)) => {
+					log::info!("Time to build core init info: {:?}ms.", (get_timestamp()? - time_before_making_core_init_info).as_millis());
+					maybe_top_level_window = Some(inited_top_level_window);
+					rendering_params.shared_window_state = shared_window_state;
+				}
+
+				Err(err) => {
+					log::error!("Error with initializing the core init info: '{err}'. Waiting a bit, and then trying again shortly.");
+					rendering_params.sdl_canvas.present();
+					sdl_timer.delay(app_config.pause_subduration_ms_when_retrying_window_info_init);
+					continue;
+				}
+			}
+		}
+
+		////////// Rendering the top-level window.
 
 		// TODO: should I put this before event polling?
 		let sdl_performance_counter_before = sdl_timer.performance_counter();
@@ -268,10 +283,7 @@ async fn main() -> MaybeError {
 		rendering_params.sdl_canvas.set_draw_color(STANDARD_BACKGROUND_COLOR);
 		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too (on MacOS)
 
-		top_level_window.render(&mut rendering_params);
-
-		//////////
-
+		maybe_top_level_window.as_mut().unwrap().render(&mut rendering_params);
 		rendering_params.frame_counter.tick();
 
 		let _fps_without_vsync = get_fps(&sdl_timer,
@@ -287,6 +299,8 @@ async fn main() -> MaybeError {
 		);
 
 		// println!("fps with and without vsync = {:.3}, {:.3}", _fps_with_vsync, _fps_without_vsync);
+
+		//////////
 
 		// TODO: add this back later
 		// check_for_texture_pool_memory_leak(&mut initial_num_textures_in_pool, &rendering_params.texture_pool);

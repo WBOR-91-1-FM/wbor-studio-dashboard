@@ -6,6 +6,7 @@
 	"hide_cursor": true,
 	"use_linear_filtering": true,
 	"window_always_on_top": false,
+	"pause_subduration_ms_when_retrying_window_info_init": 5000,
 	"maybe_pause_subduration_ms_when_window_unfocused": null,
 
 	"o1": {"Windowed": [1024, 768, false, null]},
