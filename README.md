@@ -66,7 +66,7 @@ If you want to make a new theme, start off by copying `standard.rs`, and make yo
 - To send surprises to the dashboard (images that appear for a certain amount of time, with certain chances of appearing at any second), use `trigger_surprise.sh`. Just pass it the name of a surprise that you've set up in one of your theme files (e.g. `standard.rs`), and it'll send it over a local socket which the dashboard reads from.
 - To run the dashboard on its computer, use `run_dashboard.sh`. Note that this is only made to work in the WBOR studio. If the dashboard ever panics, the script will sleep for a bit, and then try launching it again (while writing all output to a log file `project.log`).
 
---
+---
 
 ## Durability
 
@@ -79,4 +79,4 @@ This dashboard is meant to keep running for a long, long time, no matter what ha
 
 All of this means is that the dashboard is incredibly resilient. Disconnect the power, turn off the network, do anything at all: it'll find a way to boot itself up again.
 
---
+---
