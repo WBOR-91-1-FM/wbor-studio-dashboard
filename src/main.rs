@@ -223,6 +223,9 @@ async fn main() -> MaybeError {
 
 	//////////
 
+	// Displaying the canvas the first time around (so that it pops up quicker, while the core init info is still loading)
+	rendering_params.sdl_canvas.present();
+
 	'running: loop {
 		////////// Doing some event polling.
 
@@ -268,7 +271,6 @@ async fn main() -> MaybeError {
 
 				Err(err) => {
 					log::error!("Error with initializing the core init info: '{err}'. Waiting a bit, and then trying again shortly.");
-					rendering_params.sdl_canvas.present();
 					sdl_timer.delay(app_config.pause_subduration_ms_when_retrying_window_info_init);
 					continue;
 				}
