@@ -113,22 +113,22 @@ const STANDARD_BACKGROUND_COLOR: ColorSDL = ColorSDL::BLACK;
 const MAX_REMAKE_TRANSITION_QUEUE_SIZE: usize = 10; // This is to avoid unbounded memory consumption
 
 #[tokio::main]
-async fn main() -> MaybeError {
+async fn main() {
 	////////// Getting the beginning timestamp, starting the logger, and loading the app config
 
-	let get_timestamp = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-	let time_before_launch = get_timestamp()?;
+	let get_timestamp = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap();
+	let time_before_launch = get_timestamp();
 
 	env_logger::init();
 	log::info!("App launched!");
 
-	let app_config: AppConfig = file_utils::load_json_from_file("assets/app_config.json").await?;
+	let app_config: AppConfig = file_utils::load_json_from_file("assets/app_config.json").await.unwrap();
 
 	////////// Setting up SDL and the initial window
 
-	let sdl_context = sdl2::init().to_generic()?;
-	let sdl_video_subsystem = sdl_context.video().to_generic()?;
-	let mut sdl_event_pump = sdl_context.event_pump().to_generic()?;
+	let sdl_context = sdl2::init().unwrap();
+	let sdl_video_subsystem = sdl_context.video().unwrap();
+	let mut sdl_event_pump = sdl_context.event_pump().unwrap();
 
 	let build_window = |width: u32, height: u32, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
 		applier(&mut sdl_video_subsystem.window(&app_config.title, width, height)).allow_highdpi().build();
@@ -146,14 +146,14 @@ async fn main() -> MaybeError {
 		),
 
 		ScreenOption::Fullscreen => {
-			let mode = sdl_video_subsystem.display_mode(0, 0).to_generic()?;
+			let mode = sdl_video_subsystem.display_mode(0, 0).unwrap();
 
 			build_window(
 				mode.w as u32, mode.h as u32,
 				WindowBuilder::fullscreen
 			)
 		}
-	}?;
+	}.unwrap();
 
 	////////// Setting the window always-on-top state, opacity, and icon
 
@@ -166,7 +166,7 @@ async fn main() -> MaybeError {
 		}
 	}
 
-	sdl_window.set_icon(Surface::from_file(app_config.icon_path).to_generic()?);
+	sdl_window.set_icon(Surface::from_file(app_config.icon_path).unwrap());
 
 	////////// Making a SDL canvas
 
@@ -174,7 +174,7 @@ async fn main() -> MaybeError {
 		.into_canvas()
 		.accelerated()
 		.present_vsync()
-		.build()?;
+		.build().unwrap();
 
 	////////// Setting the texture filtering option
 
@@ -194,14 +194,14 @@ async fn main() -> MaybeError {
 
 	////////// Setting up the SDL timer, the TTF context, and more
 
-	let sdl_ttf_context = sdl2::ttf::init()?;
+	let sdl_ttf_context = sdl2::ttf::init().unwrap();
 	let texture_creator = sdl_canvas.texture_creator();
-	let fps = sdl_video_subsystem.current_display_mode(0).to_generic()?.refresh_rate as u32;
+	let fps = sdl_video_subsystem.current_display_mode(0).unwrap().refresh_rate as u32;
 
 	let sdl_renderer_info = sdl_canvas.info();
 	let max_texture_size = (sdl_renderer_info.max_texture_width, sdl_renderer_info.max_texture_height);
 
-	let sdl_timer = sdl_context.timer().to_generic()?;
+	let sdl_timer = sdl_context.timer().unwrap();
 	let sdl_performance_frequency = sdl_timer.performance_frequency();
 
 	let mut rendering_params =
@@ -212,8 +212,8 @@ async fn main() -> MaybeError {
 			shared_window_state: DynamicOptional::NONE
 		};
 
-	log::info!("Canvas size: {:?}. Renderer info: {sdl_renderer_info:?}.", rendering_params.sdl_canvas.output_size().to_generic()?);
-	log::info!("Finished setting up window. Launch time: {:?} ms.", (get_timestamp()? - time_before_launch).as_millis());
+	log::info!("Canvas size: {:?}. Renderer info: {sdl_renderer_info:?}.", rendering_params.sdl_canvas.output_size().unwrap());
+	log::info!("Finished setting up window. Launch time: {:?} ms.", (get_timestamp() - time_before_launch).as_millis());
 
 	//////////
 
@@ -255,7 +255,7 @@ async fn main() -> MaybeError {
 		////////// Initializing the top-level window and shared window state when needed. This also handles cases when the network is down upon launch.
 
 		if maybe_top_level_window.is_none() {
-			let time_before_making_core_init_info = get_timestamp()?;
+			let time_before_making_core_init_info = get_timestamp();
 
 			let core_init_info = build_dashboard_theme!(
 				app_config.theme_name.as_str(), &mut rendering_params.texture_pool,
@@ -264,7 +264,7 @@ async fn main() -> MaybeError {
 
 			match core_init_info {
 				Ok((inited_top_level_window, shared_window_state)) => {
-					log::info!("Time to build core init info: {:?} ms.", (get_timestamp()? - time_before_making_core_init_info).as_millis());
+					log::info!("Time to build core init info: {:?} ms.", (get_timestamp() - time_before_making_core_init_info).as_millis());
 					maybe_top_level_window = Some(inited_top_level_window);
 					rendering_params.shared_window_state = shared_window_state;
 				}
@@ -307,6 +307,4 @@ async fn main() -> MaybeError {
 		// TODO: add this back later
 		// check_for_texture_pool_memory_leak(&mut initial_num_textures_in_pool, &rendering_params.texture_pool);
 	}
-
-	Ok(())
 }
