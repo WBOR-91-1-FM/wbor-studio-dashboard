@@ -261,7 +261,7 @@ async fn main() -> MaybeError {
 
 			match core_init_info {
 				Ok((inited_top_level_window, shared_window_state)) => {
-					log::info!("Time to build core init info: {:?}ms.", (get_timestamp()? - time_before_making_core_init_info).as_millis());
+					log::info!("Time to build core init info: {:?} ms.", (get_timestamp()? - time_before_making_core_init_info).as_millis());
 					maybe_top_level_window = Some(inited_top_level_window);
 					rendering_params.shared_window_state = shared_window_state;
 				}
