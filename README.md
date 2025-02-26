@@ -68,7 +68,7 @@ If you want to make a new theme, start off by copying `standard.rs`, and make yo
 
 ---
 
-## Durability
+## Fault Tolerance
 
 This dashboard is meant to keep running for a long, long time, no matter what happens.
 
