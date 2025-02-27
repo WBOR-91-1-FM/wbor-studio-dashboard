@@ -1,10 +1,14 @@
 # WBOR's On-Air-Studio Dashboard
 
 - An in-studio dashboard for [WBOR 91.1 FM](https://wbor.org/), Bowdoin College's student-run radio station.
-- Runs on a little CRT monitor in the on-air studio.
+- Aggregates API data from:
+  - [Spinitron](https://spinitron.com/) for now-playing show and song information.
+  - [Twilio](https://www.twilio.com/) for "text-the-DJ" messages.
+  - [Tommorow.io](https://www.tomorrow.io/) for realtime weather updates.
+- Runs on a monitor in the on-air studio.
 - Want to contribute, or have any questions? [Get in touch here.](https://wbor.org/contact)
 
-https://github.com/user-attachments/assets/8e64e88a-d347-480f-9769-66d297655cc8
+<https://github.com/user-attachments/assets/8e64e88a-d347-480f-9769-66d297655cc8>
 
 ---
 
@@ -51,6 +55,7 @@ RUST_LOG=wbor_studio_dashboard cargo run --release
 ## Themes
 
 The current themes are:
+
 - `standard`
 - `barebones`
 - `retro_room`
