@@ -1,10 +1,13 @@
 # WBOR's On-Air-Studio Dashboard
 
 - An in-studio dashboard for [WBOR 91.1 FM](https://wbor.org/), Bowdoin College's student-run radio station.
+
 - Aggregates API data from:
   - [Spinitron](https://spinitron.com/) for now-playing show and song information.
   - [Twilio](https://www.twilio.com/) for "text-the-DJ" messages.
-  - [Tommorow.io](https://www.tomorrow.io/) for realtime weather updates.
+  - [Tomorrow.io](https://www.tomorrow.io/) for realtime weather updates.
+  - [AzuraCast]("https://azura.wbor.org/api/nowplaying/2) for streaming server status updates.
+
 - Runs on a monitor in the on-air studio.
 - Want to contribute, or have any questions? [Get in touch here.](https://wbor.org/contact)
 
@@ -77,9 +80,9 @@ If you want to make a new theme, start off by copying `standard.rs`, and make yo
 
 This dashboard is meant to keep running for a long, long time, no matter what happens.
 
-1. Power outages: In the studio, the `run_dashboard.sh` script is a login item, ensuring that if the station loses power, upon startup/login the dashboard will launch itself again.
+1. Power outages: in the studio, the `run_dashboard.sh` script is a login item, ensuring that if the station loses power, upon startup/login the dashboard will launch itself again.
 2. Fatal bugs/panics: using the `run_dashboard.sh` script, any panics are covered: the script ensures that the dashboard boots itself up again (after a small waiting period). These fatal errors can then be examined in the logs.
-3. Network errors at launch: If the core state relating to the dashboard can't be initialized (e.g. state regarding an API like Spinitron or Twilio), the problem is often because the network isn't up. In `main.rs`, if this state can't be initialized, the dashboard sleeps for a bit, and then tries again shortly after.
+3. Network errors at launch: if the core state relating to the dashboard can't be initialized (e.g. state regarding an API like Spinitron or Twilio), the problem is often because the network isn't up. In `main.rs`, if this state can't be initialized, the dashboard sleeps for a bit, and then tries again shortly after.
 4. Other errors: errors arising from window updaters are printed out, not resulting in a crash. And with the `ContinuallyUpdated` type, if some state during any async updating results in an error, the older state is automatically reverted back to (these errors are also displayed to the screen). This ensures that state corresponding to any API (e.g. text messages fetched from Twilio) is eventually consistent.
 
 All of this means is that the dashboard is incredibly resilient. Disconnect the power, turn off the network, do anything at all: it'll find a way to boot itself up again.
