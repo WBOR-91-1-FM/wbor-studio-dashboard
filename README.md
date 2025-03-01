@@ -6,7 +6,7 @@
   - [Spinitron](https://spinitron.com/) for now-playing show and song information.
   - [Twilio](https://www.twilio.com/) for "text-the-DJ" messages.
   - [Tomorrow.io](https://www.tomorrow.io/) for realtime weather updates.
-  - [AzuraCast]("https://azura.wbor.org/api/nowplaying/2) for streaming server status updates.
+  - [AzuraCast](https://github.com/AzuraCast/AzuraCast/) for streaming server status updates.
 
 - Runs on a monitor in the on-air studio.
 - Want to contribute, or have any questions? [Get in touch here.](https://wbor.org/contact)
