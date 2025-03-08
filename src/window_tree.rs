@@ -57,6 +57,7 @@ pub type WindowUpdaters = Vec<(
 
 // This data remains constant over a recursive rendering call
 pub struct PerFrameConstantRenderingParams<'a> {
+	pub draw_borders: bool,
 	pub sdl_canvas: CanvasSDL,
 	pub texture_pool: TexturePool<'a>,
 	pub frame_counter: FrameCounter,
@@ -320,8 +321,10 @@ impl Window {
 		)?;
 
 		if let Some(border_color) = &self.maybe_border_color {
-			possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
-				|canvas| canvas.draw_frect(uncorrected_screen_dest.into()).to_generic())?;
+			if rendering_params.draw_borders {
+				possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
+					|canvas| canvas.draw_frect(uncorrected_screen_dest.into()).to_generic())?;
+			}
 		}
 
 		return Ok(());

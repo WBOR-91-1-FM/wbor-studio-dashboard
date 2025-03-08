@@ -53,12 +53,13 @@ struct AppConfig {
 	icon_path: String,
 
 	hide_cursor: bool,
+	draw_borders: bool,
 	use_linear_filtering: bool,
 	window_always_on_top: bool,
 	pause_subduration_ms_when_retrying_window_info_init: u32,
 	maybe_pause_subduration_ms_when_window_unfocused: Option<u32>,
 
-	screen_option: ScreenOption,
+	screen_option: ScreenOption
 }
 
 //////////
@@ -206,6 +207,7 @@ async fn main() {
 
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
+			draw_borders: app_config.draw_borders,
 			sdl_canvas,
 			texture_pool: texture::pool::TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size, MAX_REMAKE_TRANSITION_QUEUE_SIZE),
 			frame_counter: FrameCounter::new(),
