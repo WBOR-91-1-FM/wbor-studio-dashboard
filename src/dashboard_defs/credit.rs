@@ -50,7 +50,7 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
 		inner: text,
 		text_color,
 		scroll_easer: easing_fns::scroll::OSCILLATE_NO_WRAP,
-		scroll_speed_multiplier: 0.5,
+		scroll_speed_multiplier: 1.75,
 		update_rate: UpdateRate::ALMOST_NEVER,
 		maybe_border_color: Some(border_color)
 	};
