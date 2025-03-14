@@ -87,5 +87,3 @@ This dashboard is meant to keep running for a long, long time, no matter what ha
 4. Other errors: errors arising from window updaters are printed out, not resulting in a crash. And with the `ContinuallyUpdated` type, if some state during any async updating results in an error, the older state is automatically reverted back to (these errors are also displayed to the screen). This ensures that state corresponding to any API (e.g. text messages fetched from Twilio) is eventually consistent.
 
 All of this means is that the dashboard is incredibly resilient. Disconnect the power, turn off the network, do anything at all: it'll find a way to boot itself up again.
-
----
