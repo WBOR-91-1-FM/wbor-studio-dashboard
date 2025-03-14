@@ -1,4 +1,4 @@
-use sdl2::{render::BlendMode, ttf::{FontStyle, Hinting}};
+use sdl2::ttf::{FontStyle, Hinting};
 
 use crate::{
 	themes::shared_utils::*,
@@ -28,10 +28,10 @@ use crate::{
 		easing_fns,
 		credit::make_credit_window,
 		weather::make_weather_window,
+		surprise::make_surprise_window,
 		error::{make_error_window, ErrorState},
 		shared_window_state::SharedWindowState,
 		twilio::{make_twilio_window, TwilioState},
-		surprise::{make_surprise_window, SurpriseCreationInfo},
 		clock::{ClockHandConfig, ClockHandConfigs, ClockHands},
 		streaming_server_status::make_streaming_server_status_window,
 		spinitron::{make_spinitron_windows, SpinitronModelWindowInfo, SpinitronModelWindowsInfo}
@@ -230,124 +230,6 @@ pub async fn make_dashboard(
 		WindowContents::make_texture_contents(&clock_dial_creation_info, texture_pool)?
 	)?;
 
-	////////// Defining the data for the surprise window
-
-	let surprises = &[
-		SurpriseCreationInfo {
-			texture_path: "assets/nathan.png",
-			texture_blend_mode: BlendMode::None,
-
-			update_rate: Duration::seconds(15),
-			num_update_steps_to_appear_for: 1,
-			chance_of_appearing_when_updating: 0.0007,
-
-			local_hours_24_start: 8,
-			local_hours_24_end: 22,
-
-			flicker_window: false
-		},
-
-		SurpriseCreationInfo {
-			texture_path: "assets/jumpscare.png",
-			texture_blend_mode: BlendMode::Add,
-
-			update_rate: Duration::milliseconds(35),
-			num_update_steps_to_appear_for: 20,
-			chance_of_appearing_when_updating: 0.0, // This one is only artificial too. Previous chance: `0.000002`
-
-			local_hours_24_start: 0,
-			local_hours_24_end: 23,
-
-			flicker_window: true
-		},
-
-		SurpriseCreationInfo {
-			texture_path: "assets/horrible.webp",
-			texture_blend_mode: BlendMode::Add,
-
-			update_rate: Duration::milliseconds(100),
-			num_update_steps_to_appear_for: 9,
-			chance_of_appearing_when_updating: 0.0, // This one can only be triggered artificially
-
-			local_hours_24_start: 0,
-			local_hours_24_end: 23,
-
-			flicker_window: true
-		},
-
-		SurpriseCreationInfo {
-			texture_path: "assets/hintze.jpg",
-			texture_blend_mode: BlendMode::None,
-
-			update_rate: Duration::milliseconds(800),
-			num_update_steps_to_appear_for: 10,
-			chance_of_appearing_when_updating: 0.00001,
-
-			local_hours_24_start: 10,
-			local_hours_24_end: 20,
-
-			flicker_window: true
-		},
-
-		SurpriseCreationInfo {
-			texture_path: "assets/poop.jpg",
-			texture_blend_mode: BlendMode::None,
-
-			update_rate: Duration::milliseconds(500),
-			num_update_steps_to_appear_for: 8,
-			chance_of_appearing_when_updating: 0.00001,
-
-			local_hours_24_start: 0,
-			local_hours_24_end: 23,
-
-			flicker_window: true
-		},
-
-		SurpriseCreationInfo {
-			texture_path: "assets/freaky_musk.jpg",
-			texture_blend_mode: BlendMode::None,
-
-			update_rate: Duration::milliseconds(1500),
-			num_update_steps_to_appear_for: 4,
-			chance_of_appearing_when_updating: 0.00004,
-
-			// Musk being freaky is more of an evening thing
-			local_hours_24_start: 18,
-			local_hours_24_end: 23,
-
-			flicker_window: true
-		},
-
-		SurpriseCreationInfo {
-			texture_path: "assets/freaky_zuck.jpg",
-			texture_blend_mode: BlendMode::None,
-
-			update_rate: Duration::milliseconds(500),
-			num_update_steps_to_appear_for: 12,
-			chance_of_appearing_when_updating: 0.000013,
-
-			// But Zuck starts early
-			local_hours_24_start: 12,
-			local_hours_24_end: 23,
-
-			flicker_window: true
-		},
-
-		SurpriseCreationInfo {
-			texture_path: "assets/jd_egg.png",
-			texture_blend_mode: BlendMode::None,
-
-			update_rate: Duration::seconds(1),
-			num_update_steps_to_appear_for: 3,
-			chance_of_appearing_when_updating: 0.00001,
-
-			local_hours_24_start: 0,
-			local_hours_24_end: 23,
-
-			flicker_window: false
-		}
-	];
-
 	////////// Defining the Spinitron state parametwrs
 
 	let initial_spin_window_size_guess = (1024, 1024);
@@ -392,7 +274,7 @@ pub async fn make_dashboard(
 
 		make_surprise_window(
 			Vec2f::ZERO, Vec2f::ONE, "surprises",
-			surprises, update_rate_creator, texture_pool
+			&ALL_SURPRISES, update_rate_creator, texture_pool
 		),
 
 		SpinitronState::new(
