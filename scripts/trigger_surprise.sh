@@ -19,6 +19,6 @@ if [[ "$path" == "" ]]; then
 	fail "Please provide a surprise path (in the format of \"assets/<surprise_name>\")!"
 fi
 
-printf "$path" | nc -U /tmp/surprises_wbor_studio_dashboard.sock || fail "Could not send the path to the dashboard's socket!"
+printf "$path" | nc -U /tmp/wbor_studio_dashboard_surprises.sock || fail "Could not send the path to the dashboard's socket!"
 
 log "Sent the surprise to the dashboard. Check the dashboard logs to see that the surprise was received."

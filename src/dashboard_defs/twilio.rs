@@ -8,6 +8,7 @@ use crate::{
 	request,
 
 	utility_types::{
+		ipc::*,
 		time::*,
 		vec2f::Vec2f,
 		generic_result::*,
@@ -149,7 +150,11 @@ pub struct TwilioState {
 	texture_subpool_manager: TextureSubpoolManager,
 	id_to_texture_map: SyncedMessageMap<TextureHandle>, // TODO: integrate the subpool manager into this with the searching operations
 	historically_sorted_messages_by_id: Vec<MessageID>, // TODO: avoid resorting with smart insertions and deletions?
-	maybe_remake_transition_info: Option<RemakeTransitionInfo>
+	maybe_remake_transition_info: Option<RemakeTransitionInfo>,
+
+	// These are for when a request for an instant API update is made through IPC
+	do_instant_update: bool,
+	instant_update_socket_listener: IpcSocketListener
 }
 
 //////////
@@ -399,17 +404,25 @@ impl TwilioState {
 		reveal_texter_identities: bool,
 		maybe_remake_transition_info: Option<RemakeTransitionInfo>) -> GenericResult<Self> {
 
-		let data = TwilioStateData::new(
-			account_sid, auth_token, max_num_messages_in_history,
-			message_history_duration, reveal_texter_identities
-		).await?;
+		let (data, instant_update_socket_listener) = tokio::try_join!(
+			TwilioStateData::new(
+				account_sid, auth_token, max_num_messages_in_history,
+				message_history_duration, reveal_texter_identities
+			),
+
+			make_ipc_socket_listener("twilio_instant_update")
+		)?;
 
 		Ok(Self {
 			continually_updated: ContinuallyUpdated::new(&data, &(), "Twilio").await,
+
 			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
 			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
 			historically_sorted_messages_by_id: Vec::new(),
-			maybe_remake_transition_info
+			maybe_remake_transition_info,
+
+			instant_update_socket_listener,
+			do_instant_update: false
 		})
 	}
 
@@ -516,6 +529,7 @@ impl TwilioState {
 pub fn make_twilio_window(
 	twilio_state: &TwilioState,
 	update_rate: UpdateRate,
+	instant_update_check_rate: UpdateRate,
 	top_left: Vec2f, size: Vec2f,
 	top_box_height: f64,
 	top_box_contents: WindowContents,
@@ -532,17 +546,35 @@ pub fn make_twilio_window(
 
 	let max_num_messages_in_history = twilio_state.continually_updated.get_data().immutable.max_num_messages_in_history;
 
+	fn instant_update_handler_fn(params: WindowUpdaterParams) -> MaybeError {
+		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
+		let individual_window_state = params.window.get_state::<TwilioHistoryWindowState>();
+		let twilio_state = &mut inner_shared_state.twilio_state;
+
+		// The first window handles the IPC socket listening
+		if individual_window_state.message_index == 0 {
+			twilio_state.do_instant_update = try_listening_to_ipc_socket(&mut twilio_state.instant_update_socket_listener).is_some();
+		}
+
+		if twilio_state.do_instant_update {
+			history_updater_fn(params)
+		}
+		else {
+			Ok(())
+		}
+	}
+
 	fn history_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let individual_window_state = params.window.get_state::<TwilioHistoryWindowState>();
 		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 		let twilio_state = &mut inner_shared_state.twilio_state;
 		let message_index = individual_window_state.message_index;
 
-		// Running the updating only for the first history subwindow
 		if message_index == 0 {
 			twilio_state.update(&mut inner_shared_state.error_state,
 				params.texture_pool, params.area_drawn_to_screen, inner_shared_state.font_info,
-				individual_window_state.text_color)?;
+				individual_window_state.text_color
+			)?;
 		}
 
 		let sorted_message_ids = &twilio_state.historically_sorted_messages_by_id;
@@ -565,41 +597,6 @@ pub fn make_twilio_window(
 
 		Ok(())
 	}
-
-	let (cropped_text_tl_in_history_window, cropped_text_size_in_history_window) = (
-		message_background_contents_text_crop_factor * Vec2f::new_scalar(0.5),
-		Vec2f::ONE - message_background_contents_text_crop_factor
-	);
-
-	let history_window_height = 1.0 / max_num_messages_in_history as f64;
-
-	let all_subwindows = (0..max_num_messages_in_history).map(|i| {
-		// Note: I can't directly put the background contents into the history windows since it's sized differently
-		let history_window = Window::new(
-			vec![(history_updater_fn, update_rate)],
-			DynamicOptional::new(TwilioHistoryWindowState {message_index: i, text_color}),
-			WindowContents::Nothing,
-			None,
-			cropped_text_tl_in_history_window,
-			cropped_text_size_in_history_window,
-			vec![]
-		);
-
-		// This is just the history window with the background contents
-		let mut with_background_contents = Window::new(
-			vec![],
-			DynamicOptional::NONE,
-			message_background_contents.clone(),
-			None,
-			Vec2f::new(0.0, i as f64 * history_window_height),
-			Vec2f::new(1.0, history_window_height),
-			vec![history_window]
-		);
-
-		// Don't want to not stretch the message bubbles
-		with_background_contents.set_aspect_ratio_correction_skipping(true);
-		with_background_contents
-	}).collect();
 
 	//////////
 
@@ -629,6 +626,48 @@ pub fn make_twilio_window(
 
 		Ok(())
 	}
+
+
+	//////////
+
+	let (cropped_text_tl_in_history_window, cropped_text_size_in_history_window) = (
+		message_background_contents_text_crop_factor * Vec2f::new_scalar(0.5),
+		Vec2f::ONE - message_background_contents_text_crop_factor
+	);
+
+	let history_window_height = 1.0 / max_num_messages_in_history as f64;
+
+	let all_subwindows = (0..max_num_messages_in_history).map(|i| {
+		// Note: I can't directly put the background contents into the history windows since it's sized differently
+		let history_window = Window::new(
+			vec![
+				(instant_update_handler_fn, instant_update_check_rate),
+				(history_updater_fn, update_rate)
+			],
+
+			DynamicOptional::new(TwilioHistoryWindowState {message_index: i, text_color}),
+			WindowContents::Nothing,
+			None,
+			cropped_text_tl_in_history_window,
+			cropped_text_size_in_history_window,
+			vec![]
+		);
+
+		// This is just the history window with the background contents
+		let mut with_background_contents = Window::new(
+			vec![],
+			DynamicOptional::NONE,
+			message_background_contents.clone(),
+			None,
+			Vec2f::new(0.0, i as f64 * history_window_height),
+			Vec2f::new(1.0, history_window_height),
+			vec![history_window]
+		);
+
+		// Don't want to not stretch the message bubbles
+		with_background_contents.set_aspect_ratio_correction_skipping(true);
+		with_background_contents
+	}).collect();
 
 	//////////
 

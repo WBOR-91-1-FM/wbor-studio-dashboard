@@ -70,7 +70,7 @@ pub async fn make_dashboard(
 	let main_windows_gap_size = 0.01;
 
 	let theme_color_1 = ColorSDL::RGB(255, 133, 133);
-	let shared_update_rate = update_rate_creator.new_instance(10.0);
+	let shared_update_rate = update_rate_creator.new_instance(15.0);
 	let api_keys: ApiKeys = file_utils::load_json_from_file("assets/api_keys.json").await?;
 
 	////////// Defining the Spinitron window extents
@@ -377,7 +377,7 @@ pub async fn make_dashboard(
 		),
 
 		make_surprise_window(
-			Vec2f::ZERO, Vec2f::ONE, "/tmp/surprises_wbor_studio_dashboard.sock",
+			Vec2f::ZERO, Vec2f::ONE, "surprises",
 			surprises, update_rate_creator, texture_pool
 		),
 
@@ -410,6 +410,7 @@ pub async fn make_dashboard(
 	let twilio_window = make_twilio_window(
 		&twilio_state,
 		shared_update_rate,
+		update_rate_creator.new_instance(1.0),
 
 		Vec2f::new(0.58, 0.40),
 		Vec2f::new(0.4, 0.55),

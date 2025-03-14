@@ -2,17 +2,7 @@ use std::{
 	rc::Rc,
 	borrow::Cow,
 	cell::RefCell,
-	collections::HashSet,
-	io::{BufRead, BufReader}
-};
-
-use interprocess::local_socket::{
-	ToFsName,
-	GenericFilePath,
-	ListenerOptions,
-	traits::Listener,
-	ListenerNonblockingMode,
-	prelude::LocalSocketListener
+	collections::HashSet
 };
 
 use crate::{
@@ -23,6 +13,7 @@ use crate::{
 	},
 
 	utility_types::{
+		ipc::*,
 		time::*,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
@@ -70,13 +61,12 @@ pub async fn make_surprise_window(
 
 	////////// Some internally used types
 
-	type SurprisePath=Rc<String>;
+	type SurprisePath = Rc<String>;
 
 	struct SharedSurpriseInfo {
 		surprise_path_set: HashSet<SurprisePath>,
 		queued_surprise_paths: Vec<SurprisePath>, // A multiset would be better here...
-		surprise_stream_listener: LocalSocketListener,
-		surprise_stream_path_buffer: String
+		surprise_stream_listener: IpcSocketListener
 	}
 
 	struct SurpriseInfo {
@@ -121,22 +111,14 @@ pub async fn make_surprise_window(
 		let trigger_appearance_artificially = not_currently_active && {
 			let mut shared_info = surprise_info.shared_info.borrow_mut();
 
-			/* TODO: include some error handling here (should I care
-			about the "resource temporarily unavailable" thing?) */
-			if let Some(Ok(stream)) = shared_info.surprise_stream_listener.next() {
-				let mut reader = BufReader::new(stream);
-				let _ = reader.read_line(&mut shared_info.surprise_stream_path_buffer);
-
-				if let Some(matching_path) = shared_info.surprise_path_set.get(&shared_info.surprise_stream_path_buffer) {
+			if let Some(path) = try_listening_to_ipc_socket(&mut shared_info.surprise_stream_listener) {
+				if let Some(matching_path) = shared_info.surprise_path_set.get(&path) {
 					let rc_cloned_matching_path = matching_path.clone();
 					shared_info.queued_surprise_paths.push(rc_cloned_matching_path);
 				}
 				else {
-					log::warn!("Tried to trigger a surprise with a path of '{}', but no surprise has that path!",
-						shared_info.surprise_stream_path_buffer);
+					log::warn!("Tried to trigger a surprise with a path of '{path}', but no surprise has that path!");
 				}
-
-				shared_info.surprise_stream_path_buffer.clear();
 			}
 
 			// This runs if the path of the current surprise (per this updater call) is in the queue
@@ -187,30 +169,12 @@ pub async fn make_surprise_window(
 		return error_msg!("There are duplicate paths in the set of surprises");
 	}
 
-	////////// Setting up the shared surprise info that can be triggered via signals
-
-	const SURPRISE_STREAM_PATH_BUFFER_INITIAL_SIZE: usize = 64;
-
-	let socket_path_fs_name = artificial_triggering_socket_path.to_fs_name::<GenericFilePath>()?;
-	let make_listener = || ListenerOptions::new().name(socket_path_fs_name.clone()).create_sync();
-
-	let surprise_stream_listener = match make_listener() {
-		Ok(listener) => listener,
-
-		Err(err) => {
-			log::warn!("A previous surprise stream socket path was still around after a previous crash; removing it and making a new one.");
-			tokio::fs::remove_file(artificial_triggering_socket_path).await?;
-			make_listener().unwrap_or_else(|_| panic!("Could not create a surprise stream listener: '{err}'."))
-		}
-	};
-
-	surprise_stream_listener.set_nonblocking(ListenerNonblockingMode::Both)?;
+	////////// Setting up the shared surprise info that can be triggered via IPC
 
 	let shared_surprise_info = Rc::new(RefCell::new(SharedSurpriseInfo {
 		surprise_path_set,
 		queued_surprise_paths: Vec::new(),
-		surprise_stream_listener,
-		surprise_stream_path_buffer: String::with_capacity(SURPRISE_STREAM_PATH_BUFFER_INITIAL_SIZE)
+		surprise_stream_listener: make_ipc_socket_listener(artificial_triggering_socket_path).await?
 	}));
 
 	////////// Making the surprise windows

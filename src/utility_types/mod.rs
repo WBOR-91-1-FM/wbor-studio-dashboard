@@ -1,3 +1,4 @@
+pub mod ipc;
 pub mod time;
 pub mod vec2f;
 pub mod file_utils;

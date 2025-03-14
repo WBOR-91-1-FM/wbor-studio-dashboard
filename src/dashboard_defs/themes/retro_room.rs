@@ -373,7 +373,7 @@ pub async fn make_dashboard(
 		),
 
 		make_surprise_window(
-			Vec2f::ZERO, Vec2f::ONE, "/tmp/surprises_wbor_studio_dashboard.sock",
+			Vec2f::ZERO, Vec2f::ONE, "surprises",
 			surprises, update_rate_creator, texture_pool
 		),
 
@@ -408,6 +408,7 @@ pub async fn make_dashboard(
 	let twilio_window = make_twilio_window(
 		&twilio_state,
 		shared_update_rate,
+		update_rate_creator.new_instance(1.0),
 
 		Vec2f::new(0.69, 0.52),
 		Vec2f::new(0.3, 0.06),
