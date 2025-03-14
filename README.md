@@ -72,7 +72,7 @@ If you want to make a new theme, start off by copying `standard.rs`, and make yo
 
 - To delete recent Twilio messages, use `delete_twilio_msgs.sh`. Change the number of messages to delete in the script, and it'll delete that number of messages one-by-one.
 - To send surprises to the dashboard (images that appear for a certain amount of time, with certain chances of appearing at any second), use `trigger_surprise.sh`. Just pass it the name of a surprise that you've set up in one of your theme files (e.g. `standard.rs`), and it'll send it over a local socket which the dashboard reads from.
-- To update Twilio instantly (without waiting for it to poll again every N seconds), use `trigger_twilio_update.sh`.
+- To update Twilio instantly (without waiting for it to poll again every `n` seconds), use `trigger_twilio_update.sh`.
 - To run the dashboard on its computer, use `run_dashboard.sh`. Note that this is only made to work in the WBOR studio. If the dashboard ever panics, the script will sleep for a bit, and then try launching it again (while writing all output to a log file `project.log`). Also, if a Discord channel webhook is set up in `api_keys.json`, any crashes will automatically send a message to the channel associated with that webhook.
 
 ---
