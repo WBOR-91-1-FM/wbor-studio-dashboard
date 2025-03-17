@@ -32,7 +32,7 @@ fi
 
 while true; do
 	echo -e "---------------------------------------\n\nStarting dashboard at $(date)\n" >> "$PROJECT_DIR/project.log"
-	RUST_LOG=wbor_studio_dashboard cargo run --release >>"$PROJECT_DIR/project.log" 2>&1
+	RUST_BACKTRACE=1 RUST_LOG=wbor_studio_dashboard cargo run --release >>"$PROJECT_DIR/project.log" 2>&1
 
 	EXIT_CODE=$?
 
@@ -44,7 +44,7 @@ while true; do
 Wait for $SLEEP_AMOUNT_SECS_UPON_PANIC seconds, then try a relaunch."
 
 		if [ "$CRASH_DISCORD_WEBHOOK" != "null" ]; then
-			escaped_log=$(tail -n 5 "$PROJECT_DIR/project.log" | jq -Rs .)
+			escaped_log=$(tail -n 12 "$PROJECT_DIR/project.log" | jq -Rs .)
 			send_discord_webhook "$CRASH_DISCORD_WEBHOOK" "\"The dashboard crashed! Here's a bit of the log:\""
 			send_discord_webhook "$CRASH_DISCORD_WEBHOOK" "$escaped_log"
 		else
