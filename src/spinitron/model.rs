@@ -162,7 +162,7 @@ impl SpinitronModel for Spin {
 
 	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {
 		// Doing this because the end is very rarely `None`. Earlier, this was returned: `(Some(&self.start), Some(&self.end))`.
-		(Some(self.start.as_ref()), self.end.as_ref().map(|end| end.as_str()))
+		(Some(self.start.as_ref()), self.end.as_deref())
 	}
 
 	// TODO: for this, can I split the outut string into multiple lines, and then render multiline text somehow?
