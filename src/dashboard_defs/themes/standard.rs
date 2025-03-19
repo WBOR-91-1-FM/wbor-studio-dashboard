@@ -71,8 +71,9 @@ pub async fn make_dashboard(
 	let main_windows_gap_size = 0.01;
 
 	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
-	let shared_update_rate = update_rate_creator.new_instance(15.0);
+	let shared_update_rate = update_rate_creator.new_instance(30.0);
 	let api_keys: ApiKeys = file_utils::load_json_from_file("assets/api_keys.json").await?;
+	let mut rand_generator = rand::thread_rng();
 
 	////////// Defining the Spinitron window extents
 
@@ -97,6 +98,8 @@ pub async fn make_dashboard(
 	// Most times, this is just the show image
 	let playlist_tl = Vec2f::new(persona_tl.x() + persona_size.x() + main_windows_gap_size, spin_tl.y());
 	let playlist_size = Vec2f::new_scalar(1.0 - playlist_tl.x() - main_windows_gap_size);
+
+	let num_spins_shown_in_history = 7;
 
 	// TODO: make a type for the top-left/size combo (and add useful utility functions from there)
 
@@ -165,15 +168,15 @@ pub async fn make_dashboard(
 
 	// The Spinitron windows update at the same rate as the shared update rate
 	let spinitron_windows = make_spinitron_windows(
-		&all_model_windows_info, shared_update_rate
+		&all_model_windows_info, shared_update_rate,
+
+		Vec2f::new(0.25, 0.73),
+		Vec2f::new(0.5, 0.11),
+		None,
+
+		num_spins_shown_in_history,
+		&mut rand_generator
 	);
-
-	////////// Making a streaming server status window
-
-	let streaming_server_status_window = make_streaming_server_status_window(
-		&api_keys.streaming_server_now_playing_url,
-		update_rate_creator.new_instance(5.0), 3
-	).await;
 
 	////////// Making an error window
 
@@ -199,32 +202,10 @@ pub async fn make_dashboard(
 		credit_message
 	);
 
-	////////// Making a clock window
-
-	let clock_size_x = top_bar_window_size_y;
-	let clock_tl = Vec2f::new(1.0 - clock_size_x, 0.0);
-	let clock_size = Vec2f::new(clock_size_x, 1.0);
-
-	let clock_dial_creation_info = TextureCreationInfo::from_path_async("assets/watch_dial.png").await?;
-
-	let (clock_hands, clock_window) = ClockHands::new_with_window(
-		UpdateRate::ONCE_PER_FRAME,
-		clock_tl,
-		clock_size,
-
-		ClockHandConfigs {
-			milliseconds: ClockHandConfig::new(0.01, 0.2, 0.5, ColorSDL::RGBA(255, 0, 0, 100)), // Milliseconds
-			seconds: ClockHandConfig::new(0.01, 0.02, 0.48, ColorSDL::WHITE), // Seconds
-			minutes: ClockHandConfig::new(0.01, 0.02, 0.35, ColorSDL::YELLOW), // Minutes
-			hours: ClockHandConfig::new(0.01, 0.02, 0.2, ColorSDL::BLACK) // Hours
-		},
-
-		WindowContents::make_texture_contents(&clock_dial_creation_info, texture_pool)?
-	)?;
-
 	////////// Defining the Spinitron state parametwrs
 
 	let initial_spin_window_size_guess = (1024, 1024);
+	let initial_spin_history_subwindow_size_guess = (16, 16);
 
 	let custom_model_expiry_durations = [
 		Duration::minutes(10), // 10 minutes after a spin, it's expired
@@ -238,7 +219,7 @@ pub async fn make_dashboard(
 	// Texture path, top left, size (TODO: make animated textures possible)
 	let main_static_texture_info = [
 		("assets/dashboard_bookshelf.png", Vec2f::ZERO, Vec2f::ONE, false),
-		("assets/logo.png", Vec2f::new(0.6, 0.75), Vec2f::new(0.1, 0.05), false),
+		// ("assets/logo.png", Vec2f::new(0.6, 0.75), Vec2f::new(0.1, 0.05), false),
 		("assets/soup.png", Vec2f::new(0.45, 0.72), Vec2f::new(0.06666666, 0.1), false),
 		("assets/ness.bmp", Vec2f::new(0.28, 0.73), Vec2f::new_scalar(0.08), false)
 	];
@@ -251,11 +232,18 @@ pub async fn make_dashboard(
 
 	////////// Making couple of different window types (and other stuff) concurrently
 
-	let (weather_window, surprise_window, spinitron_state,
+	let (streaming_server_status_window,
+		weather_window, surprise_window, spinitron_state,
 		twilio_state, twilio_message_background_contents_creation_info,
+		clock_dial_creation_info,
 		background_static_texture_creation_info,
 		foreground_static_texture_creation_info,
 		main_static_texture_creation_info) = tokio::try_join!(
+
+		async {Ok(make_streaming_server_status_window(
+			&api_keys.streaming_server_now_playing_url,
+			update_rate_creator.new_instance(5.0), 3
+		).await)},
 
 		make_weather_window(
 			&api_keys.tomorrow_io,
@@ -281,7 +269,14 @@ pub async fn make_dashboard(
 
 		SpinitronState::new(
 			(&api_keys.spinitron, get_fallback_texture_creation_info,
-			custom_model_expiry_durations, initial_spin_window_size_guess)
+			custom_model_expiry_durations, initial_spin_window_size_guess,
+			initial_spin_history_subwindow_size_guess, num_spins_shown_in_history,
+
+			Some(RemakeTransitionInfo::new(
+				Duration::seconds(1),
+				easing_fns::transition::opacity::STRAIGHT_WAVY,
+				easing_fns::transition::aspect_ratio::STRAIGHT_WAVY
+			)))
 		),
 
 		TwilioState::new(
@@ -299,6 +294,7 @@ pub async fn make_dashboard(
 		),
 
 		TextureCreationInfo::from_path_async("assets/text_bubble.png"),
+		TextureCreationInfo::from_path_async("assets/watch_dial.png"),
 
 		make_creation_info_for_static_texture_set(&background_static_texture_info),
 		make_creation_info_for_static_texture_set(&foreground_static_texture_info),
@@ -324,11 +320,32 @@ pub async fn make_dashboard(
 		WindowContents::make_texture_contents(&twilio_message_background_contents_creation_info, texture_pool)?
 	);
 
+	////////// Making a clock window
+
+	let clock_size_x = top_bar_window_size_y;
+	let clock_tl = Vec2f::new(1.0 - clock_size_x, 0.0);
+	let clock_size = Vec2f::new(clock_size_x, 1.0);
+
+	let (clock_hands, clock_window) = ClockHands::new_with_window(
+		UpdateRate::ONCE_PER_FRAME,
+		clock_tl,
+		clock_size,
+
+		ClockHandConfigs {
+			milliseconds: ClockHandConfig::new(0.01, 0.2, 0.5, ColorSDL::RGBA(255, 0, 0, 100)), // Milliseconds
+			seconds: ClockHandConfig::new(0.01, 0.02, 0.48, ColorSDL::WHITE), // Seconds
+			minutes: ClockHandConfig::new(0.01, 0.02, 0.35, ColorSDL::YELLOW), // Minutes
+			hours: ClockHandConfig::new(0.01, 0.02, 0.2, ColorSDL::BLACK) // Hours
+		},
+
+		WindowContents::make_texture_contents(&clock_dial_creation_info, texture_pool)?
+	)?;
+
 	////////// Making some static texture windows
 
 	let mut all_main_windows = vec![twilio_window, credit_window, streaming_server_status_window];
-	all_main_windows.extend(spinitron_windows);
 	add_static_texture_set(&mut all_main_windows, &main_static_texture_info, &main_static_texture_creation_info, texture_pool);
+	all_main_windows.extend(spinitron_windows);
 
 	/* The error window goes last (so that it can manage
 	errors in one shared update iteration properly) */
@@ -396,7 +413,7 @@ pub async fn make_dashboard(
 			twilio_state,
 			font_info: &FONT_INFO,
 			get_fallback_texture_creation_info,
-			rand_generator: rand::thread_rng()
+			rand_generator
 		}
 	);
 

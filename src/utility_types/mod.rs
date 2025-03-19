@@ -5,4 +5,5 @@ pub mod file_utils;
 pub mod update_rate;
 pub mod generic_result;
 pub mod dynamic_optional;
+pub mod api_history_list;
 pub mod continually_updated;

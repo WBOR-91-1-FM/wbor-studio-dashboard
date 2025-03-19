@@ -17,8 +17,8 @@ use crate::{
 */
 
 async fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
-	api_key: &str, possible_model_id: MaybeSpinitronModelId,
-	possible_item_count: Option<u16>
+	api_key: &str, maybe_model_id: MaybeSpinitronModelId,
+	maybe_item_count: Option<usize>
 ) -> GenericResult<serde_json::Value> {
 
 	////////// Getting the API endpoint
@@ -59,11 +59,11 @@ async fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 		("fields", Cow::Borrowed(&joined_fields))
 	];
 
-	if let Some(model_id) = possible_model_id {
+	if let Some(model_id) = maybe_model_id {
 		path_params.push(Cow::Owned(model_id.to_string()));
 	}
 
-	if let Some(item_count) = possible_item_count {
+	if let Some(item_count) = maybe_item_count {
 		query_params.push(("count", Cow::Owned(item_count.to_string())));
 	}
 
@@ -80,32 +80,24 @@ fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Va
 	serde_json::from_value(parsed_json_as_object["items"].clone()).to_generic()
 }
 
-// This is a singular request
-async fn do_request<T: SpinitronModelWithProps>(api_key: &str, possible_model_id: MaybeSpinitronModelId) -> GenericResult<T> {
-	let response_json = get_json_from_spinitron_request::<T>(api_key, possible_model_id, Some(1)).await?;
+//////////
 
-	if possible_model_id.is_some() {
+pub async fn get_models<T: SpinitronModelWithProps>(api_key: &str, maybe_item_count: Option<usize>) -> GenericResult<Vec<T>> {
+	let response_json = get_json_from_spinitron_request::<T>(api_key, None, maybe_item_count).await?;
+	get_vec_from_spinitron_json(&response_json)
+}
+
+pub async fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: MaybeSpinitronModelId) -> GenericResult<T> {
+	let response_json = get_json_from_spinitron_request::<T>(api_key, id, Some(1)).await?;
+
+	if id.is_some() {
 		// If requesting a via model id, just a raw item will be returned
 		serde_json::from_value(response_json).to_generic()
 	}
-
 	else {
 		// Otherwise, the first out of the one-entry `Vec` will be returned
 		let wrapped_in_vec: Vec<T> = get_vec_from_spinitron_json(&response_json)?;
 		assert!(wrapped_in_vec.len() == 1);
 		Ok(wrapped_in_vec[0].clone())
 	}
-}
-
-/*
-async fn do_plural_request<T: SpinitronModelWithProps>(api_key: &str, possible_item_count: Option<u16>) -> GenericResult<Vec<T>> {
-	let response_json = get_json_from_spinitron_request::<T>(api_key, None, possible_item_count).await?;
-	get_vec_from_spinitron_json(&response_json)
-}
-*/
-
-//////////
-
-pub async fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: MaybeSpinitronModelId) -> GenericResult<T> {
-	do_request(api_key, id).await // TODO: stop using this as a wrapper?
 }

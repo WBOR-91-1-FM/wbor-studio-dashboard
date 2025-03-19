@@ -16,7 +16,7 @@ use crate::{
 	spinitron::{
 		wrapper_types::*,
 		state::ModelAgeState,
-		api::get_model_from_id
+		api::{get_model_from_id, get_models}
 	}
 };
 
@@ -58,22 +58,25 @@ pub type MaybeTextureCreationInfo<'a> = Option<TextureCreationInfo<'a>>;
 
 pub trait SpinitronModel {
 	fn get_id(&self) -> SpinitronModelId;
-	fn extract_raw_time_range(&self) -> Option<(&str, &str)>;
+	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>);
 
 	fn to_string(&self, age_state: ModelAgeState) -> Cow<str>;
 	fn get_texture_creation_info(&self, age_state: ModelAgeState, spin_texture_window_size: (u32, u32)) -> MaybeTextureCreationInfo;
 
-	fn maybe_get_time_range(&self) -> GenericResult<Option<(ReferenceTimestamp, ReferenceTimestamp)>> {
-		fn parse_time(time: &str) -> GenericResult<ReferenceTimestamp> {
-			let mut amended_end = time.to_owned();
-			amended_end.insert(amended_end.len() - 2, ':');
-			Ok(parse_time_from_rfc3339(&amended_end)?.into())
-		}
+	fn parse_time(&self, time: &str) -> GenericResult<ReferenceTimestamp> {
+		let mut with_amended_end = time.to_owned();
+		with_amended_end.insert(with_amended_end.len() - 2, ':');
+		parse_time_from_rfc3339(&with_amended_end).map(|time| time.into())
+	}
 
+	fn maybe_get_time_range(&self) -> GenericResult<Option<(ReferenceTimestamp, ReferenceTimestamp)>> {
 		// TODO: don't unwrap here
-		Ok(self.extract_raw_time_range().map(|(start, end)|
-			(parse_time(start).unwrap(), parse_time(end).unwrap())
-		))
+		Ok(if let (Some(start), Some(end)) = self.extract_raw_time_range() {
+			Some((self.parse_time(start).unwrap(), self.parse_time(end).unwrap()))
+		}
+		else {
+			None
+		})
 	}
 
 	fn evaluate_model_image_url<'a>(
@@ -156,9 +159,10 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 
 impl SpinitronModel for Spin {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {
-		// Doing this because the end is very rarely `None`. Earlier, this was returned: `Some((&self.start, &self.end))`.
-		self.end.as_ref().map(|end| (self.start.as_str(), end.as_str()))
+
+	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {
+		// Doing this because the end is very rarely `None`. Earlier, this was returned: `(Some(&self.start), Some(&self.end))`.
+		(Some(self.start.as_ref()), self.end.as_ref().map(|end| end.as_str()))
 	}
 
 	// TODO: for this, can I split the outut string into multiple lines, and then render multiline text somehow?
@@ -196,9 +200,11 @@ impl SpinitronModel for Spin {
 	}
 }
 
+//////////
+
 impl SpinitronModel for Playlist {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {Some((&self.start, &self.end))}
+	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {(Some(&self.start), Some(&self.end))}
 
 	fn to_string(&self, age_state: ModelAgeState) -> Cow<str> {
 		match age_state {
@@ -248,9 +254,11 @@ impl SpinitronModel for Playlist {
 	}
 }
 
+//////////
+
 impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {None}
+	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {(None, None)}
 
 	fn to_string(&self, _: ModelAgeState) -> Cow<str> {
 		Cow::Owned(format!("Welcome, {}!", self.name))
@@ -258,14 +266,16 @@ impl SpinitronModel for Persona {
 
 	fn get_texture_creation_info(&self, _: ModelAgeState, _: (u32, u32)) -> MaybeTextureCreationInfo {
 		/* TODO: after a show, replace the old image with a meme, like how it's done for playlists;
-		also, when there's no next persona image, it carries over, which shouldn't happen */
+		also, when there's no next persona image, it carries over, which shouldn't happen (is this true?) */
 		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_persona_image.png")
 	}
 }
 
+//////////
+
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn extract_raw_time_range(&self) -> Option<(&str, &str)> {Some((&self.start, &self.end))}
+	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {(Some(&self.start), Some(&self.end))}
 
 	// This function is not used at the moment
 	fn to_string(&self, _: ModelAgeState) -> Cow<str> {
@@ -278,12 +288,22 @@ impl SpinitronModel for Show {
 	}
 }
 
+//////////
+
 impl Spin {
-	// TODO: can I reduce the repetition on the `get`s?
-	pub async fn get(api_key: &str) -> GenericResult<Self> {
-		get_model_from_id(api_key, None).await
+	pub async fn get_current_and_history(api_key: &str, history_amount: usize) -> GenericResult<(Self, Vec<Self>)> {
+		// Getting 1 more than the history amount, since we need the current spin too
+		let mut models = get_models(api_key, Some(history_amount + 1)).await?;
+		let first = models.remove(0);
+		Ok((first, models))
+	}
+
+	pub fn get_start_time(&self) -> ReferenceTimestamp {
+		self.parse_time(&self.start).unwrap() // Expecting the parsing to work
 	}
 }
+
+//////////
 
 impl Playlist {
 	pub async fn get(api_key: &str) -> GenericResult<Self> {
@@ -303,6 +323,8 @@ impl Show {
 	}
 }
 
+//////////
+
 impl SpinitronModelWithProps for Spin {}
 impl SpinitronModelWithProps for Playlist {}
 impl SpinitronModelWithProps for Persona {}
@@ -315,98 +337,77 @@ pub enum SpinitronModelName {
 	Spin, Playlist, Persona, Show
 }
 
+// Note: the commented-out fields in each model below can be used, but have been removed for now (just not currently used).
 // TODO: for any `String` field, if it equals the empty string, set it to `None`
 
 derive_spinitron_model_props!(
-#[allow(dead_code)]
 pub struct Spin {
 	// This does not cover all the spin fields; this is just the most useful subset of them.
 
 	////////// These are officially enabled fields
 
 	artist: String,
-	local: MaybeBool,
+	// local: MaybeBool,
 	song: String,
-
-	// TODO: why is `time` not there?
-
-	duration: MaybeUint, // This, along with the `end` field, are very rarely `None`
+	// duration: MaybeUint, // This, along with the `end` field, are very rarely `None`
 	start: String,
 	end: MaybeString,
-
-	request: MaybeBool,
-	new: MaybeBool,
-
+	// request: MaybeBool,
+	// new: MaybeBool,
 	release: String,
-
-	va: MaybeBool,
-
-	medium: MaybeString, // This should just be `String`, but it isn't here, for some reason
-	released: MaybeUint,
-
+	// va: MaybeBool,
+	// medium: MaybeString, // This should just be `String`, but it isn't here, for some reason
+	// released: MaybeUint,
 	id: SpinitronModelId,
 	image: MaybeString // If there's no image, it will be `None` or `Some("")`
 });
 
 derive_spinitron_model_props!(
-#[allow(dead_code)]
 pub struct Playlist {
 	id: SpinitronModelId,
 	persona_id: SpinitronModelId, // TODO: why are all the persona ids the same?
-
 	start: String,
 	end: String,
-	duration: Uint,
-	timezone: String,
-
+	// duration: Uint,
+	// timezone: String,
 	category: MaybeString,
 	title: String,
-	description: MaybeString,
-	since: MaybeUint,
-
-	url: MaybeString, // TODO: maybe remove this
-	hide_dj: MaybeUint, // 0 or 1
+	// description: MaybeString,
+	// since: MaybeUint,
+	// url: MaybeString, // TODO: maybe remove this
+	// hide_dj: MaybeUint, // 0 or 1
 	image: MaybeString,
 	automation: MaybeUint, // 0 or 1
-
-	episode_name: MaybeString,
-	episode_description: MaybeString
+	// episode_name: MaybeString,
+	// episode_description: MaybeString
 });
 
 derive_spinitron_model_props!(
-#[allow(dead_code)]
 pub struct Persona {
 	////////// These are fields that are officially supported by Spinitron
 
 	id: SpinitronModelId,
 	name: String,
-
-	bio: MaybeString,
-	since: MaybeUint,
-
-	email: String, // If there's no email, it will be `""`
-	website: MaybeString, // If there's no website, it will be `None` or `Some("")`
+	// bio: MaybeString,
+	// since: MaybeUint,
+	// email: String, // If there's no email, it will be `""`
+	// website: MaybeString, // If there's no website, it will be `None` or `Some("")`
 	image: MaybeString //  If there's no website, it will be `None`
 });
 
 derive_spinitron_model_props!(
-#[allow(dead_code)]
 pub struct Show {
 	id: SpinitronModelId, // Note: some shows will have the same IDS, but different times (e.g. WBOR's Commodore 64)
-
 	start: String,
 	end: String,
-	duration: Uint,
-	timezone: String,
-
-	one_off: Bool,
-
-	category: MaybeString, // This will always be set, in practice (why did I make it `MaybeString`?)
-	title: String, // The titles will generally never be empty
-	description: String, // This will sometimes be empty (HTML-formatted)
-
-	since: MaybeUint,
-	url: String,
-	hide_dj: Uint, // 0 or 1
-	image: MaybeString
+	// duration: Uint,
+	// timezone: String,
+	// one_off: Bool,
+	// category: MaybeString, // This will always be set, in practice (why did I make it `MaybeString`?)
+	// title: String, // The titles will generally never be empty
+	// description: String, // This will sometimes be empty (HTML-formatted)
+	// since: MaybeUint,
+	// url: String,
+	// hide_dj: Uint, // 0 or 1
+	// image: MaybeString
 });

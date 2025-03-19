@@ -25,6 +25,9 @@ pub struct ContinuallyUpdated<T: Updatable> {
 
 //////////
 
+/* TODO: implement an intermediate syncing process for a continually updated struct, somehow?
+That would be neat, for getting updates quicker, in some way. Checkpoint syncing function?
+And for that, sleep in increments of 1 second, perhaps (just as a test), to get mini-updates. */
 impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 	fn handle_channel_error(name: &str, transfer_description: &str, err: impl std::fmt::Display, should_panic: bool) {
 		let message = format!("Problem from '{name}' with {transfer_description} ({}): '{err}'",

@@ -1,25 +1,34 @@
-use std::borrow::Cow;
+use std::{
+	sync::Arc,
+	borrow::Cow
+};
 
 use crate::{
 	request,
-	texture::pool::TextureCreationInfo,
 	dashboard_defs::error::ErrorState,
+	texture::pool::{TexturePool, TextureHandle, TextureCreationInfo, RemakeTransitionInfo},
 
 	utility_types::{
 		time::*,
 		file_utils,
 		generic_result::*,
-		continually_updated::{Updatable, ContinuallyUpdated}
+		continually_updated::{Updatable, ContinuallyUpdated},
+		api_history_list::{APIHistoryList, ApiHistoryListTraits, ApiHistoryListTextureManager}
 	},
 
-	spinitron::model::{
-		NUM_SPINITRON_MODEL_TYPES,
-		Spin, Playlist, Persona, Show,
-		SpinitronModel, SpinitronModelName
+	spinitron::{
+		wrapper_types::SpinitronModelId,
+
+		model::{
+			MaybeTextureCreationInfo,
+			NUM_SPINITRON_MODEL_TYPES,
+			Spin, Playlist, Persona, Show,
+			SpinitronModel, SpinitronModelName
+		}
 	}
 };
 
-//////////
+////////// Model age stuff:
 
 #[derive(Clone, PartialEq)]
 pub enum ModelAgeState {
@@ -55,12 +64,12 @@ impl ModelAgeData {
 			let time_after_start = curr_time.signed_duration_since(start_time);
 			let time_after_end = curr_time.signed_duration_since(end_time);
 
-			let zero = Duration::zero();
+			const ZERO: Duration = Duration::zero();
 
 			// The custom end may be before or after the actual end
 			let (is_after_start, is_after_end, is_after_custom_end) = (
-				time_after_start > zero,
-				time_after_end > zero,
+				time_after_start > ZERO,
+				time_after_end > ZERO,
 				time_after_end > self.custom_expiry_duration
 			);
 
@@ -68,7 +77,7 @@ impl ModelAgeData {
 				if is_after_custom_end {
 					/* The first branch is for when the custom expiry is before the
 					actual end time; so then, give priority to the actual end */
-					if is_after_end && self.custom_expiry_duration < zero {ModelAgeState::AfterIt}
+					if is_after_end && self.custom_expiry_duration < ZERO {ModelAgeState::AfterIt}
 					else {ModelAgeState::AfterItFromCustomExpiryDuration}
 				}
 				else if is_after_end {ModelAgeState::AfterIt}
@@ -86,7 +95,63 @@ impl ModelAgeData {
 	}
 }
 
-//////////
+////////// The implementer for the spin history list trait:
+
+type WindowSize = (u32, u32);
+
+#[derive(Clone)]
+struct SpinHistoryListTraitImplementer {
+	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>,
+	item_texture_size: WindowSize,
+	just_found_true_texture_size: bool
+}
+
+impl ApiHistoryListTraits<SpinitronModelId, Spin, Spin> for SpinHistoryListTraitImplementer {
+	fn may_need_to_sort_api_results(&self) -> bool {
+		false // Spins come in order!
+	}
+
+	fn get_key_from_non_native_item(&self, offshore: &Spin) -> SpinitronModelId {
+		offshore.get_id()
+	}
+
+	fn get_timestamp_from_non_native_item(&self, offshore: &Spin) -> ReferenceTimestamp {
+		offshore.get_start_time()
+	}
+
+	fn native_item_is_expired(&self, _: &Spin) -> bool {
+		false
+	}
+
+	fn non_native_item_is_expired(&self, _offshore: &Spin) -> bool {
+		false
+	}
+
+	fn action_when_expired(&self, _: &Spin) {
+
+	}
+
+	fn create_new_local(&self, offshore: &Spin) -> Arc<Spin> {
+		Arc::new(offshore.clone())
+	}
+
+	fn action_when_updating_local(&self, mut _local: &mut Arc<Spin>, _offshore: &Spin) -> bool {
+		// Only updating local if the true texture size was just found
+		self.just_found_true_texture_size
+	}
+
+	async fn get_texture_creation_info(&self, spin: Arc<Spin>) -> Arc<TextureCreationInfo<'static>> {
+		let maybe_info = spin.get_texture_creation_info(ModelAgeState::CurrentlyActive, self.item_texture_size);
+
+		let bytes = common_get_model_texture_bytes(
+			maybe_info, self.get_fallback_texture_creation_info
+		).await.unwrap(); // This expects that the fallback texture will work (otherwise, we have a serious issue!)
+
+		Arc::new(TextureCreationInfo::RawBytes(Cow::Owned(bytes)))
+	}
+}
+
+////////// Defining some types pertaining to `SpinitronStateData`
 
 #[derive(Clone)]
 struct SpinitronStateData {
@@ -99,37 +164,97 @@ struct SpinitronStateData {
 	show: Show,
 
 	age_data: [ModelAgeData; NUM_SPINITRON_MODEL_TYPES],
-	precached_texture_bytes: [Vec<u8>; NUM_SPINITRON_MODEL_TYPES],
+	precached_texture_bytes: [Arc<Vec<u8>>; NUM_SPINITRON_MODEL_TYPES], // These are `Arc`s, to avoid inter-thread copying
 
 	/* The boolean at index `i` is true if the model at index `i` was recently
 	updated. Model indices are (in order) spin, playlist, persona, and show. */
-	update_statuses: [bool; NUM_SPINITRON_MODEL_TYPES]
-}
+	update_statuses: [bool; NUM_SPINITRON_MODEL_TYPES],
 
-type WindowSize = (u32, u32);
+	spin_history_list: APIHistoryList<SpinitronModelId, Spin, Spin, SpinHistoryListTraitImplementer>
+}
 
 // The third param is the fallback texture creation info, and the fourth one is the spin window size
 type SpinitronStateDataParams<'a> = (
 	&'a str, // API key
 	fn() -> TextureCreationInfo<'static>, // Fallback texture creation info getter
 	[Duration; NUM_SPINITRON_MODEL_TYPES], // Custom model expiry durations
-	WindowSize
+	WindowSize, // The spin texture size (for the primary spin)
+	WindowSize, // The spin history item texture size
+	usize, // The number of spins shown in the history
+	Option<RemakeTransitionInfo> // The optional remake transition info for spin history
 );
+
+//////////
+
+async fn common_get_model_texture_bytes(
+	texture_creation_info: MaybeTextureCreationInfo<'_>,
+	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>) -> GenericResult<Vec<u8>> {
+
+	async fn load_texture_creation_info_bytes(info: &TextureCreationInfo<'_>) -> GenericResult<Vec<u8>> {
+		/* I am doing this to speed up the loading of textures on the main
+		thread, by doing the image URL requesting on this task/thread instead,
+		and precaching anything from disk in byte form as well. */
+		match info {
+			TextureCreationInfo::Path(path) =>
+				file_utils::read_file_contents(path).await,
+
+			TextureCreationInfo::Url(url) => {
+				let response = request::get(url).await?;
+				let bytes = response.bytes().await?;
+				Ok(bytes.to_vec())
+			}
+
+			TextureCreationInfo::RawBytes(_) =>
+				panic!("Spinitron model textures should not be returning raw bytes!"),
+
+			TextureCreationInfo::Text(_) =>
+				panic!("Precaching the text texture creation info is not supported for plain Spinitron model textures!")
+		}
+	}
+
+	let info = texture_creation_info.unwrap_or_else(get_fallback_texture_creation_info);
+
+	match load_texture_creation_info_bytes(&info).await {
+		Err(err) => {
+			log::warn!("Reverting to fallback texture for Spinitron model. Error: '{err}'");
+			load_texture_creation_info_bytes(&get_fallback_texture_creation_info()).await
+		},
+
+		info => info
+	}
+}
 
 //////////
 
 impl SpinitronStateData {
 	async fn new((api_key, get_fallback_texture_creation_info,
-		custom_model_expiry_durations, spin_texture_size):
+		custom_model_expiry_durations, spin_texture_size,
+		spin_history_item_texture_size, num_spins_shown_in_history, _):
 		SpinitronStateDataParams<'_>) -> GenericResult<Self> {
 
-		////////// Getting the models
+		////////// Getting the models, and updating the spin history list as well
 
-		let (spin, playlist, show) = tokio::try_join!(
-			Spin::get(api_key), Playlist::get(api_key), Show::get(api_key)
+		let ((spin, mut spin_history), playlist, show) = tokio::try_join!(
+			Spin::get_current_and_history(api_key, num_spins_shown_in_history),
+			Playlist::get(api_key), Show::get(api_key)
 		)?;
 
-		let persona = Persona::get(api_key, &playlist).await?;
+		let mut spin_history_list = APIHistoryList::new(
+			num_spins_shown_in_history,
+
+			SpinHistoryListTraitImplementer {
+				get_fallback_texture_creation_info,
+				item_texture_size: spin_history_item_texture_size,
+				just_found_true_texture_size: false
+			}
+		);
+
+		let (persona, _) = tokio::try_join!(
+			Persona::get(api_key, &playlist),
+
+			// This can be skipped if you want faster loading
+			spin_history_list.update(&mut spin_history)
+		)?;
 
 		////////// Setting up their age data
 
@@ -147,7 +272,7 @@ impl SpinitronStateData {
 				ModelAgeData::new(custom_expiry_duration, model).unwrap()
 			);
 
-		const INITIAL_PRECACHED: Vec<u8> = Vec::new();
+		let initial_precached: Arc<Vec<u8>> = Arc::new(Vec::new());
 
 		let mut data = Self {
 			api_key: api_key.to_owned(),
@@ -156,8 +281,10 @@ impl SpinitronStateData {
 			spin, playlist, persona, show,
 
 			age_data,
-			precached_texture_bytes: [INITIAL_PRECACHED; NUM_SPINITRON_MODEL_TYPES],
-			update_statuses: [false; NUM_SPINITRON_MODEL_TYPES]
+			precached_texture_bytes: std::array::from_fn(|_| initial_precached.clone()),
+			update_statuses: [false; NUM_SPINITRON_MODEL_TYPES],
+
+			spin_history_list
 		};
 
 		////////// Getting the precached texture bytes
@@ -165,7 +292,9 @@ impl SpinitronStateData {
 		let model_names = Self::get_model_names();
 
 		let futures = model_names.iter().map(
-			|model_name| data.get_model_texture_bytes(*model_name, spin_texture_size)
+			|model_name| async {
+				data.get_model_texture_bytes(*model_name, spin_texture_size).await.map(Arc::new)
+			}
 		);
 
 		let model_texture_bytes = futures::future::try_join_all(futures).await?;
@@ -180,45 +309,10 @@ impl SpinitronStateData {
 	}
 
 	async fn get_model_texture_bytes(&self, model_name: SpinitronModelName, spin_texture_size: WindowSize) -> GenericResult<Vec<u8>> {
-		async fn load_for_info(info: Cow<'_, TextureCreationInfo<'_>>) -> GenericResult<Vec<u8>> {
-			/* I am doing this to speed up the loading of textures on the main
-			thread, by doing the image URL requesting on this task/thread instead,
-			and precaching anything from disk in byte form as well. */
-			match info.as_ref() {
-				TextureCreationInfo::Path(path) =>
-					file_utils::read_file_contents(path).await,
-
-				TextureCreationInfo::Url(url) => {
-					let response = request::get(url).await?;
-					let bytes = response.bytes().await?;
-					Ok(bytes.to_vec())
-				}
-
-				TextureCreationInfo::RawBytes(_) =>
-					panic!("Spinitron model textures should not be returning raw bytes!"),
-
-				TextureCreationInfo::Text(_) =>
-					panic!("Precaching the text texture creation info is not supported for plain Spinitron model textures!")
-			}
-		}
-
-		let age_state = self.age_data[model_name as usize].curr_age_state.clone();
 		let model = self.get_model_by_name(model_name);
-		let get_fallback = || Cow::Owned((self.get_fallback_texture_creation_info)());
-
-		let info = match model.get_texture_creation_info(age_state, spin_texture_size) {
-			Some(texture_creation_info) => Cow::Owned(texture_creation_info),
-			None => get_fallback()
-		};
-
-		match load_for_info(info).await {
-			Ok(info) => Ok(info),
-
-			Err(err) => {
-				log::warn!("Reverting to fallback texture for Spinitron model. Error: '{err}'");
-				load_for_info(get_fallback()).await
-			}
-		}
+		let age_state = self.age_data[model_name as usize].curr_age_state.clone();
+		let texture_creation_info = model.get_texture_creation_info(age_state, spin_texture_size);
+		common_get_model_texture_bytes(texture_creation_info, self.get_fallback_texture_creation_info).await
 	}
 
 	const fn get_models(&self) ->  [&dyn SpinitronModel; NUM_SPINITRON_MODEL_TYPES] {
@@ -241,8 +335,10 @@ impl SpinitronStateData {
 	async fn sync_models(&mut self) -> MaybeError {
 		let api_key = &self.api_key;
 
-		// Step 1: get the current spin.
-		let maybe_new_spin = Spin::get(api_key).await?;
+		// Step 1: get the current spin, and the spin history.
+		let (maybe_new_spin, mut spin_history) = Spin::get_current_and_history(
+			api_key, self.spin_history_list.get_max_items()
+		).await?;
 
 		if maybe_new_spin.get_id() != self.spin.get_id() {
 			self.spin = maybe_new_spin;
@@ -274,14 +370,27 @@ impl SpinitronStateData {
 			self.show = Show::get(api_key).await?;
 		}
 
+		// Step 5: update the spin history list.
+		self.spin_history_list.update(&mut spin_history).await?;
+
 		Ok(())
 	}
 }
 
 impl Updatable for SpinitronStateData {
-	type Param = WindowSize;
+	type Param = (WindowSize, WindowSize);
 
-	async fn update(&mut self, spin_texture_size: &Self::Param) -> MaybeError {
+	async fn update(&mut self, (spin_texture_size, spin_history_item_texture_size): &Self::Param) -> MaybeError {
+		////////// Update some variables associated with the spin history list
+
+		let implementer = self.spin_history_list.get_implementer_mut();
+
+		implementer.just_found_true_texture_size = implementer.item_texture_size != *spin_history_item_texture_size;
+
+		if implementer.just_found_true_texture_size {
+			implementer.item_texture_size = *spin_history_item_texture_size;
+		}
+
 		////////// Update the models
 
 		let get_model_ids = |data: &Self|
@@ -301,9 +410,7 @@ impl Updatable for SpinitronStateData {
 			let updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
 
 			if updated {
-				self.precached_texture_bytes[i] = self.get_model_texture_bytes(
-					model_name, *spin_texture_size
-				).await?;
+				self.precached_texture_bytes[i] = self.get_model_texture_bytes(model_name, *spin_texture_size).await.map(Arc::new)?;
 			}
 
 			self.update_statuses[i] = updated;
@@ -316,18 +423,30 @@ impl Updatable for SpinitronStateData {
 //////////
 
 pub struct SpinitronState {
-	continually_updated: ContinuallyUpdated<SpinitronStateData>
+	continually_updated: ContinuallyUpdated<SpinitronStateData>,
+	history_list_texture_manager: ApiHistoryListTextureManager<SpinitronModelId, Spin, Spin, SpinHistoryListTraitImplementer>,
+	spin_history_texture_size: WindowSize
 }
 
 impl SpinitronState {
 	pub async fn new(params: SpinitronStateDataParams<'_>) -> GenericResult<Self> {
-		let data = SpinitronStateData::new(params).await?;
+		let (.., initial_spin_texture_size_guess, initial_spin_history_texture_size_guess,
+			max_spin_history_items, maybe_remake_transition_info_for_spin_history
+		) = params.clone();
 
-		let initial_spin_texture_size_guess = params.3;
+		let data = SpinitronStateData::new(params).await?;
+		let texture_size_guesses = (initial_spin_texture_size_guess, initial_spin_history_texture_size_guess);
 
 		Ok(Self {
-			continually_updated: ContinuallyUpdated::new(&data, &initial_spin_texture_size_guess, "Spinitron").await
+			continually_updated: ContinuallyUpdated::new(&data, &texture_size_guesses, "Spinitron").await,
+			history_list_texture_manager: ApiHistoryListTextureManager::new(max_spin_history_items, maybe_remake_transition_info_for_spin_history),
+			spin_history_texture_size: initial_spin_history_texture_size_guess
 		})
+	}
+
+	fn make_correct_texture_size_from_window_size(window_size: WindowSize) -> WindowSize {
+		let axis_size = window_size.0.min(window_size.1);
+		(axis_size, axis_size)
 	}
 
 	const fn get(&self) -> &SpinitronStateData {
@@ -354,7 +473,29 @@ impl SpinitronState {
 		TextureCreationInfo::RawBytes(Cow::Borrowed(bytes))
 	}
 
-	pub fn update(&mut self, spin_texture_size: WindowSize, error_state: &mut ErrorState) -> bool {
-		self.continually_updated.update(&spin_texture_size, error_state)
+	pub fn get_historic_spin_at_index(&mut self, spin_index: usize, spin_history_window_size: WindowSize) -> Option<TextureHandle> {
+		self.spin_history_texture_size = Self::make_correct_texture_size_from_window_size(spin_history_window_size);
+		self.history_list_texture_manager.get_texture_at_index(spin_index, &self.get().spin_history_list)
+	}
+
+	pub fn update(&mut self, spin_window_size: WindowSize, texture_pool: &mut TexturePool, error_state: &mut ErrorState) -> GenericResult<bool> {
+		let spin_texture_size = Self::make_correct_texture_size_from_window_size(spin_window_size);
+
+		let texture_sizes = (spin_texture_size, self.spin_history_texture_size);
+		let continually_updated_result = self.continually_updated.update(&texture_sizes, error_state);
+
+		let Self {
+			/* We have to do this ugly destructuring for the Rust compiler to accept
+			the 2 struct fields being borrowed both mutably and immutably at the same time */
+			history_list_texture_manager, ..
+		} = self;
+
+		history_list_texture_manager.update_from_history_list(
+			// I can't use the `get` function here, and it's unclear why...
+			&self.continually_updated.get_data().spin_history_list,
+			texture_pool
+		)?;
+
+		Ok(continually_updated_result)
 	}
 }

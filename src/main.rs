@@ -113,7 +113,7 @@ macro_rules! build_dashboard_theme {(
 const STANDARD_BACKGROUND_COLOR: ColorSDL = ColorSDL::BLACK;
 const MAX_REMAKE_TRANSITION_QUEUE_SIZE: usize = 10; // This is to avoid unbounded memory consumption
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() {
 	////////// Getting the beginning timestamp, starting the logger, and loading the app config
 
