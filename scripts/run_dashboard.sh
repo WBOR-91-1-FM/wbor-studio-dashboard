@@ -15,10 +15,11 @@ send_discord_webhook() {
 
 SLEEP_AMOUNT_SECS_UPON_PANIC=50
 PROJECT_DIR="/Users/wborguest/wbor-studio-dashboard" # Full path to project dir
-CRASH_DISCORD_WEBHOOK=`jq -r '.dashboard_crash_discord_webhook_url' ../assets/api_keys.json`
 
-# set -x # Print out all lines that are run
 cd "$PROJECT_DIR" || exit # Navigate to the project dir
+
+# Setting this after navigating to the project dir, since we need to be in the right directory for it to work
+CRASH_DISCORD_WEBHOOK=`jq -r '.dashboard_crash_discord_webhook_url' assets/api_keys.json`
 
 ########## Second, seeing that the project builds
 
