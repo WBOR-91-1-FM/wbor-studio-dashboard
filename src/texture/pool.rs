@@ -145,7 +145,7 @@ impl<'a> RemakeTransitions<'a> {
 //////////
 
 // TODO: use `Cow` around the whole struct instead, if possible
-#[derive(Clone, Debug)]
+#[derive(Clone, Hash, Debug)]
 pub enum TextureCreationInfo<'a> {
 	RawBytes(Cow<'a, [u8]>),
 	Path(Cow<'a, str>),
@@ -680,7 +680,7 @@ impl<'a> TexturePool<'a> {
 		if let Some(options) = maybe_options {
 			let set_options = |font: &mut ttf::Font| {
 				font.set_style(options.style);
-				font.set_hinting(options.hinting.clone());
+				font.set_hinting(options.hinting.0.clone());
 
 				if let Some(outline_width) = options.maybe_outline_width {
 					font.set_outline_width(outline_width);

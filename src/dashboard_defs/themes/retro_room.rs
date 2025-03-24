@@ -5,7 +5,7 @@ use crate::{
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
 
 	texture::{
-		text::FontInfo,
+		text::{FontInfo, HashableHinting},
 		pool::{TextureCreationInfo, TexturePool, RemakeTransitionInfo}
 	},
 
@@ -63,7 +63,7 @@ pub async fn make_dashboard(
 		// font_has_char: |font, c| font.find_glyph(c).is_some(),
 
 		style: FontStyle::NORMAL,
-		hinting: Hinting::Normal,
+		hinting: HashableHinting(Hinting::Normal),
 		maybe_outline_width: None
 	};
 

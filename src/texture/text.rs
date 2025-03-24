@@ -10,8 +10,19 @@ use crate::{
 	window_tree::ColorSDL
 };
 
-// TODO: make a constructor for this, instead of making everything `pub`.
+//////////
+
 #[derive(Clone, Debug)]
+pub struct HashableHinting(pub ttf::Hinting);
+
+impl std::hash::Hash for HashableHinting {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.0.clone() as i32).hash(state);
+    }
+}
+
+// TODO: make a constructor for this, instead of making everything `pub`.
+#[derive(Clone, Hash, Debug)]
 pub struct FontInfo {
 	/* TODO:
 	- Support non-static paths for these two
@@ -25,11 +36,13 @@ pub struct FontInfo {
 	pub font_has_char: fn(&ttf::Font, char) -> bool,
 
 	pub style: ttf::FontStyle,
-	pub hinting: ttf::Hinting,
+	pub hinting: HashableHinting,
 	pub maybe_outline_width: Option<u16>
 }
 
-#[derive(Clone, Debug)]
+//////////
+
+#[derive(Clone, Hash, Debug)]
 pub struct DisplayText<'a> {
 	text: Cow<'a, str>
 }
@@ -110,14 +123,46 @@ The second item is the period of the function.
 */
 pub type TextTextureScrollEaser = (fn(f64, bool) -> (f64, bool), f64);
 
-// TODO: make a constructor for this, instead of making everything `pub`.
 #[derive(Clone, Debug)]
+pub struct HashableTextTextureScrollEaser(TextTextureScrollEaser);
+
+#[derive(Clone, Debug)]
+pub struct HashableF64(f64);
+
+impl std::hash::Hash for HashableTextTextureScrollEaser{
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.0.1.to_bits().hash(state);
+	}
+}
+
+impl std::hash::Hash for HashableF64 {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.0.to_bits().hash(state);
+	}
+}
+
+#[derive(Clone, Hash, Debug)]
 pub struct TextDisplayInfo<'a> {
 	pub text: DisplayText<'a>,
 	pub color: ColorSDL,
 	pub pixel_area: (u32, u32),
-	pub scroll_easer: TextTextureScrollEaser,
-	pub scroll_speed_multiplier: f64
+	pub scroll_easer: HashableTextTextureScrollEaser,
+	pub scroll_speed_multiplier: HashableF64
+}
+
+impl<'a> TextDisplayInfo<'a> {
+	pub fn new(display_text: DisplayText<'a>, color: ColorSDL,
+		pixel_area: (u32, u32), scroll_easer: TextTextureScrollEaser,
+		scroll_speed_multiplier: f64) -> TextDisplayInfo<'a> {
+
+		Self {
+			text: display_text,
+			color,
+			pixel_area,
+			scroll_easer: HashableTextTextureScrollEaser(scroll_easer),
+			scroll_speed_multiplier: HashableF64(scroll_speed_multiplier)
+		}
+	}
 }
 
 //////////
@@ -139,8 +184,8 @@ impl TextMetadataItem {
 
 			Some(TextMetadataItem {
 				size: (texture_query.width, texture_query.height),
-				scroll_speed: display_width_to_texture_width_ratio * text_display_info.scroll_speed_multiplier,
-				scroll_easer: text_display_info.scroll_easer,
+				scroll_speed: display_width_to_texture_width_ratio * text_display_info.scroll_speed_multiplier.0,
+				scroll_easer: text_display_info.scroll_easer.0,
 				text: text_display_info.text.inner().to_string() // TODO: maybe copy it with a reference count instead?
 			})
 		}

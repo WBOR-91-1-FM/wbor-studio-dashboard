@@ -1,12 +1,12 @@
 use std::{
 	borrow::Cow,
-	hash::{Hash, Hasher},
 	collections::BTreeSet
 };
 
 use crate::{
 	utility_types::{
 		vec2f::Vec2f,
+		hash::hash_obj,
 		update_rate::UpdateRate
 	},
 
@@ -86,14 +86,6 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 
 			let wrapped_individual_state = updater_params.window.get_state_mut
 				::<updatable_text_pattern::UpdatableTextWindowFields<ErrorWindowState>>();
-
-			//////////
-
-			fn hash_obj<T: Hash>(obj: &T) -> u64 {
-				let mut hasher = std::hash::DefaultHasher::new();
-				obj.hash(&mut hasher);
-				hasher.finish()
-			}
 
 			let no_errors_to_display = inner_shared_state.error_state.source_list.is_empty();
 

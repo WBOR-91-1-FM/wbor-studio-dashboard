@@ -441,13 +441,13 @@ impl TwilioState {
 		let mut texture_creation_info = TextureCreationInfo::Text((
 			Cow::Borrowed(font_info),
 
-			TextDisplayInfo {
-				text: DisplayText::new(""),
-				color: text_color,
+			TextDisplayInfo::new(
+				DisplayText::new(""),
+				text_color,
 				pixel_area,
-				scroll_easer: easing_fns::scroll::PAUSE_THEN_SCROLL_LEFT,
-				scroll_speed_multiplier: 1.0
-			}
+				easing_fns::scroll::PAUSE_THEN_SCROLL_LEFT,
+				1.0
+			)
 		));
 
 		local.sync(
@@ -612,13 +612,13 @@ pub fn make_twilio_window(
 			let texture_creation_info = TextureCreationInfo::Text((
 				Cow::Borrowed(inner_shared_state.font_info),
 
-				TextDisplayInfo {
-					text: DisplayText::new(&twilio_state.formatted_phone_number_with_title).with_padding(" ", ""),
-					color: text_color,
-					pixel_area: params.area_drawn_to_screen,
-					scroll_easer: easing_fns::scroll::STAY_PUT,
-					scroll_speed_multiplier: 1.0
-				}
+				TextDisplayInfo::new(
+					DisplayText::new(&twilio_state.formatted_phone_number_with_title).with_padding(" ", ""),
+					text_color,
+					params.area_drawn_to_screen,
+					easing_fns::scroll::STAY_PUT,
+					1.0
+				)
 			));
 
 			many[1] = WindowContents::make_texture_contents(&texture_creation_info, params.texture_pool)?;

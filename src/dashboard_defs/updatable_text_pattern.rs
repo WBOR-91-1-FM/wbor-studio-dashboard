@@ -66,13 +66,13 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 		let texture_creation_info = TextureCreationInfo::Text((
 			modified_font_info,
 
-			TextDisplayInfo {
-				text: DisplayText::new(&extracted_text).with_padding("", right_padding),
-				color: wrapped_individual_state.text_color,
-				pixel_area: params.area_drawn_to_screen,
-				scroll_easer: wrapped_individual_state.scroll_easer,
-				scroll_speed_multiplier: wrapped_individual_state.scroll_speed_multiplier
-			}
+			TextDisplayInfo::new(
+				DisplayText::new(&extracted_text).with_padding("", right_padding),
+				wrapped_individual_state.text_color,
+				params.area_drawn_to_screen,
+				wrapped_individual_state.scroll_easer,
+				wrapped_individual_state.scroll_speed_multiplier
+			)
 		));
 
 		let texture_contents = IndividualState::extract_texture_contents(

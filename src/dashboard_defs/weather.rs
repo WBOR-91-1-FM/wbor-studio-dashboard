@@ -30,6 +30,12 @@ use crate::{
 	}
 };
 
+/*
+TODO:
+- Could emoji-based forecasting work with the `ApiHistoryList` type?
+- Start using the weather proxy
+*/
+
 lazy_static::lazy_static!(
 	// Based on the weather codes from here: https://docs.tomorrow.io/reference/weather-data-layers
 	static ref WEATHER_CODE_MAPPING: HashMap<u16, (&'static str, &'static str)> = HashMap::from([
@@ -178,13 +184,13 @@ fn realtime_weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError
 	let texture_creation_info = TextureCreationInfo::Text((
 		Cow::Borrowed(inner_shared_state.font_info),
 
-		TextDisplayInfo {
-			text: DisplayText::new(&weather_string).with_padding("", " "),
-			color: individual_window_state.text_color,
-			pixel_area: params.area_drawn_to_screen,
-			scroll_easer: easing_fns::scroll::LEFT_LINEAR,
-			scroll_speed_multiplier: 1.0 / 3.0
-		}
+		TextDisplayInfo::new(
+			DisplayText::new(&weather_string).with_padding("", " "),
+			individual_window_state.text_color,
+			params.area_drawn_to_screen,
+			easing_fns::scroll::LEFT_LINEAR,
+			1.0 / 3.0
+		)
 	));
 
 	let maybe_remake_transition_info = individual_window_state.maybe_remake_transition_info.clone();

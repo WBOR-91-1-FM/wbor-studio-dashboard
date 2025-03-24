@@ -84,34 +84,41 @@ pub fn make_spinitron_windows(
 			spinitron_state.update(params.area_drawn_to_screen, params.texture_pool, &mut inner_shared_state.error_state)?;
 		}
 
-		//////////
+		////////// Checking whether the model's texture should be updated
 
-		let should_update_texture =
-			spinitron_state.model_was_updated(model_name) ||
+		let do_model_image_texture_update = !is_text_window && spinitron_state.model_texture_was_updated(model_name);
+		let do_model_text_texture_update = is_text_window && spinitron_state.model_text_was_updated(model_name);
+
+		// Doing the `WindowContents::Nothing` match for an initial match during launch
+		let do_any_update =
+			do_model_image_texture_update ||
+			do_model_text_texture_update ||
 			matches!(params.window.get_contents(), WindowContents::Nothing);
 
-		if !should_update_texture {return Ok(());}
+		if !do_any_update {
+			return Ok(());
+		}
 
-		//////////
+		////////// Updating the model's texture
 
 		let texture_creation_info = if is_text_window {
-			let model_text = spinitron_state.model_to_string(model_name);
+			let model_text = spinitron_state.get_cached_model_text(model_name);
 
 			TextureCreationInfo::Text((
 				Cow::Borrowed(inner_shared_state.font_info),
 
-				TextDisplayInfo {
-					text: DisplayText::new(&model_text),
-					color: individual_window_state.maybe_text_color.unwrap(),
-					pixel_area: window_size_pixels, // TODO: why does cutting the max pixel width in half still work?
+				TextDisplayInfo::new(
+					DisplayText::new(model_text),
+					individual_window_state.maybe_text_color.unwrap(),
+					window_size_pixels, // TODO: why does cutting the max pixel width in half still work?
 
 					/* TODO:
 					- Pass this in
 					- Why doesn't this scroll when the text is short enough? Good, but not programmed in...
 					*/
-					scroll_easer: easing_fns::scroll::OSCILLATE_NO_WRAP,
-					scroll_speed_multiplier: 2.0
-				}
+					easing_fns::scroll::OSCILLATE_NO_WRAP,
+					2.0
+				)
 			))
 		}
 		else {

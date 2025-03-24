@@ -11,6 +11,7 @@ use crate::{
 	utility_types::{
 		time::*,
 		file_utils,
+		hash::hash_obj,
 		generic_result::*,
 		continually_updated::{Updatable, ContinuallyUpdated},
 		api_history_list::{APIHistoryList, ApiHistoryListTraits, ApiHistoryListTextureManager}
@@ -143,7 +144,7 @@ impl ApiHistoryListTraits<SpinitronModelId, Spin, Spin> for SpinHistoryListTrait
 	async fn get_texture_creation_info(&self, spin: Arc<Spin>) -> Arc<TextureCreationInfo<'static>> {
 		let maybe_info = spin.get_texture_creation_info(ModelAgeState::CurrentlyActive, self.item_texture_size);
 
-		let bytes = common_get_model_texture_bytes(
+		let bytes = get_model_texture_bytes(
 			maybe_info, self.get_fallback_texture_creation_info
 		).await.unwrap(); // This expects that the fallback texture will work (otherwise, we have a serious issue!)
 
@@ -152,6 +153,29 @@ impl ApiHistoryListTraits<SpinitronModelId, Spin, Spin> for SpinHistoryListTrait
 }
 
 ////////// Defining some types pertaining to `SpinitronStateData`
+
+#[derive(Clone)]
+struct ModelDataCacheEntry {
+	texture_bytes: Arc<Vec<u8>>,
+	texture_creation_info_hash: u64,
+	texture_creation_info_hash_changed: bool,
+
+	string: Arc<String>,
+	string_changed: bool
+}
+
+impl ModelDataCacheEntry {
+	fn empty() -> Self {
+		Self {
+			texture_bytes: Arc::new(Vec::new()),
+			texture_creation_info_hash: 0,
+			texture_creation_info_hash_changed: false,
+
+			string: Arc::new(String::new()),
+			string_changed: false
+		}
+	}
+}
 
 #[derive(Clone)]
 struct SpinitronStateData {
@@ -163,12 +187,9 @@ struct SpinitronStateData {
 	persona: Persona,
 	show: Show,
 
+	// TODO: perhaps merge these two
 	age_data: [ModelAgeData; NUM_SPINITRON_MODEL_TYPES],
-	precached_texture_bytes: [Arc<Vec<u8>>; NUM_SPINITRON_MODEL_TYPES], // These are `Arc`s, to avoid inter-thread copying
-
-	/* The boolean at index `i` is true if the model at index `i` was recently
-	updated. Model indices are (in order) spin, playlist, persona, and show. */
-	update_statuses: [bool; NUM_SPINITRON_MODEL_TYPES],
+	cached_model_data: [ModelDataCacheEntry; NUM_SPINITRON_MODEL_TYPES],
 
 	spin_history_list: APIHistoryList<SpinitronModelId, Spin, Spin, SpinHistoryListTraitImplementer>
 }
@@ -186,7 +207,7 @@ type SpinitronStateDataParams<'a> = (
 
 //////////
 
-async fn common_get_model_texture_bytes(
+async fn get_model_texture_bytes(
 	texture_creation_info: MaybeTextureCreationInfo<'_>,
 	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>) -> GenericResult<Vec<u8>> {
 
@@ -272,8 +293,6 @@ impl SpinitronStateData {
 				ModelAgeData::new(custom_expiry_duration, model).unwrap()
 			);
 
-		let initial_precached: Arc<Vec<u8>> = Arc::new(Vec::new());
-
 		let mut data = Self {
 			api_key: api_key.to_owned(),
 			get_fallback_texture_creation_info,
@@ -281,8 +300,7 @@ impl SpinitronStateData {
 			spin, playlist, persona, show,
 
 			age_data,
-			precached_texture_bytes: std::array::from_fn(|_| initial_precached.clone()),
-			update_statuses: [false; NUM_SPINITRON_MODEL_TYPES],
+			cached_model_data: std::array::from_fn(|_| ModelDataCacheEntry::empty()),
 
 			spin_history_list
 		};
@@ -292,15 +310,13 @@ impl SpinitronStateData {
 		let model_names = Self::get_model_names();
 
 		let futures = model_names.iter().map(
-			|model_name| async {
-				data.get_model_texture_bytes(*model_name, spin_texture_size).await.map(Arc::new)
-			}
+			|model_name| data.compute_cacheable_model_data(*model_name, spin_texture_size)
 		);
 
-		let model_texture_bytes = futures::future::try_join_all(futures).await?;
+		let all_cached = futures::future::join_all(futures).await;
 
-		for (i, texture_bytes) in model_texture_bytes.iter().enumerate() {
-			data.precached_texture_bytes[i] = texture_bytes.clone();
+		for (i, cached) in all_cached.iter().enumerate() {
+			data.cached_model_data[i] = cached.clone();
 		}
 
 		//////////
@@ -308,11 +324,50 @@ impl SpinitronStateData {
 		Ok(data)
 	}
 
-	async fn get_model_texture_bytes(&self, model_name: SpinitronModelName, spin_texture_size: WindowSize) -> GenericResult<Vec<u8>> {
+	async fn compute_cacheable_model_data(&self, model_name: SpinitronModelName, spin_texture_size: WindowSize) -> ModelDataCacheEntry {
 		let model = self.get_model_by_name(model_name);
 		let age_state = self.age_data[model_name as usize].curr_age_state.clone();
+
 		let texture_creation_info = model.get_texture_creation_info(age_state, spin_texture_size);
-		common_get_model_texture_bytes(texture_creation_info, self.get_fallback_texture_creation_info).await
+		let texture_creation_info_hash = hash_obj(&texture_creation_info);
+
+		let prev_entry = &self.cached_model_data[model_name as usize];
+		let age_state = self.age_data[model_name as usize].curr_age_state.clone();
+
+		let maybe_new_model_string = model.to_string(age_state);
+
+		////////// Doing this hashing stuff, because we don't want to invoke a transition when a model's ID changes, and either of its textures stays the same
+
+		let texture_creation_info_hash_changed = texture_creation_info_hash != prev_entry.texture_creation_info_hash;
+		let string_changed = maybe_new_model_string != prev_entry.string.as_str();
+
+		let texture_bytes = if texture_creation_info_hash_changed {
+			Arc::new(
+				get_model_texture_bytes(texture_creation_info, self.get_fallback_texture_creation_info)
+				.await.unwrap()
+			)
+		}
+		else {
+			prev_entry.texture_bytes.clone()
+		};
+
+		let string = if string_changed {
+			Arc::new(maybe_new_model_string.into_owned())
+		}
+		else {
+			prev_entry.string.clone()
+		};
+
+		//////////
+
+		ModelDataCacheEntry {
+			texture_bytes,
+			texture_creation_info_hash,
+			texture_creation_info_hash_changed,
+
+			string,
+			string_changed
+		}
 	}
 
 	const fn get_models(&self) ->  [&dyn SpinitronModel; NUM_SPINITRON_MODEL_TYPES] {
@@ -407,13 +462,17 @@ impl Updatable for SpinitronStateData {
 			let i = model_name as usize;
 			self.age_data[i] = self.age_data[i].clone().update(self.get_model_by_name(model_name))?;
 
-			let updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
+			// Under these conditions, the texture may have updated (sometimes, models will have the same texture across different IDs though)
+			let maybe_updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
 
-			if updated {
-				self.precached_texture_bytes[i] = self.get_model_texture_bytes(model_name, *spin_texture_size).await.map(Arc::new)?;
+			if maybe_updated {
+				self.cached_model_data[i] = self.compute_cacheable_model_data(model_name, *spin_texture_size).await;
 			}
-
-			self.update_statuses[i] = updated;
+			else {
+				let cache = &mut self.cached_model_data[i];
+				cache.texture_creation_info_hash_changed = false; // Marking the texture as not updated
+				cache.string_changed = false; // Marking the text as not updated
+			}
 		}
 
 		Ok(())
@@ -453,25 +512,29 @@ impl SpinitronState {
 		self.continually_updated.get_data()
 	}
 
-	pub fn get_model_age_info(&self, model_name: SpinitronModelName) -> (bool, ModelAgeState) {
-		let age_data = &self.get().age_data[model_name as usize];
-		(age_data.just_updated_state, age_data.curr_age_state.clone())
+	//////////
+
+	pub const fn model_texture_was_updated(&self, model_name: SpinitronModelName) -> bool {
+		self.get().cached_model_data[model_name as usize].texture_creation_info_hash_changed
 	}
 
-	pub const fn model_was_updated(&self, model_name: SpinitronModelName) -> bool {
-		self.get().update_statuses[model_name as usize]
-	}
-
-	pub fn model_to_string(&self, model_name: SpinitronModelName) -> Cow<str> {
-		let age_state = self.get_model_age_info(model_name).1;
-		self.get().get_model_by_name(model_name).to_string(age_state)
-	}
-
-	// Note: this is not for text textures.
 	pub fn get_cached_texture_creation_info(&self, model_name: SpinitronModelName) -> TextureCreationInfo {
-		let bytes = &self.get().precached_texture_bytes[model_name as usize];
+		let bytes = &self.get().cached_model_data[model_name as usize].texture_bytes;
 		TextureCreationInfo::RawBytes(Cow::Borrowed(bytes))
 	}
+
+	//////////
+
+	pub const fn model_text_was_updated(&self, model_name: SpinitronModelName) -> bool {
+		self.get().cached_model_data[model_name as usize].string_changed
+	}
+
+	// Not returning a cached `TextureCreationInfo` for text, since that's created on-the-fly by the client of `SpinitronState`
+	pub fn get_cached_model_text(&self, model_name: SpinitronModelName) -> &str {
+		&self.get().cached_model_data[model_name as usize].string
+	}
+
+	//////////
 
 	pub fn get_historic_spin_at_index(&mut self, spin_index: usize, spin_history_window_size: WindowSize) -> Option<TextureHandle> {
 		self.spin_history_texture_size = Self::make_correct_texture_size_from_window_size(spin_history_window_size);
