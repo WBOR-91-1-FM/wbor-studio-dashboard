@@ -5,7 +5,7 @@ use crate::{
 	spinitron::{model::SpinitronModelName, state::SpinitronState},
 
 	texture::{
-		text::{FontInfo, HashableHinting},
+		text::FontInfo,
 		pool::{TextureCreationInfo, TexturePool, RemakeTransitionInfo}
 	},
 
@@ -53,19 +53,19 @@ pub async fn make_dashboard(
 
 	////////// Defining some shared global variables
 
-	const FONT_INFO: FontInfo = FontInfo {
-		path: "assets/unifont/unifont-15.1.05.otf",
-		unusual_chars_fallback_path: "assets/unifont/unifont_upper-15.1.05.otf",
+	const FONT_INFO: FontInfo = FontInfo::new(
+		"assets/unifont/unifont-15.1.05.otf",
+		"assets/unifont/unifont_upper-15.1.05.otf",
 
 		/* Providing this function instead of the variant below since
 		`font.find_glyph` is buggy for the Rust sdl2::ttf bindings */
-		font_has_char: |_, c| c as u32 <= 65535,
-		// font_has_char: |font, c| font.find_glyph(c).is_some(),
+		|_, c| c as u32 <= 65535,
+		// |font, c| font.find_glyph(c).is_some(),
 
-		style: FontStyle::NORMAL,
-		hinting: HashableHinting(Hinting::Normal),
-		maybe_outline_width: None
-	};
+		FontStyle::NORMAL,
+		Hinting::Normal,
+		None
+	);
 
 	let main_windows_gap_size = 0.01;
 

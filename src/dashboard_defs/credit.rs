@@ -32,8 +32,7 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
 		}
 
 		fn compute_within_updater<'a>(inner_shared_state: &'a SharedWindowState) -> updatable_text_pattern::ComputedInTextUpdater<'a> {
-			let mut italicized_font_info = inner_shared_state.font_info.clone();
-			italicized_font_info.style = sdl2::ttf::FontStyle::ITALIC;
+			let italicized_font_info = inner_shared_state.font_info.with_style(sdl2::ttf::FontStyle::ITALIC);
 			(Cow::Owned(italicized_font_info), "")
 		}
 

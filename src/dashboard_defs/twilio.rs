@@ -458,7 +458,7 @@ impl TwilioState {
 				let mut update_texture_creation_info = |offshore_message_info: &MessageInfo| {
 					if let TextureCreationInfo::Text((_, ref mut text_display_info)) = &mut texture_creation_info {
 						// println!(">>> Update texture display info");
-						text_display_info.text = DisplayText::new(&offshore_message_info.display_text).with_padding("", " ")
+						text_display_info.set_text(DisplayText::new(&offshore_message_info.display_text).with_padding("", " "));
 					}
 				};
 

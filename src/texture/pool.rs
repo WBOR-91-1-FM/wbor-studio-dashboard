@@ -228,7 +228,7 @@ pub struct TexturePool<'a> {
 	font_cache: HashMap<FontCacheKey, FontPair<'a>>,
 
 	// This maps texture handles of side-scrolling text textures to metadata about that scrolling text
-	text_metadata: text::TextMetadata,
+	text_metadata_set: text::TextMetadataSet,
 
 	// This maps texture handles to remake transitions (structs that define how textures should be rendered when remade)
 	remake_transitions: RemakeTransitions<'a>
@@ -258,7 +258,7 @@ impl<'a> TexturePool<'a> {
 
 			textures: Vec::new(),
 			font_cache: HashMap::new(),
-			text_metadata: text::TextMetadata::new(),
+			text_metadata_set: text::TextMetadataSet::new(),
 			remake_transitions: RemakeTransitions::new(max_remake_transition_queue_size)
 		}
 	}
@@ -287,7 +287,7 @@ impl<'a> TexturePool<'a> {
 			)
 		}
 
-		let curr_is_text_texture = self.text_metadata.contains_handle(handle);
+		let curr_is_text_texture = self.text_metadata_set.contains_handle(handle);
 
 		if let Some(transition) = self.remake_transitions.get_from_handle_mut(handle) {
 			let percent_done = transition.get_percent_done();
@@ -406,7 +406,7 @@ impl<'a> TexturePool<'a> {
 				}
 				else {
 					let texture = this.get_texture_from_handle(handle);
-					let text_metadata = this.text_metadata.get(handle);
+					let text_metadata = this.text_metadata_set.get(handle);
 					(texture, text_metadata)
 				};
 
@@ -438,7 +438,7 @@ impl<'a> TexturePool<'a> {
 				*/
 
 				// Update the text metadata appropriately
-				self.text_metadata.update(handle, &moved_transition.maybe_text_metadata);
+				self.text_metadata_set.update(handle, &moved_transition.maybe_text_metadata);
 
 				// And finally, move the new texture into its new slot
 				*self.get_texture_from_handle_mut(handle) = moved_transition.new_texture;
@@ -598,7 +598,7 @@ impl<'a> TexturePool<'a> {
 		let handle = TextureHandle {handle: self.textures.len() as InnerTextureHandle};
 		let texture = self.make_raw_texture(creation_info)?;
 
-		self.text_metadata.update(&handle, &text::TextMetadataItem::maybe_new(&texture, creation_info));
+		self.text_metadata_set.update(&handle, &text::TextMetadataItem::maybe_new(&texture, creation_info));
 		self.textures.push(texture);
 
 		Ok(handle)
@@ -618,7 +618,7 @@ impl<'a> TexturePool<'a> {
 			));
 		}
 		else {
-			self.text_metadata.update(handle, &text::TextMetadataItem::maybe_new(&new_texture, creation_info));
+			self.text_metadata_set.update(handle, &text::TextMetadataItem::maybe_new(&new_texture, creation_info));
 			*self.get_texture_from_handle_mut(handle) = new_texture;
 		}
 
@@ -680,7 +680,7 @@ impl<'a> TexturePool<'a> {
 		if let Some(options) = maybe_options {
 			let set_options = |font: &mut ttf::Font| {
 				font.set_style(options.style);
-				font.set_hinting(options.hinting.0.clone());
+				font.set_hinting((*options.hinting).clone());
 
 				if let Some(outline_width) = options.maybe_outline_width {
 					font.set_outline_width(outline_width);
