@@ -61,8 +61,9 @@ pub fn make_spinitron_windows(
 	history_tl: Vec2f, history_size: Vec2f,
 	history_border_color: Option<ColorSDL>,
 	num_spins_shown_in_history: usize,
-	rand_generator: &mut rand::rngs::ThreadRng
-) -> Vec<Window> {
+	rand_generator: &mut rand::rngs::ThreadRng)
+
+	-> Vec<Window> {
 
 	/* Note: the drawn size passed into this does not account for aspect ratio correction.
 	For Spinitron models, the size is only needed for spin textures all and text textures.
