@@ -34,6 +34,7 @@ use crate::{
 TODO:
 - Could emoji-based forecasting work with the `ApiHistoryList` type?
 - Start using the weather proxy
+- Make sure that `No weather available` updates don't result in a refresh
 */
 
 lazy_static::lazy_static!(
@@ -84,7 +85,7 @@ type TimestampedWeatherInterval = (ReferenceTimestamp, WeatherInterval);
 
 #[derive(Clone)] // This is used for the `ContinuallyUpdated` bit
 struct WeatherApiState {
-	request_url: String,
+	request_urls: [Cow<'static, str>; 2],
 	curr_weather_info: Vec<TimestampedWeatherInterval> // Info for different timestamps
 }
 
@@ -103,31 +104,44 @@ impl Updatable for WeatherApiState {
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
 		// return Ok(()); // Use this line when developing locally, and you don't want to rate-limit this API in the studio!
 
-		let all_info_json: serde_json::Value = request::as_type(request::get(&self.request_url)).await?;
+		let num_request_urls = self.request_urls.len();
 
-		// Note: the intervals are a series of weather predictions from this point on, spaced per some time amount.
-		let intervals = &all_info_json["data"]["timelines"][0]["intervals"];
+		for (i, request_url) in self.request_urls.iter().enumerate() {
+			let all_info_json: serde_json::Value = match request::as_type(request::get(request_url)).await {
+				Ok(info) => info,
 
-		self.curr_weather_info = intervals.as_array().unwrap().iter().filter_map(|interval| {
-			let values = &interval["values"];
+				Err(err) => {
+					log::warn!("Could not get weather info from URL #{} (out of {num_request_urls}): '{err}'.", i + 1);
+					continue;
+				}
+			};
 
-			let maybe_interval_fields = (
-				interval["startTime"].as_str(), values["temperature"].as_f64(), values["weatherCode"].as_i64()
-			);
+			// Note: the intervals are a series of weather predictions from this point on, spaced per some time amount.
+			let intervals = &all_info_json["data"]["timelines"][0]["intervals"];
 
-			if let (Some(timestamp), Some(temperature), Some(associated_code)) = maybe_interval_fields {
-				let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code as u16)).unwrap();
-				let timestamp: ReferenceTimestamp = parse_time_from_rfc3339(timestamp).unwrap().into();
-				Some((timestamp, (temperature as f32, *weather_code_descriptor, *associated_emoji)))
-			}
-			else {
-				// This happened once, and I don't know why. I'm trying to catch the bug like this!
-				log::error!("The weather API didn't give back the needed fields, for some weird reason. Here are the fields: {maybe_interval_fields:?}. Here's the whole intervval: {interval:?}.");
-				None
-			}
-		}).collect();
+			self.curr_weather_info = intervals.as_array().unwrap().iter().filter_map(|interval| {
+				let values = &interval["values"];
 
-		Ok(())
+				let maybe_interval_fields = (
+					interval["startTime"].as_str(), values["temperature"].as_f64(), values["weatherCode"].as_i64()
+				);
+
+				if let (Some(timestamp), Some(temperature), Some(associated_code)) = maybe_interval_fields {
+					let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code as u16)).unwrap();
+					let timestamp: ReferenceTimestamp = parse_time_from_rfc3339(timestamp).unwrap().into();
+					Some((timestamp, (temperature as f32, *weather_code_descriptor, *associated_emoji)))
+				}
+				else {
+					// This happened once, and I don't know why. I'm trying to catch the bug like this!
+					log::error!("The weather API didn't give back the needed fields, for some weird reason. URL: '{request_url}'. Fields: {maybe_interval_fields:?}. The whole interval: {interval:?}.");
+					None
+				}
+			}).collect();
+
+			return Ok(());
+		}
+
+		error_msg!("None of the weather API URLs worked!")
 	}
 }
 
@@ -214,11 +228,12 @@ pub async fn make_weather_window(
 
 	const API_UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes
 	const REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS: Seconds = 60.0; // Once per minute (this works in accordance with the timestep below)
+	const RELAY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
 
 	let curr_location_json: serde_json::Value = request::as_type(request::get("https://ipinfo.io/json")).await?;
 	let location = &curr_location_json["loc"].as_str().context("No location field available!")?;
 
-	let request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
+	let fallback_request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
 		&[],
 
 		&[
@@ -233,7 +248,7 @@ pub async fn make_weather_window(
 	//////////
 
 	let api_state = WeatherApiState {
-		request_url,
+		request_urls: [Cow::Borrowed(RELAY_REQUEST_URL), Cow::Owned(fallback_request_url)],
 		curr_weather_info: Vec::new()
 	};
 
