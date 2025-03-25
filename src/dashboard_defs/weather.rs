@@ -228,7 +228,9 @@ pub async fn make_weather_window(
 
 	const API_UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes
 	const REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS: Seconds = 60.0; // Once per minute (this works in accordance with the timestep below)
-	const RELAY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
+
+	// Here's the code behind the proxy: `https://github.com/WBOR-91-1-FM/wbor-weather-proxy`
+	const PROXY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
 
 	let curr_location_json: serde_json::Value = request::as_type(request::get("https://ipinfo.io/json")).await?;
 	let location = &curr_location_json["loc"].as_str().context("No location field available!")?;
@@ -248,7 +250,7 @@ pub async fn make_weather_window(
 	//////////
 
 	let api_state = WeatherApiState {
-		request_urls: [Cow::Borrowed(RELAY_REQUEST_URL), Cow::Owned(fallback_request_url)],
+		request_urls: [Cow::Borrowed(PROXY_REQUEST_URL), Cow::Owned(fallback_request_url)],
 		curr_weather_info: Vec::new()
 	};
 
