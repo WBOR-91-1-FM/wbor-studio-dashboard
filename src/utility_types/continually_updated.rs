@@ -42,16 +42,16 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		}
 	}
 
-	pub async fn new(data: &T, initial_param: &T::Param, name: &'static str) -> Self {
+	pub async fn new(mut data: T, initial_param: T::Param, name: &'static str) -> Self {
 		let (data_sender, data_receiver) = mpsc::channel(1);
 		let (param_sender, mut param_receiver) = mpsc::channel(1);
 
 		// This gets the `ContinuallyUpdated` running as soon as `new` is called
-		if let Err(err) = param_sender.send(initial_param.clone()).await {
+		if let Err(err) = param_sender.send(initial_param).await {
 			panic!("Could not pass an initial param to the continual updater: '{err}'");
 		}
 
-		let mut cloned_data = data.clone();
+		let cloned_data = data.clone();
 
 		tokio::task::spawn(async move {
 			loop {
@@ -71,8 +71,8 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 
 				//////////
 
-				let result = match cloned_data.update(&param).await {
-					Ok(_) => Ok(cloned_data.clone()),
+				let result = match data.update(&param).await {
+					Ok(_) => Ok(data.clone()),
 					Err(err) => Err(err.to_string())
 				};
 
@@ -86,7 +86,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 			}
 		});
 
-		Self {curr_data: data.clone(), param_sender, data_receiver, name}
+		Self {curr_data: cloned_data, param_sender, data_receiver, name}
 	}
 
 	// This allows the param receiver to move past its await point, and starts a new update iteration with a new param.

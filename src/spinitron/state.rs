@@ -497,7 +497,7 @@ impl SpinitronState {
 		let texture_size_guesses = (initial_spin_texture_size_guess, initial_spin_history_texture_size_guess);
 
 		Ok(Self {
-			continually_updated: ContinuallyUpdated::new(&data, &texture_size_guesses, "Spinitron").await,
+			continually_updated: ContinuallyUpdated::new(data, texture_size_guesses, "Spinitron").await,
 			history_list_texture_manager: ApiHistoryListTextureManager::new(max_spin_history_items, maybe_remake_transition_info_for_spin_history),
 			spin_history_texture_size: initial_spin_history_texture_size_guess
 		})

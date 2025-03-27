@@ -269,7 +269,7 @@ pub async fn make_weather_window(
 	let api_key_param = Some(String::from(api_key));
 
 	let weather_state = WeatherState {
-		continually_updated: ContinuallyUpdated::new(&api_state, &api_key_param, "Weather").await,
+		continually_updated: ContinuallyUpdated::new(api_state, api_key_param, "Weather").await,
 		text_color,
 		weather_unit_symbol: 'F',
 		curr_weather_interval: None,
