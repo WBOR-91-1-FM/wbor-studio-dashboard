@@ -85,7 +85,7 @@ type TimestampedWeatherInterval = (ReferenceTimestamp, WeatherInterval);
 
 #[derive(Clone)] // This is used for the `ContinuallyUpdated` bit
 struct WeatherApiState {
-	request_urls: [Cow<'static, str>; 2],
+	request_urls: Option<[Cow<'static, str>; 2]>, // This is loaded in asynchronously
 	curr_weather_info: Vec<TimestampedWeatherInterval> // Info for different timestamps
 }
 
@@ -99,14 +99,44 @@ struct WeatherState {
 }
 
 impl Updatable for WeatherApiState {
-	type Param = ();
+	type Param = Option<String>; // The first time, this is the API key; the other times, it's nothing
 
-	async fn update(&mut self, _: &Self::Param) -> MaybeError {
+	async fn update(&mut self, maybe_api_key: &Self::Param) -> MaybeError {
 		// return Ok(()); // Use this line when developing locally, and you don't want to rate-limit this API in the studio!
 
-		let num_request_urls = self.request_urls.len();
+		////////// If necessary, build the request URL from the API key (the API key is only supplied in the beginning).
 
-		for (i, request_url) in self.request_urls.iter().enumerate() {
+		// Here's the code behind the proxy: `https://github.com/WBOR-91-1-FM/wbor-weather-proxy`
+		const PROXY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
+
+		if self.request_urls.is_none() {
+			/* Unwrapping on this because:
+			- The API key is only passed on the first call to this
+			- If the API call failed and returned via `?`, the second time around, the API key will be `None` (which will lead to a second panic) */
+			let curr_location_json: serde_json::Value = request::as_type(request::get("https://ipinfo.io/json")).await.unwrap();
+			let location = &curr_location_json["loc"].as_str().expect("No location field available!");
+
+			let fallback_request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
+				&[],
+
+				&[
+					("apikey", Cow::Borrowed(maybe_api_key.as_ref().unwrap())),
+					("location", Cow::Borrowed(location)),
+					("timesteps", Cow::Borrowed("1m")), // Timesteps of 1 minute, which is the highest allowed
+					("units", Cow::Borrowed("imperial")), // Using degrees!
+					("fields", Cow::Borrowed("temperature,weatherCode"))
+				]
+			);
+
+			self.request_urls = Some([Cow::Borrowed(PROXY_REQUEST_URL), Cow::Owned(fallback_request_url)]);
+		}
+
+		////////// Now, request the API
+
+		let request_urls = self.request_urls.as_ref().unwrap();
+		let num_request_urls = request_urls.len();
+
+		for (i, request_url) in request_urls.iter().enumerate() {
 			let all_info_json: serde_json::Value = match request::as_type(request::get(request_url)).await {
 				Ok(info) => info,
 
@@ -151,7 +181,7 @@ impl Updatable for WeatherApiState {
 fn weather_api_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 	let individual_window_state = params.window.get_state_mut::<WeatherState>();
-	individual_window_state.continually_updated.update(&(), &mut inner_shared_state.error_state);
+	individual_window_state.continually_updated.update(&None, &mut inner_shared_state.error_state);
 	Ok(())
 }
 
@@ -229,33 +259,17 @@ pub async fn make_weather_window(
 	const API_UPDATE_RATE_SECS: Seconds = 60.0 * 10.0; // Once every 10 minutes
 	const REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS: Seconds = 60.0; // Once per minute (this works in accordance with the timestep below)
 
-	// Here's the code behind the proxy: `https://github.com/WBOR-91-1-FM/wbor-weather-proxy`
-	const PROXY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
-
-	let curr_location_json: serde_json::Value = request::as_type(request::get("https://ipinfo.io/json")).await?;
-	let location = &curr_location_json["loc"].as_str().context("No location field available!")?;
-
-	let fallback_request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
-		&[],
-
-		&[
-			("apikey", Cow::Borrowed(api_key)),
-			("location", Cow::Borrowed(location)),
-			("timesteps", Cow::Borrowed("1m")), // Timesteps of 1 minute, which is the highest allowed
-			("units", Cow::Borrowed("imperial")), // Using degrees!
-			("fields", Cow::Borrowed("temperature,weatherCode"))
-		]
-	);
-
 	//////////
 
 	let api_state = WeatherApiState {
-		request_urls: [Cow::Borrowed(PROXY_REQUEST_URL), Cow::Owned(fallback_request_url)],
+		request_urls: None,
 		curr_weather_info: Vec::new()
 	};
 
+	let api_key_param = Some(String::from(api_key));
+
 	let weather_state = WeatherState {
-		continually_updated: ContinuallyUpdated::new(&api_state, &(), "Weather").await,
+		continually_updated: ContinuallyUpdated::new(&api_state, &api_key_param, "Weather").await,
 		text_color,
 		weather_unit_symbol: 'F',
 		curr_weather_interval: None,
