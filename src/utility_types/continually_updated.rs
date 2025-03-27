@@ -46,6 +46,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		let (data_sender, data_receiver) = mpsc::channel(1);
 		let (param_sender, mut param_receiver) = mpsc::channel(1);
 
+		// This gets the `ContinuallyUpdated` running as soon as `new` is called
 		if let Err(err) = param_sender.send(initial_param.clone()).await {
 			panic!("Could not pass an initial param to the continual updater: '{err}'");
 		}
@@ -109,15 +110,20 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 
 	// This returns false if a task failed to complete its operation on its current iteration.
 	pub fn update(&mut self, param: &T::Param, error_state: &mut ErrorState) -> bool {
-		let mut error: Option<String> = None;
+		let mut failed_to_complete = false;
 
 		match self.data_receiver.try_recv() {
 			Ok(Ok(new_data)) => {
 				self.curr_data = new_data;
+				error_state.unreport(self.name);
 				self.run_new_update_iteration(param);
 			}
 
-			Ok(Err(err)) => error = Some(err),
+			Ok(Err(err)) => {
+				failed_to_complete = true;
+				error_state.report(self.name, &err);
+				self.run_new_update_iteration(param);
+			}
 
 			// Waiting for a response...
 			Err(TryRecvError::Empty) => {}
@@ -130,16 +136,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 			}
 		}
 
-		if let Some(err) = error {
-			error_state.report(self.name, &err);
-			self.run_new_update_iteration(param);
-			return false;
-		}
-		else {
-			error_state.unreport(self.name);
-		}
-
-		true
+		failed_to_complete
 	}
 
 	pub const fn get_data(&self) -> &T {
