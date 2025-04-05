@@ -180,7 +180,6 @@ impl ModelDataCacheEntry {
 #[derive(Clone)]
 struct SpinitronStateData {
 	api_key: String,
-	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>,
 
 	spin: Spin,
 	playlist: Playlist,
@@ -295,7 +294,6 @@ impl SpinitronStateData {
 
 		let mut data = Self {
 			api_key: api_key.to_owned(),
-			get_fallback_texture_creation_info,
 
 			spin, playlist, persona, show,
 
@@ -342,8 +340,11 @@ impl SpinitronStateData {
 		let string_changed = maybe_new_model_string != prev_entry.string.as_str();
 
 		let texture_bytes = if texture_creation_info_hash_changed {
+			let get_fallback_texture_creation_info =
+				self.spin_history_list.get_implementer().get_fallback_texture_creation_info;
+
 			Arc::new(
-				get_model_texture_bytes(texture_creation_info, self.get_fallback_texture_creation_info)
+				get_model_texture_bytes(texture_creation_info, get_fallback_texture_creation_info)
 				.await.unwrap()
 			)
 		}

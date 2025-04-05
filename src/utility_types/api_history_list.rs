@@ -98,6 +98,10 @@ impl<Key: PartialEq + Eq + Hash + Copy,
 		self.max_items
 	}
 
+	pub fn get_implementer(&self) -> &Implementer {
+		&self.implementer
+	}
+
 	pub fn get_implementer_mut(&mut self) -> &mut Implementer {
 		&mut self.implementer
 	}
