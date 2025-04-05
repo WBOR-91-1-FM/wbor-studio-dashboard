@@ -71,7 +71,7 @@ pub async fn make_dashboard(
 	let main_windows_gap_size = 0.01;
 
 	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
-	let shared_update_rate = update_rate_creator.new_instance(30.0);
+	let shared_update_rate = update_rate_creator.new_instance(15.0);
 	let api_keys: ApiKeys = file_utils::load_json_from_file("assets/api_keys.json").await?;
 	let mut rand_generator = rand::thread_rng();
 
