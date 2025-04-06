@@ -42,15 +42,16 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 		}
 	}
 
-	pub async fn new(data: &T, initial_param: &T::Param, name: &'static str) -> Self {
+	pub async fn new(mut data: T, initial_param: T::Param, name: &'static str) -> Self {
 		let (data_sender, data_receiver) = mpsc::channel(1);
 		let (param_sender, mut param_receiver) = mpsc::channel(1);
 
-		if let Err(err) = param_sender.send(initial_param.clone()).await {
+		// This gets the `ContinuallyUpdated` running as soon as `new` is called
+		if let Err(err) = param_sender.send(initial_param).await {
 			panic!("Could not pass an initial param to the continual updater: '{err}'");
 		}
 
-		let mut cloned_data = data.clone();
+		let cloned_data = data.clone();
 
 		tokio::task::spawn(async move {
 			loop {
@@ -70,8 +71,8 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 
 				//////////
 
-				let result = match cloned_data.update(&param).await {
-					Ok(_) => Ok(cloned_data.clone()),
+				let result = match data.update(&param).await {
+					Ok(_) => Ok(data.clone()),
 					Err(err) => Err(err.to_string())
 				};
 
@@ -85,7 +86,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 			}
 		});
 
-		Self {curr_data: data.clone(), param_sender, data_receiver, name}
+		Self {curr_data: cloned_data, param_sender, data_receiver, name}
 	}
 
 	// This allows the param receiver to move past its await point, and starts a new update iteration with a new param.
@@ -109,15 +110,20 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 
 	// This returns false if a task failed to complete its operation on its current iteration.
 	pub fn update(&mut self, param: &T::Param, error_state: &mut ErrorState) -> bool {
-		let mut error: Option<String> = None;
+		let mut failed_to_complete = false;
 
 		match self.data_receiver.try_recv() {
 			Ok(Ok(new_data)) => {
 				self.curr_data = new_data;
+				error_state.unreport(self.name);
 				self.run_new_update_iteration(param);
 			}
 
-			Ok(Err(err)) => error = Some(err),
+			Ok(Err(err)) => {
+				failed_to_complete = true;
+				error_state.report(self.name, &err);
+				self.run_new_update_iteration(param);
+			}
 
 			// Waiting for a response...
 			Err(TryRecvError::Empty) => {}
@@ -130,16 +136,7 @@ impl<T: Updatable + 'static> ContinuallyUpdated<T> {
 			}
 		}
 
-		if let Some(err) = error {
-			error_state.report(self.name, &err);
-			self.run_new_update_iteration(param);
-			return false;
-		}
-		else {
-			error_state.unreport(self.name);
-		}
-
-		true
+		failed_to_complete
 	}
 
 	pub const fn get_data(&self) -> &T {

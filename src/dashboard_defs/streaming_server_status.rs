@@ -53,8 +53,8 @@ fn server_status_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 
 pub async fn make_streaming_server_status_window(url: &str, ping_rate: UpdateRate, num_retries: u8) -> Window {
 	let pinger_updater = ContinuallyUpdated::new(
-		&ServerStatusChecker::new(url, num_retries),
-		&(),
+		ServerStatusChecker::new(url, num_retries),
+		(),
 		"the online streaming server"
 	).await;
 

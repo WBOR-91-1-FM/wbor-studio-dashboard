@@ -414,7 +414,7 @@ impl TwilioState {
 		)?;
 
 		Ok(Self {
-			continually_updated: ContinuallyUpdated::new(&data, &(), "Twilio").await,
+			continually_updated: ContinuallyUpdated::new(data, (), "Twilio").await,
 
 			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
 			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),

@@ -25,7 +25,7 @@ use crate::{
 	}
 };
 
-//////////
+////////// This is basically like a cache for image/other data associated with items returned from API calls (expensive to recompute).
 
 /*
 TODO:
@@ -35,6 +35,7 @@ TODO:
 - Eake sure that every fn is used here
 - Perhaps remove `self` from some of the fns below later on?
 - Remove the commented-out print stmts (or neaten them up)
+- Could using a `VecDeque` somewhere improve performance? Maybe do some real benchmarking to see what I can do...
 */
 
 /* Note: the `NotNative` type is one which has not been made to a type indended
@@ -95,6 +96,10 @@ impl<Key: PartialEq + Eq + Hash + Copy,
 
 	pub fn get_max_items(&self) -> usize {
 		self.max_items
+	}
+
+	pub fn get_implementer(&self) -> &Implementer {
+		&self.implementer
 	}
 
 	pub fn get_implementer_mut(&mut self) -> &mut Implementer {

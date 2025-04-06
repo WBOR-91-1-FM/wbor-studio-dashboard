@@ -171,17 +171,18 @@ pub async fn make_surprise_window(
 
 	////////// Setting up the shared surprise info that can be triggered via IPC
 
+	let (all_creation_info, surprise_stream_listener) = tokio::try_join!(
+		TextureCreationInfo::from_paths_async(surprise_creation_info.iter().map(|info| info.texture_path)),
+		make_ipc_socket_listener(artificial_triggering_socket_path)
+	)?;
+
 	let shared_surprise_info = Rc::new(RefCell::new(SharedSurpriseInfo {
 		surprise_path_set,
 		queued_surprise_paths: Vec::new(),
-		surprise_stream_listener: make_ipc_socket_listener(artificial_triggering_socket_path).await?
+		surprise_stream_listener
 	}));
 
 	////////// Making the surprise windows
-
-	let all_creation_info = TextureCreationInfo::from_paths_async(
-		surprise_creation_info.iter().map(|info| info.texture_path)
-	).await?;
 
 	let surprise_windows = surprise_creation_info.iter().enumerate().zip(all_creation_info).map(
 		|((index, creation_info), texture_creation_info)| {
