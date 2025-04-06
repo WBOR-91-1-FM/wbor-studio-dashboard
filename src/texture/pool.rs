@@ -629,6 +629,7 @@ impl<'a> TexturePool<'a> {
 
 	////////// TODO: implement these fully
 
+	/*
 	pub fn set_color_mod_for(&mut self, _handle: &TextureHandle, _r: u8, _g: u8, _b: u8) {
 		unimplemented!("Texture color mod setting is currently not supported! In the future, it will \
 			be supported by carrying it over for transitioning/remade textures.");
@@ -643,6 +644,7 @@ impl<'a> TexturePool<'a> {
 
 		// self.get_texture_from_handle_mut(handle).set_alpha_mod(a);
 	}
+	*/
 
 	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, _blend_mode: BlendMode) {
 		// TODO: specify a blend mode when making a transition? Or perhaps just do queueing logic internally here?
