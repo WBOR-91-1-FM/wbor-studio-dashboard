@@ -31,10 +31,10 @@ triggered if their update rates are relatively infrequent.
 TODO: make a separate updater for just getting the artificial
 triggering going (this will be the socket-polling updater). */
 
+// TODO: display DJ tips as surprises
+
 type NumAppearanceSteps = u16;
 type SurpriseAppearanceChance = f64; // 0 to 1
-
-// TODO: display DJ tips as surprises
 
 pub struct SurpriseCreationInfo {
 	pub texture_path: &'static str,
