@@ -52,7 +52,7 @@ async fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 
 	////////// Making some initial path and query params, and possibly adding a model id and item count to them
 
-	let mut path_params: Vec<Cow<str>> = vec![Cow::Owned(api_endpoint)];
+	let mut path_params: Vec<Cow<str>> = vec![Cow::Borrowed(&api_endpoint)];
 
 	let mut query_params: Vec<(&str, Cow<str>)> = vec![
 		("access-token", Cow::Borrowed(api_key)),
