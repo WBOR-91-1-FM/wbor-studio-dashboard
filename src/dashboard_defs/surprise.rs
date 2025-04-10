@@ -34,8 +34,10 @@ triggering going (this will be the socket-polling updater). */
 type NumAppearanceSteps = u16;
 type SurpriseAppearanceChance = f64; // 0 to 1
 
-pub struct SurpriseCreationInfo<'a> {
-	pub texture_path: &'a str,
+// TODO: display DJ tips as surprises
+
+pub struct SurpriseCreationInfo {
+	pub texture_path: &'static str,
 	pub texture_blend_mode: sdl2::render::BlendMode,
 
 	pub update_rate: Duration,
@@ -48,20 +50,18 @@ pub struct SurpriseCreationInfo<'a> {
 	pub flicker_window: bool
 }
 
-// TODO: display DJ tips as surprises
-
 //////////
 
 pub async fn make_surprise_window(
 	top_left: Vec2f, size: Vec2f,
 	artificial_triggering_socket_path: &str,
-	surprise_creation_info: &[SurpriseCreationInfo<'_>],
+	surprise_creation_info: &[SurpriseCreationInfo],
 	update_rate_creator: UpdateRateCreator,
 	texture_pool: &mut TexturePool<'_>) -> GenericResult<Window> {
 
 	////////// Some internally used types
 
-	type SurprisePath = Rc<String>;
+	type SurprisePath = &'static str;
 
 	struct SharedSurpriseInfo {
 		surprise_path_set: HashSet<SurprisePath>,
@@ -112,9 +112,8 @@ pub async fn make_surprise_window(
 			let mut shared_info = surprise_info.shared_info.borrow_mut();
 
 			if let Some(path) = try_listening_to_ipc_socket(&mut shared_info.surprise_stream_listener) {
-				if let Some(matching_path) = shared_info.surprise_path_set.get(&path) {
-					let rc_cloned_matching_path = matching_path.clone();
-					shared_info.queued_surprise_paths.push(rc_cloned_matching_path);
+				if let Some(&matching_path) = shared_info.surprise_path_set.get(path.as_str()) {
+					shared_info.queued_surprise_paths.push(matching_path);
 				}
 				else {
 					log::warn!("Tried to trigger a surprise with a path of '{path}', but no surprise has that path!");
@@ -162,8 +161,10 @@ pub async fn make_surprise_window(
 
 	////////// First, checking for duplicate paths, and failing if this is the case
 
-	let surprise_paths: Vec<SurprisePath> = surprise_creation_info.iter().map(|info| info.texture_path.to_owned().into()).collect();
-	let surprise_path_set: HashSet<SurprisePath> = surprise_paths.iter().map(Rc::clone).collect();
+	let make_path_iterator = || surprise_creation_info.iter().map(|info| info.texture_path);
+
+	let surprise_paths: Vec<SurprisePath> = make_path_iterator().collect();
+	let surprise_path_set: HashSet<SurprisePath> = make_path_iterator().collect();
 
 	if surprise_path_set.len() != surprise_creation_info.len() {
 		return error_msg!("There are duplicate paths in the set of surprises");
@@ -172,7 +173,7 @@ pub async fn make_surprise_window(
 	////////// Setting up the shared surprise info that can be triggered via IPC
 
 	let (all_creation_info, surprise_stream_listener) = tokio::try_join!(
-		TextureCreationInfo::from_paths_async(surprise_creation_info.iter().map(|info| info.texture_path)),
+		TextureCreationInfo::from_paths_async(make_path_iterator()),
 		make_ipc_socket_listener(artificial_triggering_socket_path)
 	)?;
 
@@ -229,7 +230,7 @@ pub async fn make_surprise_window(
 				vec![(updater_fn, update_rate)],
 
 				DynamicOptional::new(SurpriseInfo {
-					path: surprise_paths[index].clone(),
+					path: surprise_paths[index],
 
 					num_update_steps_to_appear_for: creation_info.num_update_steps_to_appear_for,
 					chance_of_appearing_when_updating: creation_info.chance_of_appearing_when_updating,
