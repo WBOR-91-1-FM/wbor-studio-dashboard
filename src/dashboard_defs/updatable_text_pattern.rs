@@ -29,7 +29,7 @@ use crate::{
 pub type ComputedInTextUpdater<'a> = (Cow<'a, FontInfo>, &'static str);
 
 pub trait UpdatableTextWindowMethods {
-	fn should_skip_update(updater_params: &mut WindowUpdaterParams) -> bool;
+	fn should_skip_update(params: &mut WindowUpdaterParams) -> bool;
 	fn compute_within_updater<'a>(inner_shared_state: &'a SharedWindowState) -> ComputedInTextUpdater<'a>;
 	fn extract_text(&self, inner_shared_state: &SharedWindowState) -> Cow<str>;
 	fn extract_texture_contents(window_contents: &mut WindowContents) -> &mut WindowContents;

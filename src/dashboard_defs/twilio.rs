@@ -14,7 +14,7 @@ use crate::{
 		generic_result::*,
 		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
-		continually_updated::{ContinuallyUpdated, Updatable}
+		continually_updated::{ContinuallyUpdated, ContinuallyUpdatable, ContinuallyUpdatedState}
 	},
 
 	dashboard_defs::{
@@ -152,6 +152,9 @@ pub struct TwilioState {
 	historically_sorted_messages_by_id: Vec<MessageID>, // TODO: avoid resorting with smart insertions and deletions?
 	maybe_remake_transition_info: Option<RemakeTransitionInfo>,
 
+	// This is for when a new Twilio update has arrived
+	just_got_new_continual_data: bool,
+
 	// These are for when a request for an instant API update is made through IPC
 	do_instant_update: bool,
 	instant_update_socket_listener: IpcSocketListener
@@ -274,7 +277,7 @@ impl TwilioStateData {
 	}
 }
 
-impl Updatable for TwilioStateData {
+impl ContinuallyUpdatable for TwilioStateData {
 	type Param = ();
 
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
@@ -394,10 +397,11 @@ impl Updatable for TwilioStateData {
 	}
 }
 
-/* TODO: eventually, integrate `new` into `Updatable`, and
-reduce the boilerplate for the `Updatable` stuff in general */
+/* TODO: eventually, integrate `new` into `ContinuallyUpdatable`, and
+reduce the boilerplate for the `ContinuallyUpdatable` stuff in general */
 impl TwilioState {
 	pub async fn new(
+		api_update_rate: Duration,
 		account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
 		message_history_duration: Duration,
@@ -414,26 +418,40 @@ impl TwilioState {
 		)?;
 
 		Ok(Self {
-			continually_updated: ContinuallyUpdated::new(data, (), "Twilio").await,
-
+			continually_updated: ContinuallyUpdated::new(data, (), "Twilio", api_update_rate),
 			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
 			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
 			historically_sorted_messages_by_id: Vec::new(),
 			maybe_remake_transition_info,
 
-			instant_update_socket_listener,
-			do_instant_update: false
+			just_got_new_continual_data: false,
+
+			do_instant_update: false,
+			instant_update_socket_listener
 		})
 	}
 
-	// This returns false if something failed with the continual updater.
+	pub fn wake_up_updater(&self) {
+		self.continually_updated.wake_up_if_sleeping();
+	}
+
 	pub fn update(&mut self, error_state: &mut ErrorState,
 		texture_pool: &mut TexturePool,
 		pixel_area: (u32, u32), font_info: &FontInfo,
-		text_color: ColorSDL) -> GenericResult<bool> {
+		text_color: ColorSDL) -> MaybeError {
 
-		let continual_updater_succeeded = self.continually_updated.update(&(), error_state);
-		let curr_continual_data = self.continually_updated.get_data();
+		//////////
+
+		let continual_state = self.continually_updated.update(&(), error_state);
+		self.just_got_new_continual_data = continual_state == ContinuallyUpdatedState::GotNewData;
+
+		if !self.just_got_new_continual_data {
+			return Ok(());
+		}
+
+		//////////
+
+		let curr_continual_data = self.continually_updated.get_curr_data();
 
 		let local = &mut self.id_to_texture_map;
 		let offshore = &curr_continual_data.curr_messages;
@@ -520,7 +538,7 @@ impl TwilioState {
 
 		assert!(self.historically_sorted_messages_by_id.len() == local.map.len());
 
-		Ok(continual_updater_succeeded)
+		Ok(())
 	}
 }
 
@@ -528,8 +546,10 @@ impl TwilioState {
 
 pub fn make_twilio_window(
 	twilio_state: &TwilioState,
-	update_rate: UpdateRate,
-	instant_update_check_rate: UpdateRate,
+
+	view_refresh_update_rate: UpdateRate,
+	api_instant_refresh_update_rate: UpdateRate,
+
 	top_left: Vec2f, size: Vec2f,
 	top_box_height: f64,
 	top_box_contents: WindowContents,
@@ -544,7 +564,7 @@ pub fn make_twilio_window(
 
 	////////// Making a series of history windows
 
-	let max_num_messages_in_history = twilio_state.continually_updated.get_data().immutable.max_num_messages_in_history;
+	let max_num_messages_in_history = twilio_state.continually_updated.get_curr_data().immutable.max_num_messages_in_history;
 
 	fn instant_update_handler_fn(params: WindowUpdaterParams) -> MaybeError {
 		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
@@ -554,9 +574,22 @@ pub fn make_twilio_window(
 		// The first window handles the IPC socket listening
 		if individual_window_state.message_index == 0 {
 			twilio_state.do_instant_update = try_listening_to_ipc_socket(&mut twilio_state.instant_update_socket_listener).is_some();
+
+			if twilio_state.do_instant_update {
+				twilio_state.wake_up_updater();
+			}
 		}
 
 		if twilio_state.do_instant_update {
+			/* This invokes an update like this:
+			- When this is called for message index 0, it'll call `TwilioState::update`,
+				which will call `ContinuallyUpdated::update`,
+				which will call its underlying trait function `update`.
+			- All message indices then check the results based on the flag `just_got_new_continual_data`,
+				and if this flag is true, then an update will occur.
+
+			Note that before all of this, an IPC socket is checked for if an update should happen (for message index 0).
+			If so, the updater is actually woken up if it's in the middle of sleeping! See the branch above. */
 			history_updater_fn(params)
 		}
 		else {
@@ -570,12 +603,22 @@ pub fn make_twilio_window(
 		let twilio_state = &mut inner_shared_state.twilio_state;
 		let message_index = individual_window_state.message_index;
 
+		//////////
+
+		// The first window handles the updating
 		if message_index == 0 {
-			twilio_state.update(&mut inner_shared_state.error_state,
-				params.texture_pool, params.area_drawn_to_screen, inner_shared_state.font_info,
-				individual_window_state.text_color
+			twilio_state.update(
+				&mut inner_shared_state.error_state,
+				params.texture_pool, params.area_drawn_to_screen,
+				inner_shared_state.font_info, individual_window_state.text_color
 			)?;
 		}
+
+		if !twilio_state.just_got_new_continual_data {
+			return Ok(());
+		}
+
+		//////////
 
 		let sorted_message_ids = &twilio_state.historically_sorted_messages_by_id;
 
@@ -602,7 +645,7 @@ pub fn make_twilio_window(
 
 	fn top_box_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
-		let twilio_state = inner_shared_state.twilio_state.continually_updated.get_data();
+		let twilio_state = inner_shared_state.twilio_state.continually_updated.get_curr_data();
 		let text_color = *params.window.get_state::<ColorSDL>();
 
 		let WindowContents::Many(many) = params.window.get_contents_mut()
@@ -641,8 +684,8 @@ pub fn make_twilio_window(
 		// Note: I can't directly put the background contents into the history windows since it's sized differently
 		let history_window = Window::new(
 			vec![
-				(instant_update_handler_fn, instant_update_check_rate),
-				(history_updater_fn, update_rate)
+				(instant_update_handler_fn, api_instant_refresh_update_rate),
+				(history_updater_fn, view_refresh_update_rate)
 			],
 
 			DynamicOptional::new(TwilioHistoryWindowState {message_index: i, text_color}),
@@ -672,7 +715,7 @@ pub fn make_twilio_window(
 	//////////
 
 	let top_box = Window::new(
-		vec![(top_box_updater_fn, update_rate)],
+		vec![(top_box_updater_fn, view_refresh_update_rate)],
 		DynamicOptional::new(text_color),
 		WindowContents::Many(vec![top_box_contents, WindowContents::Nothing]),
 		None,

@@ -306,7 +306,7 @@ impl<Key: PartialEq + Eq + Hash + Clone, NonNative, Native,
 
 		for (k, v) in &api_history_list.keys_to_entries {
 			if index == v.index { // TODO: fix the time complexity here
-				return Some(self.keys_to_textures.get(k).cloned().expect("Expecting a texture!"));
+				return self.keys_to_textures.get(k).cloned();
 			}
 		}
 

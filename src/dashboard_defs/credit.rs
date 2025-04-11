@@ -26,8 +26,8 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
 	type CreditWindowState = String;
 
 	impl updatable_text_pattern::UpdatableTextWindowMethods for CreditWindowState {
-		fn should_skip_update(updater_params: &mut WindowUpdaterParams) -> bool {
-			let window_contents = updater_params.window.get_contents();
+		fn should_skip_update(params: &mut WindowUpdaterParams) -> bool {
+			let window_contents = params.window.get_contents();
 			matches!(window_contents, WindowContents::Texture(_))
 		}
 

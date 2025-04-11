@@ -69,10 +69,13 @@ pub async fn make_dashboard(
 
 	let main_windows_gap_size = 0.01;
 
-	let theme_color_1 = ColorSDL::RGB(255, 133, 133);
-	let shared_update_rate = update_rate_creator.new_instance(15.0);
-	let api_keys: ApiKeys = file_utils::load_json_from_file("assets/api_keys.json").await?;
 	let mut rand_generator = rand::thread_rng();
+	let theme_color_1 = ColorSDL::RGB(255, 133, 133);
+	let api_keys: ApiKeys = file_utils::load_json_from_file("assets/api_keys.json").await?;
+
+	let shared_api_update_rate = Duration::seconds(15);
+	let streaming_server_status_api_update_rate = Duration::seconds(20);
+	let view_refresh_update_rate = update_rate_creator.new_instance(0.5);
 
 	////////// Defining the Spinitron window extents
 
@@ -175,7 +178,7 @@ pub async fn make_dashboard(
 
 	// The Spinitron windows update at the same rate as the shared update rate
 	let spinitron_windows = make_spinitron_windows(
-		&all_model_windows_info, shared_update_rate,
+		&all_model_windows_info, view_refresh_update_rate,
 
 		spin_history_tl,
 		Vec2f::new(spin_text_size.x(), 0.1),
@@ -190,7 +193,7 @@ pub async fn make_dashboard(
 	let error_window = make_error_window(
 		Vec2f::new(0.0, 0.95),
 		Vec2f::new(0.15, 0.05),
-		update_rate_creator.new_instance(1.0),
+		view_refresh_update_rate,
 		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 90)),
 		ColorSDL::RED
 	);
@@ -231,56 +234,56 @@ pub async fn make_dashboard(
 	let foreground_static_texture_info = [];
 	let background_static_texture_info = [];
 
-	////////// Making couple of different window types (and other stuff) concurrently
+	////////// Making couple of different window types (and other stuff), some concurrently
 
-	let (streaming_server_status_window,
-		weather_window, surprise_window,
-		spinitron_state, twilio_state,
+	let streaming_server_status_window = make_streaming_server_status_window(
+		&api_keys.streaming_server_now_playing_url,
+		streaming_server_status_api_update_rate,
+		view_refresh_update_rate, 3
+	);
+
+	let spinitron_state = SpinitronState::new(
+		(&api_keys.spinitron, get_fallback_texture_creation_info,
+		shared_api_update_rate, custom_model_expiry_durations, initial_spin_window_size_guess,
+		initial_spin_history_subwindow_size_guess, num_spins_shown_in_history,
+
+		Some(RemakeTransitionInfo::new(
+			Duration::seconds(1),
+			easing_fns::transition::opacity::STRAIGHT_WAVY,
+			easing_fns::transition::aspect_ratio::STRAIGHT_WAVY
+		)))
+	)?;
+
+	let weather_window = make_weather_window(
+		&api_keys.tomorrow_io,
+		update_rate_creator,
+
+		Vec2f::new(0.0, 1.0 - weather_and_credit_window_size.y()),
+		weather_and_credit_window_size,
+
+		theme_color_1, theme_color_1,
+		WindowContents::Nothing,
+
+		Some(RemakeTransitionInfo::new(
+			Duration::seconds(1),
+			easing_fns::transition::opacity::STRAIGHT_WAVY,
+			easing_fns::transition::aspect_ratio::STRAIGHT_WAVY
+		))
+	)?;
+
+	let (surprise_window, twilio_state,
 		clock_dial_creation_info,
 		background_static_texture_creation_info,
 		foreground_static_texture_creation_info,
 		main_static_texture_creation_info) = tokio::try_join!(
-
-		async {Ok(make_streaming_server_status_window(
-			&api_keys.streaming_server_now_playing_url,
-			update_rate_creator.new_instance(5.0), 3
-		).await)},
-
-		make_weather_window(
-			&api_keys.tomorrow_io,
-			update_rate_creator,
-
-			Vec2f::new(0.0, 1.0 - weather_and_credit_window_size.y()),
-			weather_and_credit_window_size,
-
-			theme_color_1, theme_color_1,
-			WindowContents::Nothing,
-
-			Some(RemakeTransitionInfo::new(
-				Duration::seconds(1),
-				easing_fns::transition::opacity::STRAIGHT_WAVY,
-				easing_fns::transition::aspect_ratio::STRAIGHT_WAVY
-			))
-		),
 
 		make_surprise_window(
 			Vec2f::ZERO, Vec2f::ONE, "surprises",
 			&ALL_SURPRISES, update_rate_creator, texture_pool
 		),
 
-		SpinitronState::new(
-			(&api_keys.spinitron, get_fallback_texture_creation_info,
-			custom_model_expiry_durations, initial_spin_window_size_guess,
-			initial_spin_history_subwindow_size_guess, num_spins_shown_in_history,
-
-			Some(RemakeTransitionInfo::new(
-				Duration::seconds(1),
-				easing_fns::transition::opacity::STRAIGHT_WAVY,
-				easing_fns::transition::aspect_ratio::STRAIGHT_WAVY
-			)))
-		),
-
 		TwilioState::new(
+			shared_api_update_rate,
 			&api_keys.twilio_account_sid,
 			&api_keys.twilio_auth_token,
 			11,
@@ -305,8 +308,8 @@ pub async fn make_dashboard(
 
 	let twilio_window = make_twilio_window(
 		&twilio_state,
-		shared_update_rate,
-		update_rate_creator.new_instance(1.0),
+		view_refresh_update_rate,
+		view_refresh_update_rate,
 
 		Vec2f::new(0.58, 0.40),
 		Vec2f::new(0.4, 0.55),

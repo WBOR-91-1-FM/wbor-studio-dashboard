@@ -56,14 +56,12 @@ pub struct SpinitronModelWindowsInfo {
 
 pub fn make_spinitron_windows(
 	all_model_windows_info: &[SpinitronModelWindowsInfo; NUM_SPINITRON_MODEL_TYPES],
-	model_update_rate: UpdateRate,
+	view_refresh_update_rate: UpdateRate,
 
 	history_tl: Vec2f, history_size: Vec2f,
 	history_border_color: Option<ColorSDL>,
 	num_spins_shown_in_history: usize,
-	rand_generator: &mut rand::rngs::ThreadRng)
-
-	-> Vec<Window> {
+	rand_generator: &mut rand::rngs::ThreadRng) -> Vec<Window> {
 
 	/* Note: the drawn size passed into this does not account for aspect ratio correction.
 	For Spinitron models, the size is only needed for spin textures all and text textures.
@@ -82,7 +80,10 @@ pub fn make_spinitron_windows(
 		let is_text_window = individual_window_state.maybe_text_color.is_some();
 
 		if model_name == SpinitronModelName::Spin && !is_text_window {
-			spinitron_state.update(params.area_drawn_to_screen, params.texture_pool, &mut inner_shared_state.error_state)?;
+			spinitron_state.update(
+				params.area_drawn_to_screen, params.texture_pool,
+				&mut inner_shared_state.error_state
+			)?;
 		}
 
 		////////// Checking whether the model's texture should be updated
@@ -91,10 +92,7 @@ pub fn make_spinitron_windows(
 		let do_model_text_texture_update = is_text_window && spinitron_state.model_text_was_updated(model_name);
 
 		// Doing the `WindowContents::Nothing` match for an initial match during launch
-		let do_any_update =
-			do_model_image_texture_update ||
-			do_model_text_texture_update ||
-			matches!(params.window.get_contents(), WindowContents::Nothing);
+		let do_any_update = do_model_image_texture_update || do_model_text_texture_update;
 
 		if !do_any_update {
 			return Ok(());
@@ -151,7 +149,7 @@ pub fn make_spinitron_windows(
 
 	////////// Making the model windows
 
-	let spinitron_model_window_updaters: WindowUpdaters = vec![(spinitron_model_window_updater_fn, model_update_rate)];
+	let spinitron_model_window_updaters: WindowUpdaters = vec![(spinitron_model_window_updater_fn, view_refresh_update_rate)];
 
 	// TODO: perhaps for making multiple model windows, allow for an option to have sub-model-windows
 	let mut spinitron_windows: Vec<Window> = all_model_windows_info.iter().flat_map(|general_info| {
@@ -211,7 +209,7 @@ pub fn make_spinitron_windows(
 		history_size,
 		subwindow_size,
 		history_border_color,
-		&[(spin_history_item_updater_fn, model_update_rate)],
+		&[(spin_history_item_updater_fn, view_refresh_update_rate)],
 
 		(0..num_spins_shown_in_history).map(|i| {
 			let x_start = i as f64 * sub_width;

@@ -64,6 +64,11 @@ pub trait SpinitronModel {
 	fn get_texture_creation_info(&self, age_state: ModelAgeState, spin_texture_window_size: (u32, u32)) -> MaybeTextureCreationInfo;
 
 	fn parse_time(&self, time: &str) -> GenericResult<ReferenceTimestamp> {
+		// This is for cases of Spinitron models initialized by `default()`
+		if time.is_empty() {
+			return Ok(ReferenceTimestamp::MIN_UTC);
+		}
+
 		let mut with_amended_end = time.to_owned();
 		with_amended_end.insert(with_amended_end.len() - 2, ':');
 		parse_time_from_rfc3339(&with_amended_end).map(|time| time.into())
@@ -124,14 +129,14 @@ pub trait SpinitronModel {
 
 		-> MaybeTextureCreationInfo<'a> where Self: Sized {
 
-		let fallback = TextureCreationInfo::from_path(image_for_no_persona_or_show);
+		let make_fallback = || TextureCreationInfo::from_path(image_for_no_persona_or_show);
 
 		Self::evaluate_model_image_url_with_regexp(url,
-			|| Some(fallback.clone()),
+			|| Some(make_fallback()),
 			&DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP,
 
 			// If it matches the default pattern, use the no-persona or no-show image
-			|_| fallback.clone(),
+			|_| make_fallback(),
 
 			// If it doesn't match the default pattern, use the provided image
 			|url| TextureCreationInfo::Url(Cow::Borrowed(url))
@@ -187,6 +192,7 @@ impl SpinitronModel for Spin {
 				&SPIN_IMAGE_REGEXP,
 
 				|url| {
+					// TODO: figure out if there's a good reason why this URL fails often
 					let with_size = SPIN_IMAGE_SIZE_REGEXP.replace(url, format!("{texture_width}x{texture_height}bb"));
 					TextureCreationInfo::Url(with_size)
 				},
@@ -208,7 +214,8 @@ impl SpinitronModel for Playlist {
 
 	fn to_string(&self, age_state: ModelAgeState) -> Cow<str> {
 		match age_state {
-			ModelAgeState::BeforeIt => Cow::Borrowed("How are you before a playlist that hasn't even started yet?"),
+			ModelAgeState::BeforeIt =>
+				Cow::Borrowed("How are you before a playlist that hasn't even started yet?"),
 
 			ModelAgeState::CurrentlyActive => {
 				let (mut show_emojis, mut spacing) = ("", "");
@@ -244,6 +251,7 @@ impl SpinitronModel for Playlist {
 	fn get_texture_creation_info(&self, age_state: ModelAgeState, _: (u32, u32)) -> MaybeTextureCreationInfo {
 		match age_state {
 			ModelAgeState::BeforeIt =>
+				// TODO: is this even possible? If not, remove the associated image, perhaps...
 				Some(TextureCreationInfo::from_path("assets/before_show_image.jpg")),
 
 			ModelAgeState::CurrentlyActive | ModelAgeState::AfterItFromCustomExpiryDuration => {

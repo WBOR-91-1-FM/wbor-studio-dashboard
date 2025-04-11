@@ -70,7 +70,7 @@ pub type GeneralLine<T> = (ColorSDL, Vec<T>);
 pub type Line = GeneralLine<Vec2f>;
 
 // TODO: make the border color a part of this
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum WindowContents {
 	Nothing,
 	Color(ColorSDL),
