@@ -353,43 +353,63 @@ impl SpinitronStateData {
 	async fn sync_models(&mut self) -> MaybeError {
 		let api_key = self.api_key.as_str();
 
-		// Step 1: get the current spin, and the spin history.
-		let (maybe_new_spin, mut spin_history) = Spin::get_current_and_history(
-			api_key, self.spin_history_list.get_max_items()
-		).await?;
+		//////////
 
-		if maybe_new_spin.get_id() != self.spin.get_id() {
-			self.spin = Arc::new(maybe_new_spin);
-		}
+		let spin_future = async {
+			// Step 1: get the current spin, and the spin history.
+			let (maybe_new_spin, mut spin_history) = Spin::get_current_and_history(
+				api_key, self.spin_history_list.get_max_items()
+			).await?;
+
+			if maybe_new_spin.get_id() != self.spin.get_id() {
+				self.spin = Arc::new(maybe_new_spin);
+			}
+
+			// Step 2: update the spin history list.
+			self.spin_history_list.update(&mut spin_history).await?;
+
+			// Explicitly defining the result here is needed for type inference of `Ok(())` in other places
+			let result: MaybeError = Ok(());
+			result
+		};
+
+		let playlist_and_persona_future = async {
+			/* Step 3: get a maybe new playlist (don't base it on a spin ID,
+			since the spin may not belong to a playlist under automation). */
+			let maybe_new_playlist = Playlist::get(api_key).await?;
+
+			if maybe_new_playlist.get_id() != self.playlist.get_id() {
+				/* Step 4: get the persona id based on the playlist id (since otherwise, you'll
+				just get some persona that's first in Spinitron's internal list of personas. */
+				self.persona = Arc::new(Persona::get(api_key, &maybe_new_playlist).await?);
+				self.playlist = Arc::new(maybe_new_playlist);
+			}
+
+			Ok(())
+		};
+
+		let show_future = async {
+			let curr_minutes = get_local_time().minute();
+
+			// Shows can only be scheduled under 30-minute intervals (will not switch immediately if added sporadically)
+			if curr_minutes == 0 || curr_minutes == 30 {
+				/* Step 5: get the current show id (based on what's on the
+				schedule, irrespective of what show was last on).
+				This is not in the branch above, since the show should
+				change directly on schedule, not when a new playlist is made. */
+				self.show = Arc::new(Show::get(api_key).await?);
+			}
+
+			Ok(())
+		};
 
 		//////////
 
-		/* Step 2: get a maybe new playlist (don't base it on a spin ID,
-		since the spin may not belong to a playlist under automation). */
-		let maybe_new_playlist = Playlist::get(api_key).await?;
-
-		if maybe_new_playlist.get_id() != self.playlist.get_id() {
-			/* Step 3: get the persona id based on the playlist id (since otherwise, you'll
-			just get some persona that's first in Spinitron's internal list of personas. */
-			self.persona = Arc::new(Persona::get(api_key, &maybe_new_playlist).await?);
-			self.playlist = Arc::new(maybe_new_playlist);
-		}
-
-		//////////
-
-		let curr_minutes = get_local_time().minute();
-
-		// Shows can only be scheduled under 30-minute intervals (will not switch immediately if added sporadically)
-		if curr_minutes == 0 || curr_minutes == 30 {
-			/* Step 4: get the current show id (based on what's on the
-			schedule, irrespective of what show was last on).
-			This is not in the branch above, since the show should
-			change directly on schedule, not when a new playlist is made. */
-			self.show = Arc::new(Show::get(api_key).await?);
-		}
-
-		// Step 5: update the spin history list.
-		self.spin_history_list.update(&mut spin_history).await?;
+		tokio::try_join!(
+			spin_future,
+			playlist_and_persona_future,
+			show_future
+		)?;
 
 		Ok(())
 	}
