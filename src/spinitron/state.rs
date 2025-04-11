@@ -3,6 +3,11 @@ use std::{
 	borrow::Cow
 };
 
+use futures::{
+	StreamExt,
+	stream::FuturesUnordered
+};
+
 use crate::{
 	request,
 	dashboard_defs::error::ErrorState,
@@ -337,8 +342,12 @@ impl SpinitronStateData {
 		[self.spin.as_ref(), self.playlist.as_ref(), self.persona.as_ref(), self.show.as_ref()]
 	}
 
-	const fn get_model_names() -> [SpinitronModelName; NUM_SPINITRON_MODEL_TYPES] {
-		[SpinitronModelName::Spin, SpinitronModelName::Playlist, SpinitronModelName::Persona, SpinitronModelName::Show]
+	const fn get_model_names() -> &'static [SpinitronModelName; NUM_SPINITRON_MODEL_TYPES] {
+		const MODEL_NAMES: [SpinitronModelName; NUM_SPINITRON_MODEL_TYPES] = [
+			SpinitronModelName::Spin, SpinitronModelName::Playlist, SpinitronModelName::Persona, SpinitronModelName::Show
+		];
+
+		&MODEL_NAMES
 	}
 
 	pub fn get_model_by_name(&self, model_name: SpinitronModelName) -> &dyn SpinitronModel {
@@ -438,25 +447,42 @@ impl ContinuallyUpdatable for SpinitronStateData {
 		self.sync_models().await?;
 		let new_ids = get_model_ids(self);
 
-		////////// Update the model textures
+		////////// Collect futures for new models to cache
+
+		let new_to_cache_futures = FuturesUnordered::new();
 
 		// TODO: how to do this without all the indexing?
 		for model_name in Self::get_model_names() {
-			let i = model_name as usize;
-			self.age_data[i] = self.age_data[i].clone().update(self.get_model_by_name(model_name))?;
+			let i = *model_name as usize;
 
 			// Under these conditions, the texture may have updated (sometimes, models will have the same texture across different IDs though)
 			let maybe_updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
 
 			if maybe_updated {
-				self.cached_model_data[i] = self.compute_cacheable_model_data(model_name, *spin_texture_size).await;
-			}
-			else {
-				let cache = &mut self.cached_model_data[i];
-				cache.texture_creation_info_hash_changed = false; // Marking the texture as not updated
-				cache.string_changed = false; // Marking the text as not updated
+				new_to_cache_futures.push(async {
+					let deref_model_name = *model_name;
+					(deref_model_name as usize, self.compute_cacheable_model_data(deref_model_name, *spin_texture_size).await)
+				});
 			}
 		}
+
+		//////////
+
+		// TODO: can I avoid this `collect` perhaps, somehow?
+		let new_to_cache = new_to_cache_futures.collect::<Vec<_>>().await;
+
+		// First, invalidate the cache
+		for item in &mut self.cached_model_data {
+			item.texture_creation_info_hash_changed = false; // Marking the texture as not updated
+			item.string_changed = false; // Marking the text as not updated
+		}
+
+		// Then, add the new elements
+		for (index, cache_entry) in new_to_cache {
+			self.cached_model_data[index] = cache_entry;
+		}
+
+		//////////
 
 		Ok(())
 	}
