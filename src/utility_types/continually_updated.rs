@@ -153,7 +153,8 @@ impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 						Ok(Some(())) => {}, // A wakeup was sent!
 
 						Ok(None) => {
-							return wakeup_receiver_error();
+							return; // This happens quite often, so I'm leaving this out
+							// return wakeup_receiver_error();
 						}
 
 						Err(_) => {} // Nap time finished
