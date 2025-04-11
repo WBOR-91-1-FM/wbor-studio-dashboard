@@ -134,8 +134,7 @@ struct TwilioStateData {
 
 	// Mutable fields:
 	curr_messages: SyncedMessageMap<MessageInfo>,
-	unformatted_phone_number: String,
-	formatted_phone_number_with_title: String
+	unformatted_and_formatted_phone_number: Option<(String, String)> // This is `None` if it hasn't been initialized yet
 }
 
 // TODO: put the non-continually-updated fields in their own struct
@@ -163,15 +162,15 @@ pub struct TwilioState {
 //////////
 
 impl TwilioStateData {
-	async fn new(account_sid: &str, auth_token: &str,
+	fn new(account_sid: &str, auth_token: &str,
 		max_num_messages_in_history: usize,
 		message_history_duration: Duration,
-		reveal_texter_identities: bool) -> GenericResult<Self> {
+		reveal_texter_identities: bool) -> Self {
 
 		use base64::{engine::general_purpose::STANDARD, Engine};
 		let request_auth_base64 = STANDARD.encode(format!("{account_sid}:{auth_token}"));
 
-		let mut data = Self {
+		Self {
 			immutable: Arc::new(ImmutableTwilioStateData {
 				account_sid: account_sid.to_owned(),
 				request_auth: "Basic ".to_owned() + &request_auth_base64,
@@ -181,26 +180,9 @@ impl TwilioStateData {
 			}),
 
 			curr_messages: SyncedMessageMap::new(max_num_messages_in_history),
-			unformatted_phone_number: String::new(),
-			formatted_phone_number_with_title: String::new()
-		};
 
-		////////// Finding the phone number
-
-		let json = data.do_twilio_request("IncomingPhoneNumbers", &[], &[]).await?;
-
-		let Some(phone_numbers) = json["incoming_phone_numbers"].as_array()
-		else {panic!("Expected the Twilio phone numbers to be an array!");};
-
-		assert!(phone_numbers.len() == 1);
-
-		let number = phone_numbers[0]["phone_number"].as_str().expect("Expected the phone number to be a string!");
-		data.unformatted_phone_number = number.to_owned();
-		data.formatted_phone_number_with_title = TwilioStateData::format_phone_number(number, "Messages to ", ":", "");
-
-		//////////
-
-		Ok(data)
+			unformatted_and_formatted_phone_number: None
+		}
 	}
 
 	async fn do_twilio_request(&self, endpoint: &str, path_params: &[Cow<'_, str>], query_params: &[(&str, Cow<'_, str>)]) -> GenericResult<serde_json::Value> {
@@ -281,6 +263,24 @@ impl ContinuallyUpdatable for TwilioStateData {
 	type Param = ();
 
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
+		////////// Initializing the phone number if needed
+
+		if self.unformatted_and_formatted_phone_number.is_none() {
+			let json = self.do_twilio_request("IncomingPhoneNumbers", &[], &[]).await?;
+
+			let Some(phone_numbers) = json["incoming_phone_numbers"].as_array()
+			else {panic!("Expected the Twilio phone numbers to be an array!");};
+
+			assert!(phone_numbers.len() == 1);
+
+			let number = phone_numbers[0]["phone_number"].as_str().expect("Expected the phone number to be a string!");
+
+			self.unformatted_and_formatted_phone_number = Some((
+				number.to_owned(),
+				TwilioStateData::format_phone_number(number, "Messages to ", ":", "")
+			));
+		}
+
 		////////// Making a request, and getting a response
 
 		let curr_time = ReferenceTimezone::now();
@@ -294,9 +294,12 @@ impl ContinuallyUpdatable for TwilioStateData {
 
 		let max_messages = self.immutable.max_num_messages_in_history;
 
+		let phone_number = self.unformatted_and_formatted_phone_number
+			.as_ref().map(|both| both.0.as_str()).unwrap();
+
 		let json = self.do_twilio_request("Messages", &[],
 			&[
-				("To", Cow::Borrowed(self.unformatted_phone_number.as_str())), // Adding this filters out all outbound messages
+				("To", Cow::Borrowed(phone_number)), // Adding this filters out all outbound messages
 				("PageSize", Cow::Borrowed(&max_messages.to_string())),
 				("DateSent%3E", Cow::Borrowed(&history_cutoff_day.to_string())) // Note: the '%3E' is a URL-encoded '>'
 			]
@@ -408,14 +411,10 @@ impl TwilioState {
 		reveal_texter_identities: bool,
 		maybe_remake_transition_info: Option<RemakeTransitionInfo>) -> GenericResult<Self> {
 
-		let (data, instant_update_socket_listener) = tokio::try_join!(
-			TwilioStateData::new(
-				account_sid, auth_token, max_num_messages_in_history,
-				message_history_duration, reveal_texter_identities
-			),
-
-			make_ipc_socket_listener("twilio_instant_update")
-		)?;
+		let data = TwilioStateData::new(
+			account_sid, auth_token, max_num_messages_in_history,
+			message_history_duration, reveal_texter_identities
+		);
 
 		Ok(Self {
 			continually_updated: ContinuallyUpdated::new(data, (), "Twilio", api_update_rate),
@@ -427,7 +426,7 @@ impl TwilioState {
 			just_got_new_continual_data: false,
 
 			do_instant_update: false,
-			instant_update_socket_listener
+			instant_update_socket_listener: make_ipc_socket_listener("twilio_instant_update").await?
 		})
 	}
 
@@ -652,11 +651,23 @@ pub fn make_twilio_window(
 		else {panic!("The top box for Twilio did not contain a vec of contents!");};
 
 		if let WindowContents::Nothing = many[1] {
+			//////////
+
+			let formatted_number = match &twilio_state.unformatted_and_formatted_phone_number {
+				Some((_, formatted_number)) => formatted_number,
+
+				None => {
+					return Ok(()); // Will check for the number again next time
+				}
+			};
+
+			//////////
+
 			let texture_creation_info = TextureCreationInfo::Text((
 				Cow::Borrowed(inner_shared_state.font_info),
 
 				TextDisplayInfo::new(
-					DisplayText::new(&twilio_state.formatted_phone_number_with_title).with_padding(" ", ""),
+					DisplayText::new(formatted_number).with_padding(" ", ""),
 					text_color,
 					params.area_drawn_to_screen,
 					easing_fns::scroll::STAY_PUT,
