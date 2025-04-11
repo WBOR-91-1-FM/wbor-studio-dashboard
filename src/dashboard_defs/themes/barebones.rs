@@ -75,7 +75,7 @@ pub async fn make_dashboard(
 
 	let shared_api_update_rate = Duration::seconds(15);
 	let streaming_server_status_api_update_rate = Duration::seconds(20);
-	let view_refresh_update_rate = update_rate_creator.new_instance(0.5);
+	let view_refresh_update_rate = update_rate_creator.new_instance(0.25);
 
 	////////// Defining the Spinitron window extents
 
