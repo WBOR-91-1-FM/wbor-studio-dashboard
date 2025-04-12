@@ -448,9 +448,20 @@ impl ContinuallyUpdatable for SpinitronStateData {
 
 		////////// Collect futures for new models to cache
 
+		// Updating the age data, and invalidating the cache
+		for model_name in Self::get_model_names() {
+			let i = *model_name as usize;
+
+			self.age_data[i] = self.age_data[i].clone().update(self.get_model_by_name(*model_name))?;
+
+			let cache_entry = &mut self.cached_model_data[i];
+			cache_entry.texture_creation_info_hash_changed = false; // Marking the texture as not updated
+			cache_entry.string_changed = false; // Marking the text as not updated
+		}
+
+		// Next, updating stuff asynchronously
 		let new_to_cache_futures = FuturesUnordered::new();
 
-		// TODO: how to do this without all the indexing?
 		for model_name in Self::get_model_names() {
 			let i = *model_name as usize;
 
@@ -466,20 +477,10 @@ impl ContinuallyUpdatable for SpinitronStateData {
 			}
 		}
 
-		//////////
+		// TODO: how to avoid this allocation?
+		for (index, entry) in new_to_cache_futures.collect::<Vec<_>>().await {
+			self.cached_model_data[index] = entry;
 
-		// TODO: can I avoid this `collect` perhaps, somehow?
-		let new_to_cache = new_to_cache_futures.collect::<Vec<_>>().await;
-
-		// First, invalidate the cache
-		for item in &mut self.cached_model_data {
-			item.texture_creation_info_hash_changed = false; // Marking the texture as not updated
-			item.string_changed = false; // Marking the text as not updated
-		}
-
-		// Then, add the new elements
-		for (index, cache_entry) in new_to_cache {
-			self.cached_model_data[index] = cache_entry;
 		}
 
 		//////////
