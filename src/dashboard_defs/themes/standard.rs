@@ -244,13 +244,7 @@ pub async fn make_dashboard(
 	let spinitron_state = SpinitronState::new(
 		(&api_keys.spinitron, get_fallback_texture_creation_info,
 		shared_api_update_rate, custom_model_expiry_durations, initial_spin_window_size_guess,
-		initial_spin_history_subwindow_size_guess, num_spins_shown_in_history,
-
-		Some(RemakeTransitionInfo::new(
-			Duration::seconds(1),
-			easing_fns::transition::opacity::STRAIGHT_WAVY,
-			easing_fns::transition::aspect_ratio::STRAIGHT_WAVY
-		)))
+		initial_spin_history_subwindow_size_guess, num_spins_shown_in_history)
 	)?;
 
 	let weather_window = make_weather_window(

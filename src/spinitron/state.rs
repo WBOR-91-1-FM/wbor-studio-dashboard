@@ -193,8 +193,7 @@ type SpinitronStateDataParams<'a> = (
 	[Duration; NUM_SPINITRON_MODEL_TYPES], // Custom model expiry durations
 	WindowSize, // The spin texture size (for the primary spin)
 	WindowSize, // The spin history item texture size
-	usize, // The number of spins shown in the history
-	Option<RemakeTransitionInfo> // The optional remake transition info for spin history (TODO: remove this, if it isn't later applied to all shifted textures)
+	usize // The number of spins shown in the history
 );
 
 //////////
@@ -242,7 +241,7 @@ async fn get_model_texture_bytes(
 impl SpinitronStateData {
 	fn new((api_key, get_fallback_texture_creation_info, _,
 		custom_model_expiry_durations, _, spin_history_item_texture_size,
-		num_spins_shown_in_history, _): SpinitronStateDataParams) -> Self {
+		num_spins_shown_in_history): SpinitronStateDataParams) -> Self {
 
 		//////////
 
@@ -456,6 +455,7 @@ impl ContinuallyUpdatable for SpinitronStateData {
 			let i = *model_name as usize;
 
 			// Under these conditions, the texture may have updated (sometimes, models will have the same texture across different IDs though)
+			// TODO: perhaps also check based on a texture or text updating? The id may not be definitive... (e.g. changing the album cover after submitting a spin)
 			let maybe_updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
 
 			if maybe_updated {
@@ -500,8 +500,8 @@ pub struct SpinitronState {
 
 impl SpinitronState {
 	pub fn new(params: SpinitronStateDataParams) -> GenericResult<Self> {
-		let (.., api_update_rate, _, initial_spin_texture_size_guess, initial_spin_history_texture_size_guess,
-			max_spin_history_items, maybe_remake_transition_info_for_spin_history
+		let (.., api_update_rate, _, initial_spin_texture_size_guess,
+			initial_spin_history_texture_size_guess, max_spin_history_items
 		) = params.clone();
 
 		let data = SpinitronStateData::new(params);
@@ -515,7 +515,7 @@ impl SpinitronState {
 			continually_updated,
 			just_got_new_continual_data: false,
 
-			history_list_texture_manager: ApiHistoryListTextureManager::new(max_spin_history_items, maybe_remake_transition_info_for_spin_history),
+			history_list_texture_manager: ApiHistoryListTextureManager::new(max_spin_history_items, None),
 			spin_history_texture_size: initial_spin_history_texture_size_guess
 		})
 	}
