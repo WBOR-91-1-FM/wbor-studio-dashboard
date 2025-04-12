@@ -11,7 +11,7 @@ use futures::{
 use crate::{
 	request,
 	dashboard_defs::error::ErrorState,
-	texture::pool::{TexturePool, TextureHandle, TextureCreationInfo, RemakeTransitionInfo},
+	texture::pool::{TexturePool, TextureHandle, TextureCreationInfo},
 
 	utility_types::{
 		time::*,
@@ -502,7 +502,7 @@ impl SpinitronState {
 	pub fn new(params: SpinitronStateDataParams) -> GenericResult<Self> {
 		let (.., api_update_rate, _, initial_spin_texture_size_guess,
 			initial_spin_history_texture_size_guess, max_spin_history_items
-		) = params.clone();
+		) = params;
 
 		let data = SpinitronStateData::new(params);
 		let texture_size_guesses = (initial_spin_texture_size_guess, initial_spin_history_texture_size_guess);
