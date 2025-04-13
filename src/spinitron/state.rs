@@ -480,7 +480,6 @@ impl ContinuallyUpdatable for SpinitronStateData {
 		// TODO: how to avoid this allocation?
 		for (index, entry) in new_to_cache_futures.collect::<Vec<_>>().await {
 			self.cached_model_data[index] = entry;
-
 		}
 
 		//////////
