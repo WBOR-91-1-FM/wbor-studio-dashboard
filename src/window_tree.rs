@@ -339,7 +339,8 @@ impl Window {
 
 			let maybe_corrected_screen_dest = maybe_correct_aspect_ratio(
 				contents, uncorrected_screen_dest, &mut rendering_params.texture_pool,
-				skip_aspect_ratio_correction);
+				skip_aspect_ratio_correction
+			);
 
 			let sdl_canvas = &mut rendering_params.sdl_canvas;
 
