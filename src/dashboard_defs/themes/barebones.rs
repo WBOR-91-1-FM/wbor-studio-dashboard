@@ -257,7 +257,7 @@ pub async fn make_dashboard(
 		main_static_texture_creation_info) = tokio::try_join!(
 
 		run_command("git", &["rev-list", "--count", "HEAD"]),
-		run_command("git", &["rev-parse", "--abbrev-ref", "HEAD"])
+		run_command("git", &["rev-parse", "--abbrev-ref", "HEAD"]),
 
 		make_surprise_window(
 			Vec2f::ZERO, Vec2f::ONE, "surprises",
