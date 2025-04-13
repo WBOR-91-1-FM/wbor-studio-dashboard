@@ -191,20 +191,6 @@ pub async fn make_dashboard(
 		ColorSDL::RED
 	);
 
-	////////// Making a credit window
-
-	let num_commits = run_command("git", &["rev-list", "--count", "HEAD"])?;
-	let branch_name = run_command("git", &["rev-parse", "--abbrev-ref", "HEAD"])?;
-	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'");
-
-	let credit_window = make_credit_window(
-		Vec2f::new(0.85, 0.97),
-		Vec2f::new(0.15, 0.03),
-		ColorSDL::RED,
-		ColorSDL::RGB(210, 180, 140),
-		credit_message
-	);
-
 	////////// Defining the Spinitron state parametwrs
 
 	let initial_spin_window_size_guess = (1024, 1024);
@@ -264,12 +250,15 @@ pub async fn make_dashboard(
 		))
 	)?;
 
-	let (surprise_window, twilio_state,
+	let (num_commits, branch_name, surprise_window, twilio_state,
 		twilio_message_background_contents_creation_info,
 		clock_dial_creation_info,
 		background_static_texture_creation_info,
 		foreground_static_texture_creation_info,
 		main_static_texture_creation_info) = tokio::try_join!(
+
+		run_command("git", &["rev-list", "--count", "HEAD"]),
+		run_command("git", &["rev-parse", "--abbrev-ref", "HEAD"]),
 
 		make_surprise_window(
 			Vec2f::ZERO, Vec2f::ONE, "surprises",
@@ -316,6 +305,18 @@ pub async fn make_dashboard(
 		Some(theme_color_1), theme_color_1,
 
 		WindowContents::make_texture_contents(&twilio_message_background_contents_creation_info, texture_pool)?
+	);
+
+	////////// Making a credit window
+
+	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'");
+
+	let credit_window = make_credit_window(
+		Vec2f::new(0.85, 0.97),
+		Vec2f::new(0.15, 0.03),
+		ColorSDL::RED,
+		ColorSDL::RGB(210, 180, 140),
+		credit_message
 	);
 
 	////////// Making a clock window

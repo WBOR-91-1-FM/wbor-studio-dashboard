@@ -1,5 +1,6 @@
 use rand::Rng;
 use sdl2::render::BlendMode;
+use tokio::process::Command;
 
 use crate::{
 	error_msg,
@@ -159,10 +160,10 @@ pub fn get_fallback_texture_creation_info() -> TextureCreationInfo<'static> {
 
 //////////
 
-pub fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
-	let output = std::process::Command::new(command)
+pub async fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
+	let output = Command::new(command)
 		.args(args)
-		.output()?;
+		.output().await?;
 
 	if !output.status.success() {
 		error_msg!("This command failed: '{command} {}'", args.join(" "))

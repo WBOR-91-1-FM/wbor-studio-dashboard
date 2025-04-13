@@ -198,23 +198,6 @@ pub async fn make_dashboard(
 		ColorSDL::RED
 	);
 
-	////////// Making a credit window
-
-	let weather_and_credit_window_size = Vec2f::new(0.15, 0.03);
-	let credit_border_and_text_color = ColorSDL::RGB(255, 153, 153);
-
-	let num_commits = run_command("git", &["rev-list", "--count", "HEAD"])?;
-	let branch_name = run_command("git", &["rev-parse", "--abbrev-ref", "HEAD"])?;
-	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'");
-
-	let credit_window = make_credit_window(
-		Vec2f::new(0.85, 0.97),
-		weather_and_credit_window_size,
-		credit_border_and_text_color,
-		credit_border_and_text_color,
-		credit_message
-	);
-
 	////////// Defining the Spinitron state parametwrs
 
 	let initial_spin_window_size_guess = (1024, 1024);
@@ -248,6 +231,8 @@ pub async fn make_dashboard(
 		initial_spin_history_subwindow_size_guess, num_spins_shown_in_history)
 	)?;
 
+	let weather_and_credit_window_size = Vec2f::new(0.15, 0.03);
+
 	let weather_window = make_weather_window(
 		&api_keys.tomorrow_io,
 		update_rate_creator,
@@ -265,11 +250,14 @@ pub async fn make_dashboard(
 		))
 	)?;
 
-	let (surprise_window, twilio_state,
+	let (num_commits, branch_name, surprise_window, twilio_state,
 		clock_dial_creation_info,
 		background_static_texture_creation_info,
 		foreground_static_texture_creation_info,
 		main_static_texture_creation_info) = tokio::try_join!(
+
+		run_command("git", &["rev-list", "--count", "HEAD"]),
+		run_command("git", &["rev-parse", "--abbrev-ref", "HEAD"])
 
 		make_surprise_window(
 			Vec2f::ZERO, Vec2f::ONE, "surprises",
@@ -315,6 +303,19 @@ pub async fn make_dashboard(
 		Some(theme_color_1),  ColorSDL::RGB(238, 238, 238),
 
 		WindowContents::Nothing
+	);
+
+	////////// Making a credit window
+
+	let credit_border_and_text_color = ColorSDL::RGB(255, 153, 153);
+	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'");
+
+	let credit_window = make_credit_window(
+		Vec2f::new(0.85, 0.97),
+		weather_and_credit_window_size,
+		credit_border_and_text_color,
+		credit_border_and_text_color,
+		credit_message
 	);
 
 	////////// Making a clock window
