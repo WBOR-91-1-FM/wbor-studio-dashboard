@@ -499,7 +499,7 @@ pub struct SpinitronState {
 }
 
 impl SpinitronState {
-	pub fn new(params: SpinitronStateDataParams) -> GenericResult<Self> {
+	pub fn new(params: SpinitronStateDataParams) -> Self {
 		let (.., api_update_rate, _, initial_spin_texture_size_guess,
 			initial_spin_history_texture_size_guess, max_spin_history_items
 		) = params;
@@ -511,13 +511,13 @@ impl SpinitronState {
 			data, texture_size_guesses, "Spinitron", api_update_rate
 		);
 
-		Ok(Self {
+		Self {
 			continually_updated,
 			just_got_new_continual_data: false,
 
 			history_list_texture_manager: ApiHistoryListTextureManager::new(max_spin_history_items, None),
 			spin_history_texture_size: initial_spin_history_texture_size_guess
-		})
+		}
 	}
 
 	fn make_correct_texture_size_from_window_size(window_size: WindowSize) -> WindowSize {

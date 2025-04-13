@@ -257,7 +257,7 @@ pub fn make_weather_window(
 	text_color: ColorSDL, border_color: ColorSDL,
 	background_contents: WindowContents,
 	maybe_remake_transition_info: Option<RemakeTransitionInfo>
-) -> GenericResult<Window> {
+) -> Window {
 
 	const API_UPDATE_RATE: Duration = Duration::seconds(60 * 10); // Once every 10 minutes
 	const REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS: Seconds = 60.0; // Once per minute
@@ -281,7 +281,7 @@ pub fn make_weather_window(
 
 	//////////
 
-	Ok(Window::new(
+	Window::new(
 		vec![
 			(weather_string_updater_fn, update_rate_creator.new_instance(REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS))
 		],
@@ -292,5 +292,5 @@ pub fn make_weather_window(
 		top_left,
 		size,
 		vec![]
-	))
+	)
 }

@@ -229,7 +229,7 @@ pub async fn make_dashboard(
 		(&api_keys.spinitron, get_fallback_texture_creation_info,
 		shared_api_update_rate, custom_model_expiry_durations, initial_spin_window_size_guess,
 		initial_spin_history_subwindow_size_guess, num_spins_shown_in_history)
-	)?;
+	);
 
 	let weather_and_credit_window_size = Vec2f::new(0.15, 0.03);
 
@@ -248,7 +248,7 @@ pub async fn make_dashboard(
 			easing_fns::transition::opacity::STRAIGHT_WAVY,
 			easing_fns::transition::aspect_ratio::STRAIGHT_WAVY
 		))
-	)?;
+	);
 
 	let (num_commits, branch_name, surprise_window, twilio_state,
 		clock_dial_creation_info,
