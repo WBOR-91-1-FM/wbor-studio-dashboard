@@ -224,7 +224,7 @@ fn weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 			Cow::Owned(format!("Weather: {temperature}°{} and {weather_code_descriptor} {associated_emoji}", individual_window_state.weather_unit_symbol))
 		}
 		None => {
-			Cow::Borrowed("No weather info available!")
+			Cow::Borrowed("No weather info available (yet)!")
 		}
 	};
 
