@@ -199,7 +199,7 @@ pub async fn make_dashboard(
 	let custom_model_expiry_durations = [
 		Duration::minutes(10), // 10 minutes after a spin, it's expired
 		Duration::minutes(-5), // 5 minutes before a playlist ends, let the DJ know that they should pack up
-		Duration::minutes(0), // Personas don't expire (their end time is the max UTC time)
+		Duration::minutes(0), // 0 minutes after a persona, it expires (behind the scenes, the start/end comes from the associated playlist)
 		Duration::minutes(0) // 0 minutes after a show, it's expired (this is not used in practice)
 	];
 

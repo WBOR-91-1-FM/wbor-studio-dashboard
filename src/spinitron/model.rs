@@ -75,9 +75,8 @@ pub trait SpinitronModel {
 	}
 
 	fn maybe_get_time_range(&self) -> GenericResult<Option<(ReferenceTimestamp, ReferenceTimestamp)>> {
-		// TODO: don't unwrap here
 		Ok(if let (Some(start), Some(end)) = self.extract_raw_time_range() {
-			Some((self.parse_time(start).unwrap(), self.parse_time(end).unwrap()))
+			Some((self.parse_time(start)?, self.parse_time(end)?))
 		}
 		else {
 			None
@@ -210,7 +209,10 @@ impl SpinitronModel for Spin {
 
 impl SpinitronModel for Playlist {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {(Some(&self.start), Some(&self.end))}
+
+	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {
+		(Some(&self.start), Some(&self.end))
+	}
 
 	fn to_string(&self, age_state: ModelAgeState) -> Cow<str> {
 		match age_state {
@@ -273,16 +275,27 @@ impl SpinitronModel for Playlist {
 
 impl SpinitronModel for Persona {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {(None, None)}
 
-	fn to_string(&self, _: ModelAgeState) -> Cow<str> {
-		Cow::Owned(format!("Welcome, {}!", self.name))
+	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {
+		(Some(&self.start_from_associated_playlist), Some(&self.end_from_associated_playlist))
 	}
 
-	fn get_texture_creation_info(&self, _: ModelAgeState, _: (u32, u32)) -> MaybeTextureCreationInfo {
-		/* TODO: after a show, replace the old image with a meme, like how it's done for playlists;
-		also, when there's no next persona image, it carries over, which shouldn't happen (is this true?) */
-		Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_persona_image.png")
+	fn to_string(&self, age_state: ModelAgeState) -> Cow<str> {
+		if age_state == ModelAgeState::AfterItFromCustomExpiryDuration {
+			Cow::Borrowed("No one is expected in the studio right now...")
+		}
+		else {
+			Cow::Owned(format!("Welcome, {}!", self.name))
+		}
+	}
+
+	fn get_texture_creation_info(&self, age_state: ModelAgeState, _: (u32, u32)) -> MaybeTextureCreationInfo {
+		if age_state == ModelAgeState::AfterItFromCustomExpiryDuration {
+			Some(TextureCreationInfo::from_path("assets/no_person_in_studio.jpg"))
+		}
+		else {
+			Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_persona_image.png")
+		}
 	}
 }
 
@@ -290,7 +303,10 @@ impl SpinitronModel for Persona {
 
 impl SpinitronModel for Show {
 	fn get_id(&self) -> SpinitronModelId {self.id}
-	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {(Some(&self.start), Some(&self.end))}
+
+	fn extract_raw_time_range(&self) -> (Option<&str>, Option<&str>) {
+		(Some(&self.start), Some(&self.end))
+	}
 
 	// This function is not used at the moment
 	fn to_string(&self, _: ModelAgeState) -> Cow<str> {
@@ -328,7 +344,13 @@ impl Playlist {
 
 impl Persona {
 	pub async fn get(api_key: &str, playlist: &Playlist) -> GenericResult<Self> {
-		get_model_from_id(api_key, Some(playlist.persona_id)).await
+		let mut persona: Persona = get_model_from_id(api_key, Some(playlist.persona_id)).await?;
+
+		// Copy over the playlist start/end, since a persona should have one too (it doesn't have one given to it by Spinitron)
+		persona.start_from_associated_playlist = playlist.start.clone();
+		persona.end_from_associated_playlist = playlist.end.clone();
+
+		Ok(persona)
 	}
 }
 
@@ -392,7 +414,7 @@ pub struct Playlist {
 	// url: MaybeString, // TODO: maybe remove this
 	// hide_dj: MaybeUint, // 0 or 1
 	image: MaybeString,
-	automation: MaybeUint, // 0 or 1
+	automation: MaybeUint // 0 or 1
 	// episode_name: MaybeString,
 	// episode_description: MaybeString
 });
@@ -407,14 +429,22 @@ pub struct Persona {
 	// since: MaybeUint,
 	// email: String, // If there's no email, it will be `""`
 	// website: MaybeString, // If there's no website, it will be `None` or `Some("")`
-	image: MaybeString //  If there's no website, it will be `None`
+	image: MaybeString, // If there's no image, it will be `None`
+
+	////////// These are the fields that I added after the fact
+
+	#[serde(default)]
+	start_from_associated_playlist: String,
+
+	#[serde(default)]
+	end_from_associated_playlist: String
 });
 
 derive_spinitron_model_props!(
 pub struct Show {
 	id: SpinitronModelId, // Note: some shows will have the same IDS, but different times (e.g. WBOR's Commodore 64)
 	start: String,
-	end: String,
+	end: String
 	// duration: Uint,
 	// timezone: String,
 	// one_off: Bool,
