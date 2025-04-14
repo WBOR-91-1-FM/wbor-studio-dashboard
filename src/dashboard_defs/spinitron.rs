@@ -192,10 +192,12 @@ pub fn make_spinitron_windows(
 		let index = *params.window.get_state::<usize>();
 		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 
-		*params.window.get_contents_mut() = if let Some(handle) = inner_shared_state.spinitron_state.get_historic_spin_at_index(
+		let maybe_spin_texture = inner_shared_state.spinitron_state.get_historic_spin_at_index(
 			index, params.area_drawn_to_screen
-		) {
-			WindowContents::Texture(handle)
+		);
+
+		*params.window.get_contents_mut() = if let Some(texture) = maybe_spin_texture {
+			WindowContents::Texture(texture)
 		}
 		else {
 			WindowContents::Nothing
