@@ -934,6 +934,17 @@ impl<'a> TexturePool<'a> {
 	//////////
 
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
+		/*
+		TODO: introduce an optimization for texture loading that works like this:
+		1. A new `TextureCreationInfo` variant called `PreloadedSurface`, that contains the info for a surface loaded on another task (probably via `spawn_blocking`)
+		2. Load surfaces in on other tasks (provide bytes via `RWops`), and then, since surfaces aren't `Send`, serialize them to some other type (which would be contained within `PreloadedSurface`)
+		3. Send those `PreloadedSurface`s over to the main thread when it's time to load, and directly write the pixel data into an allocated texture (or, make a surface, and then convert that to a texture); regardless, ensure that a fast pixel format is used
+
+		This would be useful, since texture loading is still pretty slow, partly because compressed formats like `.png` have to
+		be decoded, and have their formats/pixel orders converted in various ways. This is the majority of the performance impact
+		when loading in textures.
+		*/
+
 		match creation_info {
 			// Use this whenever possible (whenever you can preload data into byte form)!
 			TextureCreationInfo::RawBytes(bytes) =>
