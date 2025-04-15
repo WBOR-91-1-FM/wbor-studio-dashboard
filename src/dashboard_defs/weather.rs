@@ -33,7 +33,11 @@ use crate::{
 	}
 };
 
-// TODO: could emoji-based forecasting work with the `ApiHistoryList` type?
+/*
+TODO:
+- Could emoji-based forecasting work with the `ApiHistoryList` type?
+- Indicate stale data from the cache somehow?
+*/
 
 lazy_static::lazy_static!(
 	// Based on the weather codes from here: https://docs.tomorrow.io/reference/weather-data-layers
@@ -189,10 +193,13 @@ fn weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 
 	//////////
 
-	/* This snippet finds the closest weather prediction interval to the current time.
-	TODO: perhaps interpolate to update the weather even more in real-time?
-	TODO: perhaps just index directly into the interval array, assuming that enough entries exist
-	for that to be possible, and that all of the intervals are spaced evenly timewise? */
+	/* The snippet below finds the closest weather prediction interval to the current time.
+
+	TODO:
+	- Maybe interpolate to update the weather even more in real-time?
+	- Maybe just index directly into the interval array, assuming that enough entries exist,
+		and that they're spaced equally timewise (sort the intervals before though)? */
+
 	let maybe_closest_interval = api_state.curr_weather_info
 		.iter().min_by_key(|(interval_time, ..)| {
 			/* Getting the absolute value to get an absolute distance to the current time
