@@ -943,6 +943,8 @@ impl<'a> TexturePool<'a> {
 		This would be useful, since texture loading is still pretty slow, partly because compressed formats like `.png` have to
 		be decoded, and have their formats/pixel orders converted in various ways. This is the majority of the performance impact
 		when loading in textures.
+
+		With this, probably add some code into this function that emits a warning whenever texture creation takes too long here (e.g. over 10ms).
 		*/
 
 		match creation_info {
