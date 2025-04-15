@@ -342,10 +342,7 @@ impl Window {
 						canvas.rounded_rectangle(x1, y1, x2, y2, border_radius, border_color).to_generic()
 
 						// I did this before:
-						/*
-						possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
-							|canvas| canvas.draw_frect(uncorrected_screen_dest.into()).to_generic())?;
-						*/
+						// canvas.draw_frect(uncorrected_screen_dest.into()).to_generic()
 					}
 				)?;
 			}
