@@ -17,7 +17,7 @@ use crate::{
 		dynamic_optional::DynamicOptional
 	},
 
-	window_tree::{ColorSDL, WindowContents, WindowUpdaterParams, Window},
+	window_tree::{WindowBorderInfo, WindowContents, WindowUpdaterParams, Window},
 
 	texture::{
 		subpool_manager::TextureSubpoolManager,
@@ -318,17 +318,17 @@ impl<Key: PartialEq + Eq + Hash + Clone, NonNative, Native,
 
 pub fn make_api_history_list_window(
 	overall_tl: Vec2f, overall_size: Vec2f, subwindow_size: Vec2f,
-	maybe_border_color: Option<ColorSDL>,
+	border_info: WindowBorderInfo,
 	item_updater_fns: &[(fn(WindowUpdaterParams) -> MaybeError, UpdateRate)],
-	subwindow_info: impl Iterator<Item = (Vec2f, Option<ColorSDL>)> // Top left, and maybe border color
+	subwindow_info: impl Iterator<Item = (Vec2f, WindowBorderInfo)> // Top left, and border info
 ) -> Window {
 
-	let subwindows = subwindow_info.enumerate().map(|(i, (tl, maybe_border_color))|
+	let subwindows = subwindow_info.enumerate().map(|(i, (tl, border_info))|
 		Window::new(
 			item_updater_fns.to_vec(),
 			DynamicOptional::new(i),
 			WindowContents::Nothing,
-			maybe_border_color,
+			border_info,
 			tl,
 			subwindow_size,
 			vec![]
@@ -339,7 +339,7 @@ pub fn make_api_history_list_window(
 		vec![],
 		DynamicOptional::NONE,
 		WindowContents::Nothing,
-		maybe_border_color,
+		border_info,
 		overall_tl,
 		overall_size,
 		subwindows

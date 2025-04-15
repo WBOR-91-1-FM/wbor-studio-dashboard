@@ -137,7 +137,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 		text_color,
 		scroll_easer: easing_fns::scroll::LEFT_LINEAR,
 		update_rate,
-		maybe_border_color: None,
+		border_info: None,
 		scroll_speed_multiplier: 1.0
 	};
 

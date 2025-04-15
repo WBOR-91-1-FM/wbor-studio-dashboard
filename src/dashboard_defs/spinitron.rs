@@ -28,6 +28,7 @@ use crate::{
 		ColorSDL,
 		WindowContents,
 		WindowUpdaters,
+		WindowBorderInfo,
 		WindowUpdaterParams
 	},
 
@@ -42,7 +43,7 @@ struct SpinitronModelWindowState {
 pub struct SpinitronModelWindowInfo {
 	pub tl: Vec2f,
 	pub size: Vec2f,
-	pub border_color: Option<ColorSDL>
+	pub border_info: WindowBorderInfo
 }
 
 pub struct SpinitronModelWindowsInfo {
@@ -59,7 +60,7 @@ pub fn make_spinitron_windows(
 	view_refresh_update_rate: UpdateRate,
 
 	history_tl: Vec2f, history_size: Vec2f,
-	history_border_color: Option<ColorSDL>,
+	history_border_info: WindowBorderInfo,
 	num_spins_shown_in_history: usize,
 	rand_generator: &mut rand::rngs::ThreadRng) -> Vec<Window> {
 
@@ -168,7 +169,7 @@ pub fn make_spinitron_windows(
 					}),
 
 					WindowContents::Nothing,
-					info.border_color,
+					info.border_info,
 					info.tl,
 					info.size,
 					vec![]
@@ -210,7 +211,7 @@ pub fn make_spinitron_windows(
 		history_tl,
 		history_size,
 		subwindow_size,
-		history_border_color,
+		history_border_info,
 		&[(spin_history_item_updater_fn, view_refresh_update_rate)],
 
 		(0..num_spins_shown_in_history).map(|i| {

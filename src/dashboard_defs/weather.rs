@@ -21,9 +21,10 @@ use crate::{
 	},
 
 	window_tree::{
-		ColorSDL,
 		Window,
+		ColorSDL,
 		WindowContents,
+		WindowBorderInfo,
 		WindowUpdaterParams
 	},
 
@@ -261,7 +262,7 @@ fn weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 pub fn make_weather_window(
 	api_key: &str, update_rate_creator: UpdateRateCreator,
 	top_left: Vec2f, size: Vec2f,
-	text_color: ColorSDL, border_color: ColorSDL,
+	text_color: ColorSDL, border_info: WindowBorderInfo,
 	background_contents: WindowContents,
 	maybe_remake_transition_info: Option<RemakeTransitionInfo>
 ) -> Window {
@@ -295,7 +296,7 @@ pub fn make_weather_window(
 
 		DynamicOptional::new(weather_state),
 		background_contents,
-		Some(border_color),
+		border_info,
 		top_left,
 		size,
 		vec![]

@@ -1,4 +1,8 @@
-use sdl2::{self, rect::FRect};
+use sdl2::{
+	self,
+	rect::FRect,
+	gfx::primitives::DrawRenderer
+};
 
 use crate::{
 	texture::pool::{
@@ -134,6 +138,9 @@ impl WindowContents {
 
 //////////
 
+// Maybe color and border radius
+pub type WindowBorderInfo = Option<(ColorSDL, i16)>;
+
 pub struct Window {
 	updaters: WindowUpdaters,
 	state: DynamicOptional,
@@ -146,7 +153,7 @@ pub struct Window {
 	correction will never happen. */
 	skip_aspect_ratio_correction: bool,
 
-	maybe_border_color: Option<ColorSDL>,
+	border_info: WindowBorderInfo,
 
 	// TODO: Make a fn to move a window in some direction (in a FPS-independent way)
 	top_left: Vec2f,
@@ -185,7 +192,7 @@ impl Window {
 		updaters: WindowUpdaters,
 		state: DynamicOptional,
 		contents: WindowContents,
-		maybe_border_color: Option<ColorSDL>,
+		border_info: WindowBorderInfo,
 		top_left: Vec2f, size: Vec2f,
 		children: Vec<Self>) -> Self {
 
@@ -195,7 +202,7 @@ impl Window {
 			updaters, state, contents,
 			skip_drawing: false,
 			skip_aspect_ratio_correction: false,
-			maybe_border_color,
+			border_info,
 			top_left, size,
 			children
 		}
@@ -320,10 +327,27 @@ impl Window {
 			self.skip_aspect_ratio_correction
 		)?;
 
-		if let Some(border_color) = &self.maybe_border_color {
-			if rendering_params.draw_borders {
+		if rendering_params.draw_borders {
+			if let Some((border_color, border_radius)) = self.border_info {
+				let (x1, y1, x2, y2) = (
+					uncorrected_screen_dest.x as i16,
+					uncorrected_screen_dest.y as i16,
+					uncorrected_screen_dest.x as i16 + uncorrected_screen_dest.width as i16,
+					uncorrected_screen_dest.y as i16 + uncorrected_screen_dest.height as i16
+				);
+
 				possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
-					|canvas| canvas.draw_frect(uncorrected_screen_dest.into()).to_generic())?;
+					|canvas| {
+						// TODO: can I somehow cut off objects drawn inside/outside the border
+						canvas.rounded_rectangle(x1, y1, x2, y2, border_radius, border_color).to_generic()
+
+						// I did this before:
+						/*
+						possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
+							|canvas| canvas.draw_frect(uncorrected_screen_dest.into()).to_generic())?;
+						*/
+					}
+				)?;
 			}
 		}
 
@@ -348,7 +372,7 @@ impl Window {
 				WindowContents::Nothing => {},
 
 				WindowContents::Color(color) => possibly_draw_with_transparency(
-					color, sdl_canvas, |canvas| {
+					*color, sdl_canvas, |canvas| {
 						canvas.fill_frect::<FRect>(uncorrected_screen_dest.into()).to_generic()
 					})?,
 
@@ -361,7 +385,7 @@ impl Window {
 							PointSDL::new(xy.0 as f32, xy.1 as f32)
 						}).collect();
 
-						possibly_draw_with_transparency(&series.0, sdl_canvas, |canvas|
+						possibly_draw_with_transparency(series.0, sdl_canvas, |canvas|
 							canvas.draw_flines(&*converted_series).to_generic()
 						)?;
 					}
@@ -390,7 +414,7 @@ impl Window {
 
 		////////// A function for drawing colors with transparency
 
-		fn possibly_draw_with_transparency(color: &ColorSDL, sdl_canvas: &mut CanvasSDL,
+		fn possibly_draw_with_transparency(color: ColorSDL, sdl_canvas: &mut CanvasSDL,
 			mut drawer: impl FnMut(&mut CanvasSDL) -> MaybeError) -> MaybeError {
 
 			use sdl2::render::BlendMode;
@@ -399,7 +423,7 @@ impl Window {
 
 			// TODO: make this state transition more efficient
 			if use_blending {sdl_canvas.set_blend_mode(BlendMode::Blend);}
-				sdl_canvas.set_draw_color(*color);
+				sdl_canvas.set_draw_color(color);
 				drawer(sdl_canvas)?;
 			if use_blending {sdl_canvas.set_blend_mode(BlendMode::None);}
 

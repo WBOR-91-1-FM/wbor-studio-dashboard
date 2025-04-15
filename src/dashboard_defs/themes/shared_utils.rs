@@ -182,7 +182,7 @@ pub async fn make_creation_info_for_static_texture_set(all_info: &StaticTextureS
 }
 
 pub fn add_static_texture_set(set: &mut Vec<Window>, all_info: &StaticTextureSetInfo,
-	all_creation_info: &[TextureCreationInfo<'_>], texture_pool: &mut TexturePool<'_>) {
+	all_creation_info: &[TextureCreationInfo], texture_pool: &mut TexturePool) {
 
 	set.extend(all_info.iter().zip(all_creation_info).map(
 		|(&(_, tl, size, skip_ar_correction), creation_info)| {

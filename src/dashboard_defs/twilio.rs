@@ -23,7 +23,13 @@ use crate::{
 		shared_window_state::SharedWindowState,
 	},
 
-	window_tree::{ColorSDL, Window, WindowContents, WindowUpdaterParams},
+	window_tree::{
+		Window,
+		ColorSDL,
+		WindowContents,
+		WindowBorderInfo,
+		WindowUpdaterParams
+	},
 
 	texture::{
 		subpool_manager::TextureSubpoolManager,
@@ -553,7 +559,7 @@ pub fn make_twilio_window(
 	top_box_height: f64,
 	top_box_contents: WindowContents,
 	message_background_contents_text_crop_factor: Vec2f,
-	overall_border_color: Option<ColorSDL>, text_color: ColorSDL,
+	overall_border_info: WindowBorderInfo, text_color: ColorSDL,
 	message_background_contents: WindowContents) -> Window {
 
 	struct TwilioHistoryWindowState {
@@ -740,7 +746,7 @@ pub fn make_twilio_window(
 		vec![],
 		DynamicOptional::NONE,
 		WindowContents::Nothing,
-		overall_border_color,
+		overall_border_info,
 		top_left,
 		size,
 		all_subwindows

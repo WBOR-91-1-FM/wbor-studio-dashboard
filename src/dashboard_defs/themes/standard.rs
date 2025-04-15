@@ -19,8 +19,8 @@ use crate::{
 	},
 
 	window_tree::{
-		ColorSDL,
 		Window,
+		ColorSDL,
 		WindowContents
 	},
 
@@ -71,8 +71,10 @@ pub async fn make_dashboard(
 	let main_windows_gap_size = 0.01;
 
 	let mut rand_generator = rand::thread_rng();
-	let theme_color_1 = ColorSDL::RGB(249, 236, 210);
 	let api_keys: ApiKeys = file_utils::load_json_from_file("assets/api_keys.json").await?;
+
+	let (theme_color_1, theme_border_radius_1) = (ColorSDL::RGB(249, 236, 210), 8);
+	let theme_border_info_1 = Some((theme_color_1, theme_border_radius_1));
 
 	let shared_api_update_rate = Duration::seconds(15);
 	let streaming_server_status_api_update_rate = Duration::seconds(20);
@@ -116,13 +118,13 @@ pub async fn make_dashboard(
 			texture_window: Some(SpinitronModelWindowInfo {
 				tl: spin_tl,
 				size: spin_size,
-				border_color: Some(theme_color_1)
+				border_info: theme_border_info_1
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
 				tl: spin_text_tl,
 				size: spin_text_size,
-				border_color: Some(theme_color_1)
+				border_info: theme_border_info_1
 			})
 		},
 
@@ -133,13 +135,13 @@ pub async fn make_dashboard(
 			texture_window: Some(SpinitronModelWindowInfo {
 				tl: playlist_tl,
 				size: playlist_size,
-				border_color: Some(theme_color_1)
+				border_info: theme_border_info_1
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
 				tl: playlist_text_tl,
 				size: playlist_text_size,
-				border_color: Some(theme_color_1)
+				border_info: theme_border_info_1
 			})
 		},
 
@@ -158,13 +160,13 @@ pub async fn make_dashboard(
 			texture_window: Some(SpinitronModelWindowInfo {
 				tl: persona_tl,
 				size: persona_size,
-				border_color: Some(theme_color_1)
+				border_info: theme_border_info_1
 			}),
 
 			text_window: Some(SpinitronModelWindowInfo {
 				tl: persona_text_tl,
 				size: Vec2f::new(persona_size.x(), persona_text_height),
-				border_color: Some(theme_color_1)
+				border_info: theme_border_info_1
 			})
 		}
 	];
@@ -240,7 +242,7 @@ pub async fn make_dashboard(
 		Vec2f::ZERO,
 		Vec2f::new(0.4, 0.3),
 
-		theme_color_1, theme_color_1,
+		theme_color_1, theme_border_info_1,
 		WindowContents::Nothing,
 
 		Some(RemakeTransitionInfo::new(
@@ -302,19 +304,19 @@ pub async fn make_dashboard(
 		WindowContents::Color(ColorSDL::RGB(0, 200, 0)),
 
 		Vec2f::new(0.1, 0.45),
-		Some(theme_color_1), theme_color_1,
+		theme_border_info_1, theme_color_1,
 
 		WindowContents::make_texture_contents(&twilio_message_background_contents_creation_info, texture_pool)?
 	);
 
 	////////// Making a credit window
 
-	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'");
+	let credit_message = format!("By Caspian Ahlberg, release #{num_commits}, on branch '{branch_name}'"); // TODO: include the theme name in this?
 
 	let credit_window = make_credit_window(
 		Vec2f::new(0.85, 0.97),
 		Vec2f::new(0.15, 0.03),
-		ColorSDL::RED,
+		Some((ColorSDL::RED, theme_border_radius_1)),
 		ColorSDL::RGB(210, 180, 140),
 		credit_message
 	);
@@ -378,7 +380,7 @@ pub async fn make_dashboard(
 			).collect()
 		),
 
-		Some(theme_color_1),
+		theme_border_info_1,
 		Vec2f::new(main_windows_gap_size, main_window_tl_y),
 		Vec2f::new(x_width_from_main_window_gap_size, main_window_size_y),
 		all_main_windows

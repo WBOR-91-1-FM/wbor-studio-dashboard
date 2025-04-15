@@ -10,6 +10,7 @@ use crate::{
 		Window,
 		ColorSDL,
 		WindowContents,
+		WindowBorderInfo,
 		WindowUpdaterParams
 	},
 
@@ -21,7 +22,7 @@ use crate::{
 };
 
 pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
-	border_color: ColorSDL, text_color: ColorSDL, text: String) -> Window {
+	border_info: WindowBorderInfo, text_color: ColorSDL, text: String) -> Window {
 
 	type CreditWindowState = String;
 
@@ -51,7 +52,7 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
 		scroll_easer: easing_fns::scroll::OSCILLATE_NO_WRAP,
 		scroll_speed_multiplier: 1.75,
 		update_rate: UpdateRate::ALMOST_NEVER,
-		maybe_border_color: Some(border_color)
+		border_info
 	};
 
 	updatable_text_pattern::make_window(fields, top_left, size, WindowContents::Nothing)

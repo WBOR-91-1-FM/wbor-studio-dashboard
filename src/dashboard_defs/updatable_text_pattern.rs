@@ -10,6 +10,7 @@ use crate::{
 		Window,
 		ColorSDL,
 		WindowContents,
+		WindowBorderInfo,
 		WindowUpdaterParams
 	},
 
@@ -42,7 +43,7 @@ pub struct UpdatableTextWindowFields<IndividualState> {
 	pub scroll_easer: TextTextureScrollEaser,
 	pub scroll_speed_multiplier: f64,
 	pub update_rate: UpdateRate,
-	pub maybe_border_color: Option<ColorSDL>
+	pub border_info: WindowBorderInfo
 }
 
 //////////
@@ -94,7 +95,7 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 		vec![(updater_fn::<IndividualState>, fields.update_rate)],
 		DynamicOptional::new(fields.clone()),
 		initial_contents,
-		fields.maybe_border_color,
+		fields.border_info,
 		top_left,
 		size,
 		vec![]

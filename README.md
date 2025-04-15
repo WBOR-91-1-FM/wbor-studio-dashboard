@@ -20,13 +20,13 @@
 - `homebrew` (macOS):
 
 ```sh
-brew install rust sdl2 sdl2_image sdl2_ttf
+brew install rust sdl2 sdl2_image sdl2_ttf sdl2_gfx
 ```
 
 - `dnf` (Fedora):
 
 ```sh
-sudo dnf install rust cargo SDL2-devel SDL2_image-devel SDL2_ttf-devel
+sudo dnf install rust cargo SDL2-devel SDL2_image-devel SDL2_ttf-devel SDL2_gfx-devel
 ```
 
 - `apt-get` (Raspbian, Debian, and many others):
@@ -34,7 +34,7 @@ sudo dnf install rust cargo SDL2-devel SDL2_image-devel SDL2_ttf-devel
 ```sh
 # Doing the second line just because `apt-get` only has an outdated version of the toolchain:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
+sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-gfx-dev
 ```
 
 ---
