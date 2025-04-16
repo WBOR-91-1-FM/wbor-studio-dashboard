@@ -332,8 +332,8 @@ impl Window {
 				let (x1, y1, x2, y2) = (
 					uncorrected_screen_dest.x as i16,
 					uncorrected_screen_dest.y as i16,
-					uncorrected_screen_dest.x as i16 + uncorrected_screen_dest.width as i16,
-					uncorrected_screen_dest.y as i16 + uncorrected_screen_dest.height as i16
+					(uncorrected_screen_dest.x + uncorrected_screen_dest.width) as i16,
+					(uncorrected_screen_dest.y + uncorrected_screen_dest.height) as i16
 				);
 
 				possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
