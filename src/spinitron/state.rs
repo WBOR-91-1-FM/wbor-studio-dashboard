@@ -18,8 +18,8 @@ use crate::{
 		file_utils,
 		hash::hash_obj,
 		generic_result::*,
-		continually_updated::{ContinuallyUpdatable, ContinuallyUpdated, ContinuallyUpdatedState},
-		api_history_list::{APIHistoryList, ApiHistoryListTraits, ApiHistoryListTextureManager}
+		api_history_list::{APIHistoryList, ApiHistoryListTraits, ApiHistoryListTextureManager},
+		continually_updated::{ContinuallyUpdatable, ContinuallyUpdated, ContinuallyUpdatedState}
 	},
 
 	spinitron::{
@@ -148,11 +148,7 @@ impl ApiHistoryListTraits<SpinitronModelId, Spin, Spin> for SpinHistoryListTrait
 
 	async fn get_texture_creation_info(&self, spin: Arc<Spin>) -> Arc<TextureCreationInfo<'static>> {
 		let maybe_info = spin.get_texture_creation_info(ModelAgeState::CurrentlyActive, self.item_texture_size);
-
-		let bytes = get_model_texture_bytes(
-			maybe_info, self.get_fallback_texture_creation_info
-		).await.unwrap(); // This expects that the fallback texture will work (otherwise, we have a serious issue!)
-
+		let bytes = get_model_texture_bytes(maybe_info, self.get_fallback_texture_creation_info).await;
 		Arc::new(TextureCreationInfo::RawBytes(Cow::Owned(bytes)))
 	}
 }
@@ -198,9 +194,10 @@ type SpinitronStateDataParams<'a> = (
 
 //////////
 
+// This is expected to never fail (the fallback must succeed)
 async fn get_model_texture_bytes(
 	texture_creation_info: MaybeTextureCreationInfo<'_>,
-	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>) -> GenericResult<Vec<u8>> {
+	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>) -> Vec<u8> {
 
 	async fn load_texture_creation_info_bytes(info: &TextureCreationInfo<'_>) -> GenericResult<Vec<u8>> {
 		/* I am doing this to speed up the loading of textures on the main
@@ -227,12 +224,12 @@ async fn get_model_texture_bytes(
 	let info = texture_creation_info.unwrap_or_else(get_fallback_texture_creation_info);
 
 	match load_texture_creation_info_bytes(&info).await {
+		Ok(info) => info,
+
 		Err(err) => {
 			log::warn!("Reverting to fallback texture for Spinitron model. Error: '{err}'");
-			load_texture_creation_info_bytes(&get_fallback_texture_creation_info()).await
+			load_texture_creation_info_bytes(&get_fallback_texture_creation_info()).await.unwrap()
 		},
-
-		info => info
 	}
 }
 
@@ -309,10 +306,7 @@ impl SpinitronStateData {
 			let get_fallback_texture_creation_info =
 				self.spin_history_list.get_implementer().get_fallback_texture_creation_info;
 
-			Arc::new(
-				get_model_texture_bytes(texture_creation_info, get_fallback_texture_creation_info)
-				.await.unwrap()
-			)
+			Arc::new(get_model_texture_bytes(texture_creation_info, get_fallback_texture_creation_info).await)
 		}
 		else {
 			prev_entry.texture_bytes.clone()
