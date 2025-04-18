@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+
 use crate::utility_types::generic_result::*;
 
 //////////
@@ -60,4 +61,24 @@ pub async fn as_type<T: for<'de> serde::Deserialize<'de>>(response: impl std::fu
 	let unpacked_response = response.await?;
 	let text = unpacked_response.text().await?;
 	serde_json::from_str(&text).to_generic()
+}
+
+// TODO: how could I make it an exact-sized iterator, to print out the URL index over the total count?
+pub async fn get_as_type_with_fallbacks(urls: impl Iterator<Item = impl AsRef<str>>, description: &str)
+	-> GenericResult<(serde_json::Value, impl AsRef<str>)> {
+
+	for (i, url) in urls.enumerate() {
+		match as_type(get(url.as_ref())).await {
+			Ok(json) => {
+				return Ok((json, url));
+			}
+
+			Err(err) => {
+				log::warn!("Got an error from {description} URL #{}: '{err}'.", i + 1);
+				continue;
+			}
+		};
+	}
+
+	error_msg!("None of the {description} URLs worked!")
 }

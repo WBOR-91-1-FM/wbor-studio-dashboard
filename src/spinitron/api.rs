@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use futures::TryFutureExt;
+
 use crate::{
 	request,
 	utility_types::generic_result::*,
@@ -69,10 +71,15 @@ async fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 
 	////////// Building a URL, submitting the request, and getting the response JSON
 
-	/* TODO: later on, cache this URL for the specific request (otherwise, a lot of time is spent rebuilding it).
-	Actually, don't do that, build the URL, and then cache the request itself (it will then be resent other times). */
-	let url = request::build_url("https://spinitron.com/api", &path_params, &query_params);
-	request::as_type(request::get(&url)).await
+	// Try the proxy URL first, and then try the standard Spinitron API URL
+	const BASE_URLS: [&str; 2] = ["https://api-1.wbor.org/api", "https://spinitron.com/api"];
+
+	// TODO: can I cache these URLs later on, to avoid rebuilding them? Or, perhaps cache the underlying built request object...
+	let fallbacks = BASE_URLS.iter().map(|base_url| {
+		request::build_url(base_url, &path_params, &query_params)
+	});
+
+	request::get_as_type_with_fallbacks(fallbacks, "Spinitron").map_ok(|(json, _)| json).await
 }
 
 fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Value) -> GenericResult<Vec<T>> {

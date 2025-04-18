@@ -363,6 +363,7 @@ impl SpinitronStateData {
 				api_key, self.spin_history_list.get_max_items()
 			).await?;
 
+			// This will be true the first time (since the old id will be 0)
 			if maybe_new_spin.get_id() != self.spin.get_id() {
 				self.spin = Arc::new(maybe_new_spin);
 			}
@@ -380,6 +381,7 @@ impl SpinitronStateData {
 			since the spin may not belong to a playlist under automation). */
 			let maybe_new_playlist = Playlist::get(api_key).await?;
 
+			// This will be true the first time (since the old id will be 0)
 			if maybe_new_playlist.get_id() != self.playlist.get_id() {
 				/* Step 4: get the persona id based on the playlist id (since otherwise, you'll
 				just get some persona that's first in Spinitron's internal list of personas. */
@@ -392,9 +394,10 @@ impl SpinitronStateData {
 
 		let show_future = async {
 			let curr_minutes = get_local_time().minute();
+			let show_not_initialized_yet = self.show.get_id() == 0;
 
 			// Shows can only be scheduled under 30-minute intervals (will not switch immediately if added sporadically)
-			if curr_minutes == 0 || curr_minutes == 30 {
+			if curr_minutes == 0 || curr_minutes == 30 || show_not_initialized_yet {
 				/* Step 5: get the current show id (based on what's on the
 				schedule, irrespective of what show was last on).
 				This is not in the branch above, since the show should
@@ -407,11 +410,7 @@ impl SpinitronStateData {
 
 		//////////
 
-		tokio::try_join!(
-			spin_future,
-			playlist_and_persona_future,
-			show_future
-		)?;
+		tokio::try_join!(spin_future, playlist_and_persona_future, show_future)?;
 
 		Ok(())
 	}

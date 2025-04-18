@@ -44,7 +44,7 @@ The `Native` one is one which is has been evaluated to a proper type. */
 pub trait ApiHistoryListTraits<Key, NonNative, Native> {
 	fn may_need_to_sort_api_results(&self) -> bool;
 
-	fn get_key_from_non_native_item(&self, item: &NonNative) -> Key;
+	fn get_key_from_non_native_item(&self, item: &NonNative) -> Key; // TODO: could I return `AsRef<Key>` instead, or wrap an `Arc` around it?
 	fn get_timestamp_from_non_native_item(&self, item: &NonNative) -> ReferenceTimestamp;
 
 	fn native_item_is_expired(&self, item: &Native) -> bool;
@@ -160,13 +160,17 @@ impl<Key: PartialEq + Eq + Hash + Copy,
 					local_entry.index = api_result_index; // Update the index, in case things shifted
 					local_entry.just_updated = self.implementer.action_when_updating_local(&mut local_entry.item, api_result);
 
-					// TODO: perhaps put an `Arc` around the key?
-					let cloned_key = *local_key;
-					let texture_creation_info = self.implementer.get_texture_creation_info(local_entry.item.clone());
+					// I can't believe I didn't have this change before! Why???
+					if local_entry.just_updated {
+						let cloned_key = *local_key;
+						let cloned_item = local_entry.item.clone();
 
-					texture_creation_info_update_set.push(async move {
-						(cloned_key, texture_creation_info.await)
-					});
+						let texture_creation_info = self.implementer.get_texture_creation_info(cloned_item);
+
+						texture_creation_info_update_set.push(async move {
+							(cloned_key, texture_creation_info.await)
+						});
+					}
 
 					return true;
 				}
@@ -176,7 +180,7 @@ impl<Key: PartialEq + Eq + Hash + Copy,
 
 			// Remove locals that are not in the offshore
 			self.implementer.action_when_expired(&local_entry.item);
-			false
+			false // Return false, since we're not retaining the local
 		});
 
 		// Updating the texture creation info for just-updated entries (TODO: can I do this in a more elegant way?)

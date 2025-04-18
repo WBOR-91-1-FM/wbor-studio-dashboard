@@ -109,15 +109,15 @@ impl ContinuallyUpdatable for WeatherApiState {
 
 		////////// If necessary, build the request URL from the API key (the API key is only supplied in the beginning).
 
-		// Here's the code behind the proxy: `https://github.com/WBOR-91-1-FM/wbor-weather-proxy`
-		const PROXY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
-
 		if self.request_urls.is_none() {
 			/* Unwrapping on this because:
 			- The API key is only passed on the first call to this
 			- If the API call failed and returned via `?`, the second time around, the API key will be `None` (which will lead to a second panic) */
 			let curr_location_json: serde_json::Value = request::as_type(request::get("https://ipinfo.io/json")).await.unwrap();
 			let location = &curr_location_json["loc"].as_str().expect("No location field available!");
+
+			// Here's the code behind the proxy: `https://github.com/WBOR-91-1-FM/wbor-weather-proxy`
+			const PROXY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
 
 			let fallback_request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
 				&[],
@@ -136,45 +136,40 @@ impl ContinuallyUpdatable for WeatherApiState {
 
 		////////// Now, request the API
 
-		let request_urls = self.request_urls.as_ref().unwrap();
-		let num_request_urls = request_urls.len();
+		let request_url_iterator = self.request_urls.as_ref().unwrap().iter();
 
-		for (i, request_url) in request_urls.iter().enumerate() {
-			let all_info_json: serde_json::Value = match request::as_type(request::get(request_url)).await {
-				Ok(info) => info,
+		let (all_info_json, url) = request::get_as_type_with_fallbacks(
+			request_url_iterator, "weather info"
+		).await?;
 
-				Err(err) => {
-					log::warn!("Could not get weather info from URL #{} (out of {num_request_urls}): '{err}'.", i + 1);
-					continue;
-				}
-			};
+		// Note: the intervals are a series of weather predictions from this point on, spaced per some time amount.
+		let intervals = &all_info_json["data"]["timelines"][0]["intervals"];
 
-			// Note: the intervals are a series of weather predictions from this point on, spaced per some time amount.
-			let intervals = &all_info_json["data"]["timelines"][0]["intervals"];
+		self.curr_weather_info = intervals.as_array().unwrap().iter().filter_map(|interval| {
+			let values = &interval["values"];
 
-			self.curr_weather_info = intervals.as_array().unwrap().iter().filter_map(|interval| {
-				let values = &interval["values"];
+			let maybe_interval_fields = (
+				interval["startTime"].as_str(), values["temperature"].as_f64(), values["weatherCode"].as_i64()
+			);
 
-				let maybe_interval_fields = (
-					interval["startTime"].as_str(), values["temperature"].as_f64(), values["weatherCode"].as_i64()
+			if let (Some(timestamp), Some(temperature), Some(associated_code)) = maybe_interval_fields {
+				let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code as u16)).unwrap();
+				let timestamp: ReferenceTimestamp = parse_time_from_rfc3339(timestamp).unwrap().into();
+				Some((timestamp, (temperature as f32, *weather_code_descriptor, *associated_emoji)))
+			}
+			else {
+				let conv_url = url.as_ref();
+
+				// This happened once, and I don't know why. I'm trying to catch the bug like this!
+				log::error!("The weather API didn't give back its needed fields, for some weird reason. \
+					URL: '{conv_url}'. Fields: '{maybe_interval_fields:?}'. The whole interval: '{interval:?}'."
 				);
 
-				if let (Some(timestamp), Some(temperature), Some(associated_code)) = maybe_interval_fields {
-					let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code as u16)).unwrap();
-					let timestamp: ReferenceTimestamp = parse_time_from_rfc3339(timestamp).unwrap().into();
-					Some((timestamp, (temperature as f32, *weather_code_descriptor, *associated_emoji)))
-				}
-				else {
-					// This happened once, and I don't know why. I'm trying to catch the bug like this!
-					log::error!("The weather API didn't give back the needed fields, for some weird reason. URL: '{request_url}'. Fields: {maybe_interval_fields:?}. The whole interval: {interval:?}.");
-					None
-				}
-			}).collect();
+				None
+			}
+		}).collect();
 
-			return Ok(());
-		}
-
-		error_msg!("None of the weather API URLs worked!")
+		Ok(())
 	}
 }
 
