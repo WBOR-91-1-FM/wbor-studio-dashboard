@@ -146,6 +146,11 @@ struct TwilioStateData {
 // TODO: put the non-continually-updated fields in their own struct
 pub struct TwilioState {
 	continually_updated: ContinuallyUpdated<TwilioStateData>,
+	just_got_new_continual_data: bool, // This is for when a new Twilio update has arrived
+
+	// These are for when a request for an instant API update is made through IPC
+	do_instant_update: bool,
+	instant_update_socket_listener: IpcSocketListener,
 
 	/* This is not continually updated because the text history windows need to
 	be able to modify it directly. That is not possible with continually updated
@@ -155,14 +160,7 @@ pub struct TwilioState {
 	texture_subpool_manager: TextureSubpoolManager,
 	id_to_texture_map: SyncedMessageMap<TextureHandle>, // TODO: integrate the subpool manager into this with the searching operations
 	historically_sorted_messages_by_id: Vec<MessageID>, // TODO: avoid resorting with smart insertions and deletions?
-	maybe_remake_transition_info: Option<RemakeTransitionInfo>,
-
-	// This is for when a new Twilio update has arrived
-	just_got_new_continual_data: bool,
-
-	// These are for when a request for an instant API update is made through IPC
-	do_instant_update: bool,
-	instant_update_socket_listener: IpcSocketListener
+	maybe_remake_transition_info: Option<RemakeTransitionInfo>
 }
 
 //////////
@@ -424,15 +422,15 @@ impl TwilioState {
 
 		Ok(Self {
 			continually_updated: ContinuallyUpdated::new(data, (), "Twilio", api_update_rate),
-			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
-			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
-			historically_sorted_messages_by_id: Vec::new(),
-			maybe_remake_transition_info,
-
 			just_got_new_continual_data: false,
 
 			do_instant_update: false,
-			instant_update_socket_listener: make_ipc_socket_listener("twilio_instant_update").await?
+			instant_update_socket_listener: make_ipc_socket_listener("twilio_instant_update").await?,
+
+			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
+			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
+			historically_sorted_messages_by_id: Vec::new(),
+			maybe_remake_transition_info
 		})
 	}
 
