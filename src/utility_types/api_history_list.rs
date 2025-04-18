@@ -33,7 +33,7 @@ TODO:
 - In the end, maybe make an actual unit test for this code or something!
 - Eventually, test this code with a really big number of spins (like 200), to see how performance fares with that
 - Eake sure that every fn is used here
-- Perhaps remove `self` from some of the fns below later on?
+- Perhaps remove `self` from some of the fns below later on, along with other params, possibly?
 - Remove the commented-out print stmts (or neaten them up)
 - Could using a `VecDeque` somewhere improve performance? Maybe do some real benchmarking to see what I can do...
 */
