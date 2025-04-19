@@ -221,12 +221,6 @@ pub async fn make_dashboard(
 		view_refresh_update_rate, 3
 	);
 
-	let spinitron_state = SpinitronState::new(
-		(&api_keys.spinitron, get_fallback_texture_creation_info,
-		shared_api_update_rate, custom_model_expiry_durations, initial_spin_window_size_guess,
-		initial_spin_history_subwindow_size_guess, num_spins_shown_in_history)
-	);
-
 	let weather_and_credit_window_size = Vec2f::new(0.15, 0.03);
 
 	let weather_window = make_weather_window(
@@ -246,7 +240,8 @@ pub async fn make_dashboard(
 		))
 	);
 
-	let (num_commits, branch_name, surprise_window, twilio_state,
+	let (num_commits, branch_name, surprise_window,
+		spinitron_state, twilio_state,
 		twilio_message_background_contents_creation_info,
 		clock_dial_creation_info,
 		background_static_texture_creation_info,
@@ -259,6 +254,12 @@ pub async fn make_dashboard(
 		make_surprise_window(
 			Vec2f::ZERO, Vec2f::ONE, "surprises",
 			&ALL_SURPRISES, update_rate_creator, texture_pool
+		),
+
+		SpinitronState::new(
+			(&api_keys.spinitron, get_fallback_texture_creation_info,
+			shared_api_update_rate, custom_model_expiry_durations, initial_spin_window_size_guess,
+			initial_spin_history_subwindow_size_guess, num_spins_shown_in_history)
 		),
 
 		TwilioState::new(
@@ -288,7 +289,6 @@ pub async fn make_dashboard(
 
 	let twilio_window = make_twilio_window(
 		&twilio_state,
-		view_refresh_update_rate,
 		view_refresh_update_rate,
 
 		Vec2f::new(0.69, 0.52),

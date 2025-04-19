@@ -14,6 +14,7 @@ use crate::{
 	texture::pool::{TexturePool, TextureHandle, TextureCreationInfo},
 
 	utility_types::{
+		ipc::*,
 		time::*,
 		file_utils,
 		hash::hash_obj,
@@ -486,13 +487,14 @@ impl ContinuallyUpdatable for SpinitronStateData {
 pub struct SpinitronState {
 	continually_updated: ContinuallyUpdated<SpinitronStateData>,
 	just_got_new_continual_data: bool,
+	instant_update_socket_listener: IpcSocketListener,
 
 	history_list_texture_manager: ApiHistoryListTextureManager<SpinitronModelId, Spin, Spin, SpinHistoryListTraitImplementer>,
 	spin_history_texture_size: WindowSize
 }
 
 impl SpinitronState {
-	pub fn new(params: SpinitronStateDataParams) -> Self {
+	pub async fn new(params: SpinitronStateDataParams<'_>) -> GenericResult<Self> {
 		let (.., api_update_rate, _, initial_spin_texture_size_guess,
 			initial_spin_history_texture_size_guess, max_spin_history_items
 		) = params;
@@ -504,13 +506,15 @@ impl SpinitronState {
 			data, texture_size_guesses, "Spinitron", api_update_rate
 		);
 
-		Self {
+		Ok(Self {
 			continually_updated,
 			just_got_new_continual_data: false,
+			instant_update_socket_listener: make_ipc_socket_listener("spinitron_instant_update").await?,
 
 			history_list_texture_manager: ApiHistoryListTextureManager::new(max_spin_history_items, None),
 			spin_history_texture_size: initial_spin_history_texture_size_guess
-		}
+
+		})
 	}
 
 	fn make_correct_texture_size_from_window_size(window_size: WindowSize) -> WindowSize {
@@ -551,13 +555,16 @@ impl SpinitronState {
 
 	pub fn update(&mut self, spin_window_size: WindowSize, texture_pool: &mut TexturePool, error_state: &mut ErrorState) -> MaybeError {
 		let spin_texture_size = Self::make_correct_texture_size_from_window_size(spin_window_size);
+		let continual_param = (spin_texture_size, self.spin_history_texture_size);
 
-		//////////
+		////////// Check for an instant wakeup, and check if we got new continual data or not (TODO: deduplicate this from the Twilio code?)
 
-		let continual_state = self.continually_updated.update(
-			&(spin_texture_size, self.spin_history_texture_size), error_state
-		);
+		if try_listening_to_ipc_socket(&mut self.instant_update_socket_listener).is_some() {
+			// The result of this wakeup may take until the next update iteration to be processed
+			self.continually_updated.wake_up_if_sleeping();
+		}
 
+		let continual_state = self.continually_updated.update(&continual_param, error_state);
 		self.just_got_new_continual_data = continual_state == ContinuallyUpdatedState::GotNewData;
 
 		if !self.just_got_new_continual_data {
@@ -568,7 +575,8 @@ impl SpinitronState {
 
 		let Self {
 			/* We have to do this ugly destructuring for the Rust compiler to accept
-			the 2 struct fields being borrowed both mutably and immutably at the same time */
+			the 2 struct fields being borrowed both mutably and immutably at the same time
+			(note: the immutably borrowed field is the `self.continually_updated` below) */
 			history_list_texture_manager, ..
 		} = self;
 
