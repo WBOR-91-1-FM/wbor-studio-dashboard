@@ -193,11 +193,11 @@ pub async fn make_dashboard(
 	////////// Making an error window
 
 	let error_window = make_error_window(
-		Vec2f::new(0.0, 0.95),
-		Vec2f::new(0.15, 0.05),
+		Vec2f::new(0.3, 0.97),
+		Vec2f::new(0.4, 0.03),
 		view_refresh_update_rate,
-		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 90)),
-		ColorSDL::RED
+		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 120)),
+		ColorSDL::YELLOW
 	);
 
 	////////// Defining the Spinitron state parametwrs

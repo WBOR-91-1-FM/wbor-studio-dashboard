@@ -138,7 +138,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 		scroll_easer: easing_fns::scroll::LEFT_LINEAR,
 		update_rate,
 		border_info: None,
-		scroll_speed_multiplier: 1.0
+		scroll_speed_multiplier: 0.3
 	};
 
 	let mut window = updatable_text_pattern::make_window(

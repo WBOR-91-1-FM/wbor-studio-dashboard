@@ -187,8 +187,8 @@ pub async fn make_dashboard(
 		Vec2f::new(0.0, 0.95),
 		Vec2f::new(0.15, 0.05),
 		view_refresh_update_rate,
-		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 90)),
-		ColorSDL::RED
+		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 150)),
+		ColorSDL::YELLOW
 	);
 
 	////////// Defining the Spinitron state parametwrs
