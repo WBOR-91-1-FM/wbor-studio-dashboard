@@ -71,7 +71,6 @@ If you want to make a new theme, start off by copying `standard.rs`, and make yo
 ## Scripts
 
 - To delete recent Twilio messages, use `delete_twilio_msgs.sh`. Change the number of messages to delete in the script, and it'll delete that number of messages one-by-one.
-<br>
 
 - To run the dashboard on its computer, use `run_dashboard.sh`. Note that this is only made to work in the WBOR studio. If the dashboard ever panics, the script will sleep for a bit, and then try launching it again (while writing all output to a log file `project.log`). Also, if a Discord channel webhook is set up in `api_keys.json`, any crashes will automatically send a message to the channel associated with that webhook.
 
