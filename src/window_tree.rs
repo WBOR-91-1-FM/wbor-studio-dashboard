@@ -48,7 +48,7 @@ impl From<PreciseRect> for FRect {
 }
 
 pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
-	pub window: &'a mut Window,
+	pub window: &'a mut WindowFieldsAccessibleToUpdater,
 	pub texture_pool: &'b mut TexturePool<'c>,
 	pub shared_window_state: &'d mut DynamicOptional,
 	pub area_drawn_to_screen: (u32, u32)
@@ -141,8 +141,12 @@ impl WindowContents {
 // Maybe color and border radius
 pub type WindowBorderInfo = Option<(ColorSDL, i16)>;
 
-pub struct Window {
-	updaters: WindowUpdaters,
+/* These fields are kept separate from the main `Window` type
+to avoid the issue of iterating over the updaters, while passing
+the fields in `WindowFieldsAccessibleToUpdater` mutably to updaters (this causes a borrow error).
+The earlier fix to this problem was to clone the updaters every time while iterating, but that's
+really inefficient, so making the field categories disjoint fixed the issue. */
+pub struct WindowFieldsAccessibleToUpdater {
 	state: DynamicOptional,
 	contents: WindowContents,
 
@@ -159,57 +163,10 @@ pub struct Window {
 	top_left: Vec2f,
 	size: Vec2f,
 
-	/* TODO: maybe do splitting here instead. Ideas for that:
-	KD-tree:
-	- Splitting axis would alternate per each box level
-	- Ideally, I would make it not alternate (is that possible?)
-	- And having multiple boxes per box (in an efficient manner) would not be possible for that
-
-	Other idea:
-
-	```
-	struct SplitBox {
-		is_on_vertical_axis: bool,
-		split_spacing: Vec<float> // Each split spacing is relative to the one before it
-		children: Vec<SplitBox> // If `n` is the length of `split_spacing`, the length of this is `n + 1`
-	}
-	```
-
-	With that, having some type of window boundary would be neat
-
-	Perhaps make the root nodes non-alternating with a normal KD-tree
-	That might work
-	I would have to draw out an example for that
-
-	Maybe a K-D-B tree is the solution?
-	*/
-
-	children: Vec<Self>
+	children: Vec<Window>
 }
 
-impl Window {
-	pub fn new(
-		updaters: WindowUpdaters,
-		state: DynamicOptional,
-		contents: WindowContents,
-		border_info: WindowBorderInfo,
-		top_left: Vec2f, size: Vec2f,
-		children: Vec<Self>) -> Self {
-
-		let _bottom_right = top_left + size;
-
-		Self {
-			updaters, state, contents,
-			skip_drawing: false,
-			skip_aspect_ratio_correction: false,
-			border_info,
-			top_left, size,
-			children
-		}
-	}
-
-	////////// Some getters and setters
-
+impl WindowFieldsAccessibleToUpdater {
 	pub fn get_state<T: 'static>(&self) -> &T {
 		self.state.get()
 	}
@@ -237,6 +194,50 @@ impl Window {
 	pub fn set_aspect_ratio_correction_skipping(&mut self, skip_aspect_ratio_correction: bool) {
 		self.skip_aspect_ratio_correction = skip_aspect_ratio_correction;
 	}
+}
+
+pub struct Window {
+	updaters: WindowUpdaters,
+	fields_for_updater: WindowFieldsAccessibleToUpdater
+}
+
+impl Window {
+	pub fn new(
+		updaters: WindowUpdaters,
+		state: DynamicOptional,
+		contents: WindowContents,
+		border_info: WindowBorderInfo,
+		top_left: Vec2f, size: Vec2f,
+		children: Vec<Self>) -> Self {
+
+		// This is done to invoke a panic if the bottom right goes out of bounds
+		let _bottom_right = top_left + size;
+
+		Self {
+			updaters,
+
+			fields_for_updater: WindowFieldsAccessibleToUpdater {
+				state,
+				contents,
+				skip_drawing: false,
+				skip_aspect_ratio_correction: false,
+				border_info,
+				top_left,
+				size,
+				children
+			}
+		}
+	}
+
+	////////// These are some setters
+
+	pub fn set_draw_skipping(&mut self, skip_drawing: bool) {
+		self.fields_for_updater.set_draw_skipping(skip_drawing);
+	}
+
+	pub fn set_aspect_ratio_correction_skipping(&mut self, skip_aspect_ratio_correction: bool) {
+		self.fields_for_updater.set_aspect_ratio_correction_skipping(skip_aspect_ratio_correction);
+	}
 
 	////////// These are the window rendering functions (both public and private)
 
@@ -262,13 +263,14 @@ impl Window {
 
 		////////// Getting the new pixel-space bounding box for this window
 
-		let rect_origin = Self::transform_vec2_to_parent_scale(self.top_left, parent_rect);
+		let fields = &self.fields_for_updater;
+		let rect_origin = Self::transform_vec2_to_parent_scale(fields.top_left, parent_rect);
 
 		let screen_dest = PreciseRect::new(
 			rect_origin.0,
 			rect_origin.1,
-			self.size.x() * parent_rect.width,
-			self.size.y() * parent_rect.height
+			fields.size.x() * parent_rect.width,
+			fields.size.y() * parent_rect.height
 		);
 
 		////////// Updating the window
@@ -280,55 +282,53 @@ impl Window {
 		- If no updaters are called, don't redraw anything.
 		- For any specific node, if that updater doesn't have an effect, then don't draw for that node. */
 
-		// TODO: figure out how to avoid cloning the updater vec
-		for (updater, update_rate) in self.updaters.clone() {
+		for (updater, update_rate) in &self.updaters {
 			if update_rate.is_time_to_update(rendering_params.frame_counter) {
-				//////////
 
 				let params = WindowUpdaterParams {
-					window: self,
+					window: &mut self.fields_for_updater,
 					texture_pool: &mut rendering_params.texture_pool,
 					shared_window_state: &mut rendering_params.shared_window_state,
 					area_drawn_to_screen: (screen_dest.width.ceil() as u32, screen_dest.height.ceil() as u32)
 				};
 
+				// TODO: report this as an internal dashboard error too
 				if let Err(err) = updater(params) {
-					// TODO: report this as an internal dashboard error too
 					log::error!("An error occurred while updating a window: '{err}'.");
 				}
-
-				//////////
 			}
 		}
 
-		if !self.skip_drawing {
+		if !self.fields_for_updater.skip_drawing {
+			// TODO: report this as an internal dashboard error too
 			if let Err(err) = self.draw_window_contents(rendering_params, screen_dest) {
-				// TODO: report this as an internal dashboard error too
 				log::error!("An error occurred while drawing a window's contents: '{err}'.");
 			}
 		}
 
 		////////// Updating all child windows
 
-		for child in &mut self.children {
+		for child in &mut self.fields_for_updater.children {
 			child.inner_render(rendering_params, screen_dest);
 		}
 	}
 
-	fn draw_window_contents(&mut self,
+	fn draw_window_contents(&self,
 		rendering_params: &mut PerFrameConstantRenderingParams,
 		uncorrected_screen_dest: PreciseRect) -> MaybeError {
 
 		//////////
 
+		let fields = &self.fields_for_updater;
+
 		draw_contents(
-			&self.contents, rendering_params,
+			&fields.contents, rendering_params,
 			uncorrected_screen_dest,
-			self.skip_aspect_ratio_correction
+			fields.skip_aspect_ratio_correction
 		)?;
 
 		if rendering_params.draw_borders {
-			if let Some((border_color, border_radius)) = self.border_info {
+			if let Some((border_color, border_radius)) = fields.border_info {
 				let (x1, y1, x2, y2) = (
 					uncorrected_screen_dest.x as i16,
 					uncorrected_screen_dest.y as i16,
@@ -336,9 +336,11 @@ impl Window {
 					(uncorrected_screen_dest.y + uncorrected_screen_dest.height) as i16
 				);
 
+				//////////
+
 				possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
 					|canvas| {
-						// TODO: can I somehow cut off objects drawn inside/outside the border
+						// TODO: can I somehow cut off objects drawn inside/outside the border?
 						canvas.rounded_rectangle(x1, y1, x2, y2, border_radius, border_color).to_generic()
 
 						// I did this before:
