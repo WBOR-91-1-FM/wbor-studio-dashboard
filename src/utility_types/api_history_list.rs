@@ -78,7 +78,7 @@ pub struct APIHistoryList<Key, NonNative, Native, Implementer: ApiHistoryListTra
 	marker: PhantomData<NonNative>
 }
 
-impl<Key: PartialEq + Eq + Hash + Copy,
+impl<Key: PartialEq + Eq + Hash + Clone,
 	NonNative,
 	Native: Clone,
 	Implementer: ApiHistoryListTraits<Key, NonNative, Native>>
@@ -160,10 +160,8 @@ impl<Key: PartialEq + Eq + Hash + Copy,
 					local_entry.index = api_result_index; // Update the index, in case things shifted
 					local_entry.just_updated = self.implementer.action_when_updating_local(&mut local_entry.item, api_result);
 
-					// I can't believe I didn't have this change before! Why???
 					if local_entry.just_updated {
-						let cloned_key = *local_key;
-						let cloned_item = local_entry.item.clone();
+						let (cloned_key, cloned_item) = (local_key.clone(), local_entry.item.clone());
 
 						let texture_creation_info = self.implementer.get_texture_creation_info(cloned_item);
 
