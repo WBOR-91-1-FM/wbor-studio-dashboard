@@ -79,11 +79,17 @@ If you want to make a new theme, start off by copying `standard.rs`, and make yo
 <br>
 
 - To communicate with the dashboard, use `communicate_with_dashboard.sh`:
+
   <br>
+
   - To send a surprise (an image that appears for some amount of time, with a certain random chance of appearing during some time of the day), pass these arguments: `surprise assets/<surprise_with_given_path>`. The surprise path must be one previously defined in `src/dashboard_defs/themes/shared_utils.rs`.
+
   <br>
+
   - To update the results from the Spinitron API immediately (instead of waiting for the next API call every `N` seconds), pass this argument: `spinitron_refresh`.
+
   <br>
+
   - And for instant Twilio updates, pass this argument: `twilio_refresh`.
 
 ---
