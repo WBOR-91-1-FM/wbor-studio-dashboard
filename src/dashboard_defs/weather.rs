@@ -15,8 +15,8 @@ use crate::{
 		time::*,
 		vec2f::Vec2f,
 		generic_result::*,
+		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
-		update_rate::{UpdateRateCreator, Seconds},
 		continually_updated::{ContinuallyUpdated, ContinuallyUpdatable}
 	},
 
@@ -255,15 +255,14 @@ fn weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 }
 
 pub fn make_weather_window(
-	api_key: &str, update_rate_creator: UpdateRateCreator,
+	api_key: &str,
+	api_update_rate: Duration,
+	view_refresh_update_rate: UpdateRate,
+
 	top_left: Vec2f, size: Vec2f,
 	text_color: ColorSDL, border_info: WindowBorderInfo,
 	background_contents: WindowContents,
-	maybe_remake_transition_info: Option<RemakeTransitionInfo>
-) -> Window {
-
-	const API_UPDATE_RATE: Duration = Duration::seconds(60 * 10); // Once every 10 minutes
-	const REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS: Seconds = 60.0; // Once per minute
+	maybe_remake_transition_info: Option<RemakeTransitionInfo>) -> Window {
 
 	//////////
 
@@ -274,8 +273,12 @@ pub fn make_weather_window(
 
 	let api_key_param = Some(String::from(api_key));
 
+	let continually_updated = ContinuallyUpdated::new(
+		api_state, api_key_param, "Weather", api_update_rate
+	);
+
 	let weather_state = WeatherState {
-		continually_updated: ContinuallyUpdated::new(api_state, api_key_param, "Weather", API_UPDATE_RATE),
+		continually_updated,
 		text_color,
 		weather_unit_symbol: 'F',
 		curr_weather_interval: None,
@@ -285,10 +288,7 @@ pub fn make_weather_window(
 	//////////
 
 	Window::new(
-		vec![
-			(weather_string_updater_fn, update_rate_creator.new_instance(REFRESH_CURR_WEATHER_INFO_UPDATE_RATE_SECS))
-		],
-
+		vec![(weather_string_updater_fn, view_refresh_update_rate)],
 		DynamicOptional::new(weather_state),
 		background_contents,
 		border_info,

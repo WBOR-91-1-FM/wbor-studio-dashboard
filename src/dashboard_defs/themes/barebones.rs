@@ -76,8 +76,11 @@ pub async fn make_dashboard(
 	let theme_border_info_1 = Some((theme_color_1, theme_border_radius_1));
 
 	let shared_api_update_rate = Duration::seconds(15);
+	let shared_view_refresh_update_rate = update_rate_creator.new_instance(0.25);
+
 	let streaming_server_status_api_update_rate = Duration::seconds(20);
-	let view_refresh_update_rate = update_rate_creator.new_instance(0.25);
+	let weather_api_update_rate = Duration::minutes(10);
+	let weather_view_refresh_update_rate = update_rate_creator.new_instance(60.0); // Once per minute
 
 	////////// Defining the Spinitron window extents
 
@@ -180,7 +183,7 @@ pub async fn make_dashboard(
 
 	// The Spinitron windows update at the same rate as the shared update rate
 	let spinitron_windows = make_spinitron_windows(
-		&all_model_windows_info, view_refresh_update_rate,
+		&all_model_windows_info, shared_view_refresh_update_rate,
 
 		spin_history_tl,
 		Vec2f::new(spin_text_size.x(), 0.1),
@@ -195,7 +198,7 @@ pub async fn make_dashboard(
 	let error_window = make_error_window(
 		Vec2f::new(0.3, 0.97),
 		Vec2f::new(0.4, 0.03),
-		view_refresh_update_rate,
+		shared_view_refresh_update_rate,
 		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 120)),
 		ColorSDL::YELLOW
 	);
@@ -224,14 +227,15 @@ pub async fn make_dashboard(
 	let streaming_server_status_window = make_streaming_server_status_window(
 		&api_keys.streaming_server_now_playing_url,
 		streaming_server_status_api_update_rate,
-		view_refresh_update_rate, 3
+		shared_view_refresh_update_rate, 3
 	);
 
 	let weather_and_credit_window_size = Vec2f::new(0.15, 0.03);
 
 	let weather_window = make_weather_window(
 		&api_keys.tomorrow_io,
-		update_rate_creator,
+		weather_api_update_rate,
+		weather_view_refresh_update_rate,
 
 		Vec2f::new(0.0, 1.0 - weather_and_credit_window_size.y()),
 		weather_and_credit_window_size,
@@ -293,7 +297,7 @@ pub async fn make_dashboard(
 
 	let twilio_window = make_twilio_window(
 		&twilio_state,
-		view_refresh_update_rate,
+		shared_view_refresh_update_rate,
 
 		Vec2f::new(0.58, 0.40),
 		Vec2f::new(0.4, 0.55),
