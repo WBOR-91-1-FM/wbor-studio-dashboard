@@ -77,10 +77,10 @@ pub async fn make_dashboard(
 	let theme_border_info_1 = Some((theme_color_1, theme_border_radius_1));
 
 	let shared_api_update_rate = Duration::seconds(15);
-	let shared_view_refresh_update_rate = update_rate_creator.new_instance(0.25);
-
-	let streaming_server_status_api_update_rate = Duration::seconds(20);
 	let weather_api_update_rate = Duration::minutes(10);
+	let streaming_server_status_api_update_rate = Duration::seconds(20);
+
+	let shared_view_refresh_update_rate = update_rate_creator.new_instance(0.25);
 	let weather_view_refresh_update_rate = update_rate_creator.new_instance(60.0); // Once per minute
 
 	////////// Defining the Spinitron window extents
