@@ -3,10 +3,14 @@
 	"theme_name": "barebones",
 	"icon_path": "assets/plane.bmp",
 
+	"background_color": [0, 0, 0],
+	"max_remake_transition_queue_size": 10,
+
 	"hide_cursor": true,
 	"draw_borders": true,
 	"use_linear_filtering": true,
 	"window_always_on_top": false,
+
 	"pause_subduration_ms_when_retrying_window_info_init": 5000,
 	"maybe_pause_subduration_ms_when_window_unfocused": null,
 

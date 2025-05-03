@@ -52,10 +52,14 @@ struct AppConfig {
 	theme_name: String,
 	icon_path: String,
 
+	background_color: (u8, u8, u8),
+	max_remake_transition_queue_size: usize,
+
 	hide_cursor: bool,
 	draw_borders: bool,
 	use_linear_filtering: bool,
 	window_always_on_top: bool,
+
 	pause_subduration_ms_when_retrying_window_info_init: u32,
 	maybe_pause_subduration_ms_when_window_unfocused: Option<u32>,
 
@@ -71,25 +75,6 @@ fn get_fps(sdl_timer: &sdl2::TimerSubsystem,
 	let delta_time = sdl_timer.performance_counter() - sdl_prev_performance_counter;
 	sdl_performance_frequency as f64 / delta_time as f64
 }
-
-/*
-fn check_for_texture_pool_memory_leak(initial_num_textures_in_pool: &mut Option<usize>, texture_pool: &texture::pool::TexturePool) {
-	let num_textures_in_pool = texture_pool.size();
-
-	match initial_num_textures_in_pool {
-		Some(initial_amount) => {
-			if *initial_amount != num_textures_in_pool {
-				let growth_amount = num_textures_in_pool - *initial_amount;
-				panic!("Memory leak! Texture pool grew by {growth_amount} past the first frame.");
-			}
-		},
-
-		_ => {
-			*initial_num_textures_in_pool = Some(num_textures_in_pool);
-		}
-	}
-}
-*/
 
 macro_rules! build_dashboard_theme {(
 		$desired_theme_name:expr, $texture_pool:expr, $update_rate_creator:expr,
@@ -109,9 +94,6 @@ macro_rules! build_dashboard_theme {(
 }
 
 //////////
-
-const STANDARD_BACKGROUND_COLOR: ColorSDL = ColorSDL::BLACK;
-const MAX_REMAKE_TRANSITION_QUEUE_SIZE: usize = 10; // This is to avoid unbounded memory consumption
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
@@ -205,14 +187,21 @@ async fn main() {
 	let sdl_timer = sdl_context.timer().unwrap();
 	let sdl_performance_frequency = sdl_timer.performance_frequency();
 
+	let texture_pool = texture::pool::TexturePool::new(
+		&texture_creator, &sdl_ttf_context, max_texture_size, app_config.max_remake_transition_queue_size
+	);
+
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
 			draw_borders: app_config.draw_borders,
 			sdl_canvas,
-			texture_pool: texture::pool::TexturePool::new(&texture_creator, &sdl_ttf_context, max_texture_size, MAX_REMAKE_TRANSITION_QUEUE_SIZE),
+			texture_pool,
 			frame_counter: FrameCounter::new(),
 			shared_window_state: DynamicOptional::NONE
 		};
+
+	let bg = app_config.background_color;
+	let standard_background_color = ColorSDL::RGB(bg.0, bg.1, bg.2);
 
 	log::info!("Canvas size: {:?}. Renderer info: {sdl_renderer_info:?}.", rendering_params.sdl_canvas.output_size().unwrap());
 	log::info!("Finished setting up window. Launch time: {:?} ms.", (get_timestamp() - time_before_launch).as_millis());
@@ -284,7 +273,7 @@ async fn main() {
 		// TODO: should I put this before event polling?
 		let sdl_performance_counter_before = sdl_timer.performance_counter();
 
-		rendering_params.sdl_canvas.set_draw_color(STANDARD_BACKGROUND_COLOR);
+		rendering_params.sdl_canvas.set_draw_color(standard_background_color);
 		rendering_params.sdl_canvas.clear(); // TODO: make this work on fullscreen too (on MacOS)
 
 		maybe_top_level_window.as_mut().unwrap().render(&mut rendering_params);
@@ -303,10 +292,5 @@ async fn main() {
 		);
 
 		// println!("fps with and without vsync = {:.3}, {:.3}", _fps_with_vsync, _fps_without_vsync);
-
-		//////////
-
-		// TODO: add this back later
-		// check_for_texture_pool_memory_leak(&mut initial_num_textures_in_pool, &rendering_params.texture_pool);
 	}
 }
