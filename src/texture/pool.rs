@@ -414,7 +414,7 @@ impl<'a> TexturePool<'a> {
 					this.draw_text_texture_to_canvas(texture, text_metadata, canvas, integer_screen_dest)
 				}
 				else {
-					canvas.copy_f::<_, FRect>(texture, None, screen_dest.into()).to_generic()
+					canvas.copy_f::<_, FRect>(texture, None, screen_dest.into()).to_generic_result()
 				}
 			}
 			else {
@@ -472,7 +472,7 @@ impl<'a> TexturePool<'a> {
 
 		// This can be extended later to allow for stuff like rotation
 		fn draw(texture: &Texture, canvas: &mut CanvasSDL, src: Option<Rect>, dest: Rect) -> MaybeError {
-			canvas.copy(texture, src, dest).to_generic()
+			canvas.copy(texture, src, dest).to_generic_result()
 		}
 
 		fn compute_time_seed(secs_fract: f64, text_metadata: &text::TextMetadataItem) -> f64 {
@@ -867,15 +867,15 @@ impl<'a> TexturePool<'a> {
 		let mut joined_surface = Surface::new(
 			total_surface_width.max(text_display_info.pixel_area.0),
 			pixel_height, subsurfaces[0].pixel_format_enum()
-		).to_generic()?;
+		).to_generic_result()?;
 
 		let mut dest_rect = Rect::new(0, 0, 1, 1);
 
 		for mut subsurface in subsurfaces {
-			subsurface.set_blend_mode(BlendMode::None).to_generic()?;
+			subsurface.set_blend_mode(BlendMode::None).to_generic_result()?;
 
 			(dest_rect.w, dest_rect.h) = (subsurface.width() as i32, subsurface.height() as i32);
-			subsurface.blit(None, &mut joined_surface, dest_rect).to_generic()?;
+			subsurface.blit(None, &mut joined_surface, dest_rect).to_generic_result()?;
 			dest_rect.x += dest_rect.w;
 		}
 
@@ -917,9 +917,9 @@ impl<'a> TexturePool<'a> {
 			let mut blank_surface = font_pair.0.render(Self::BLANK_TEXT_DEFAULT).blended(text_display_info.color)?;
 
 			Ok(if blank_surface.width() < max_width || blank_surface.height() != needed_height {
-				let mut corrected = Surface::new(max_width, needed_height, blank_surface.pixel_format_enum()).to_generic()?;
-				blank_surface.set_blend_mode(BlendMode::None).to_generic()?;
-				blank_surface.blit(None, &mut corrected, None).to_generic()?;
+				let mut corrected = Surface::new(max_width, needed_height, blank_surface.pixel_format_enum()).to_generic_result()?;
+				blank_surface.set_blend_mode(BlendMode::None).to_generic_result()?;
+				blank_surface.blit(None, &mut corrected, None).to_generic_result()?;
 				corrected
 			}
 			else {
@@ -972,6 +972,6 @@ impl<'a> TexturePool<'a> {
 
 				Ok(self.texture_creator.create_texture_from_surface(surface)?)
 			}
-		}.to_generic()
+		}.to_generic_result()
 	}
 }

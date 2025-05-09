@@ -84,7 +84,7 @@ async fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 
 fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Value) -> GenericResult<Vec<T>> {
 	let parsed_json_as_object = json.as_object().context("Expected JSON to be an object")?;
-	serde_json::from_value(parsed_json_as_object["items"].clone()).to_generic()
+	serde_json::from_value(parsed_json_as_object["items"].clone()).to_generic_result()
 }
 
 //////////
@@ -99,7 +99,7 @@ pub async fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: Ma
 
 	if id.is_some() {
 		// If requesting a via model id, just a raw item will be returned
-		serde_json::from_value(response_json).to_generic()
+		serde_json::from_value(response_json).to_generic_result()
 	}
 	else {
 		// Otherwise, the first out of the one-entry `Vec` will be returned

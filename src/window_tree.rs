@@ -341,10 +341,10 @@ impl Window {
 				possibly_draw_with_transparency(border_color, &mut rendering_params.sdl_canvas,
 					|canvas| {
 						// TODO: can I somehow cut off objects drawn inside/outside the border?
-						canvas.rounded_rectangle(x1, y1, x2, y2, border_radius, border_color).to_generic()
+						canvas.rounded_rectangle(x1, y1, x2, y2, border_radius, border_color).to_generic_result()
 
 						// I did this before:
-						// canvas.draw_frect(uncorrected_screen_dest.into()).to_generic()
+						// canvas.draw_frect(uncorrected_screen_dest.into()).to_generic_result()
 					}
 				)?;
 			}
@@ -372,7 +372,7 @@ impl Window {
 
 				WindowContents::Color(color) => possibly_draw_with_transparency(
 					*color, sdl_canvas, |canvas| {
-						canvas.fill_frect::<FRect>(uncorrected_screen_dest.into()).to_generic()
+						canvas.fill_frect::<FRect>(uncorrected_screen_dest.into()).to_generic_result()
 					})?,
 
 				WindowContents::Lines(line_series) => {
@@ -385,7 +385,7 @@ impl Window {
 						}).collect();
 
 						possibly_draw_with_transparency(series.0, sdl_canvas, |canvas|
-							canvas.draw_flines(&*converted_series).to_generic()
+							canvas.draw_flines(&*converted_series).to_generic_result()
 						)?;
 					}
 				},

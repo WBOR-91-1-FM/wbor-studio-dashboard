@@ -60,7 +60,7 @@ pub async fn get(url: &str) -> Response {
 pub async fn as_type<T: for<'de> serde::Deserialize<'de>>(response: impl std::future::Future<Output = Response>) -> GenericResult<T> {
 	let unpacked_response = response.await?;
 	let text = unpacked_response.text().await?;
-	serde_json::from_str(&text).to_generic()
+	serde_json::from_str(&text).to_generic_result()
 }
 
 // TODO: how could I make it an exact-sized iterator, to print out the URL index over the total count?

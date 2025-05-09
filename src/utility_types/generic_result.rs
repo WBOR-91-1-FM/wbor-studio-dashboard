@@ -11,14 +11,14 @@ macro_rules! error_msg {
 
 pub(crate) use error_msg;
 
-pub trait ToGenericError<T, E> {
-	fn to_generic(self) -> GenericResult<T>;
+pub trait ToGenericResult<T, E> {
+	fn to_generic_result(self) -> GenericResult<T>;
 }
 
-impl<T, E> ToGenericError<T, E> for Result<T, E>
-where E: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
+impl<T, E> ToGenericResult<T, E> for Result<T, E>
+	where E: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
 
-	fn to_generic(self) -> GenericResult<T> {
+	fn to_generic_result(self) -> GenericResult<T> {
 		self.map_err(anyhow::Error::msg)
 	}
 }

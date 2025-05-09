@@ -19,7 +19,7 @@ pub async fn read_file_contents(path: &str) -> GenericResult<Vec<u8>> {
 
 pub async fn load_json_from_file<T: for <'de> serde::Deserialize<'de>>(path: &str) -> GenericResult<T> {
 	let contents = read_file_contents(path).await?;
-	serde_json::from_slice(&contents).to_generic()
+	serde_json::from_slice(&contents).to_generic_result()
 }
 
 pub fn read_filenames_from_directory(path: &str) -> Vec<String> {

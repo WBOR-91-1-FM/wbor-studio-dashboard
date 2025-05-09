@@ -17,11 +17,11 @@ type AnyZoneTimestamp = DateTime<chrono::FixedOffset>;
 //////////
 
 pub fn parse_time_from_rfc2822(s: &str) -> GenericResult<AnyZoneTimestamp> {
-	DateTime::parse_from_rfc2822(s).to_generic()
+	DateTime::parse_from_rfc2822(s).to_generic_result()
 }
 
 pub fn parse_time_from_rfc3339(s: &str) -> GenericResult<AnyZoneTimestamp> {
-	DateTime::parse_from_rfc3339(s).to_generic()
+	DateTime::parse_from_rfc3339(s).to_generic_result()
 }
 
 pub fn get_reference_time() -> ReferenceTimestamp {
