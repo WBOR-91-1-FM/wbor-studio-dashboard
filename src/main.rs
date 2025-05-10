@@ -1,5 +1,4 @@
 mod utils;
-mod request;
 mod texture;
 mod spinitron;
 mod window_tree;

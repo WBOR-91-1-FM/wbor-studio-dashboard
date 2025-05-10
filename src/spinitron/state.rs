@@ -9,7 +9,6 @@ use futures::{
 };
 
 use crate::{
-	request,
 	window_tree::PixelAreaSDL,
 	dashboard_defs::error::ErrorState,
 	texture::pool::{TexturePool, TextureHandle, TextureCreationInfo},
@@ -28,6 +27,7 @@ use crate::{
 	utils::{
 		ipc::*,
 		time::*,
+		request,
 		file_utils,
 		hash::hash_obj,
 		generic_result::*,

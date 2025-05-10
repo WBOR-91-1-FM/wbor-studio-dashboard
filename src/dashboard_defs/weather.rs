@@ -4,8 +4,6 @@ use std::{
 };
 
 use crate::{
-	request,
-
 	texture::{
 		text::{DisplayText, TextDisplayInfo},
 		pool::{TextureCreationInfo, RemakeTransitionInfo}
@@ -13,6 +11,7 @@ use crate::{
 
 	utils::{
 		time::*,
+		request,
 		vec2f::Vec2f,
 		generic_result::*,
 		update_rate::UpdateRate,

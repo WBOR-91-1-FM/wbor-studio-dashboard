@@ -12,12 +12,12 @@ use sdl2::{
 };
 
 use crate::{
-	request,
 	texture::text,
 	window_tree::{CanvasSDL, PixelAreaSDL, PreciseRect},
 
 	utils::{
 		time::*,
+		request,
 		file_utils,
 		generic_result::*,
 		vec2f::assert_in_unit_interval

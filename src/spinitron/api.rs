@@ -4,8 +4,7 @@ use serde::Deserialize;
 use futures::TryFutureExt;
 
 use crate::{
-	request,
-	utils::generic_result::*,
+	utils::{request, generic_result::*},
 
 	spinitron::{
 		wrapper_types::{SpinitronModelId, MaybeSpinitronModelId},

@@ -74,7 +74,7 @@ macro_rules! get_as {
 	(@opt) => {None};
 
 	($url:expr $(, $header:expr)?) => {{
-		match $crate::request::get($url, $crate::request::get_as!(@opt $($header)?)).await {
+		match $crate::utils::request::get($url, $crate::utils::request::get_as!(@opt $($header)?)).await {
 			Ok(response) => response.json().await.to_generic_result(),
 			Err(err) => Err(err)
 		}

@@ -1,5 +1,4 @@
 use crate::{
-	request,
 	dashboard_defs::shared_window_state::SharedWindowState,
 
 	window_tree::{
@@ -9,6 +8,7 @@ use crate::{
 	},
 
 	utils::{
+		request,
 		vec2f::Vec2f,
 		time::Duration,
 		generic_result::*,

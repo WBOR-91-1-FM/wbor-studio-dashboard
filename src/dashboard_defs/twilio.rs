@@ -6,8 +6,6 @@ use std::{
 use serde::{Deserializer, Deserialize};
 
 use crate::{
-	request,
-
 	dashboard_defs::{
 		easing_fns,
 		error::ErrorState,
@@ -22,6 +20,7 @@ use crate::{
 	utils::{
 		ipc::*,
 		time::*,
+		request,
 		vec2f::Vec2f,
 		generic_result::*,
 		update_rate::UpdateRate,

@@ -2,6 +2,7 @@ pub mod ipc;
 pub mod time;
 pub mod hash;
 pub mod vec2f;
+pub mod request;
 pub mod file_utils;
 pub mod update_rate;
 pub mod generic_result;
