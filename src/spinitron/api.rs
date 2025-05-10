@@ -5,7 +5,7 @@ use futures::TryFutureExt;
 
 use crate::{
 	request,
-	utility_types::generic_result::*,
+	utils::generic_result::*,
 
 	spinitron::{
 		wrapper_types::{SpinitronModelId, MaybeSpinitronModelId},

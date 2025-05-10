@@ -14,7 +14,7 @@ use crate::{
 		WindowUpdaterParams
 	},
 
-	utility_types::{
+	utils::{
 		vec2f::Vec2f,
 		generic_result::*,
 		update_rate::UpdateRate,

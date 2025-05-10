@@ -9,7 +9,7 @@ use interprocess::local_socket::{
 
 use std::io::{BufRead, BufReader};
 
-use crate::utility_types::generic_result::*;
+use crate::utils::generic_result::*;
 
 //////////
 

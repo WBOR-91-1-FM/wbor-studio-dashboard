@@ -12,7 +12,7 @@ use crate::{
 		WindowUpdaterParams
 	},
 
-	utility_types::{
+	utils::{
 		ipc::*,
 		time::*,
 		generic_result::*,

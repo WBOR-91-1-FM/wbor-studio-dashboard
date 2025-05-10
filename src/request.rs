@@ -6,7 +6,7 @@ use std::{
 use reqwest::Client;
 use tokio::sync::OnceCell;
 
-use crate::utility_types::generic_result::*;
+use crate::utils::generic_result::*;
 
 //////////
 

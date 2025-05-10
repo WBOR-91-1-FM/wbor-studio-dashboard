@@ -12,7 +12,7 @@ use crate::{
 		RemakeTransitionInfo
 	},
 
-	utility_types::{
+	utils::{
 		vec2f::Vec2f,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,
@@ -22,7 +22,7 @@ use crate::{
 
 ////////// These are some general utility types
 
-// TODO: maybe put these in `utility_types`
+// TODO: maybe put these in `utils`
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 pub type PixelAreaSDL = (u32, u32);

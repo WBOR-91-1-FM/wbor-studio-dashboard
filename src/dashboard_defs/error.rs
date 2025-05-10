@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-	utility_types::{
+	utils::{
 		vec2f::Vec2f,
 		hash::hash_obj,
 		update_rate::UpdateRate

@@ -8,7 +8,7 @@ use crate::{
 		WindowUpdaterParams
 	},
 
-	utility_types::{
+	utils::{
 		time::*,
 		vec2f::Vec2f,
 		generic_result::*,

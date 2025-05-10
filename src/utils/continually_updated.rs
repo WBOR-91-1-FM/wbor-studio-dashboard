@@ -6,7 +6,7 @@ use tokio::{
 use crate::{
 	dashboard_defs::error::ErrorState,
 
-	utility_types::{
+	utils::{
 		time::*,
 		generic_result::*
 	}

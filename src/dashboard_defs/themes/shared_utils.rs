@@ -8,7 +8,7 @@ use crate::{
 	dashboard_defs::surprise::SurpriseCreationInfo,
 	texture::pool::{TextureCreationInfo, TexturePool},
 
-	utility_types::{
+	utils::{
 		file_utils,
 		vec2f::Vec2f,
 		time::Duration,

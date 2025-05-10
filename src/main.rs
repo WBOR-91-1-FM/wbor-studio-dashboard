@@ -1,8 +1,8 @@
+mod utils;
 mod request;
 mod texture;
 mod spinitron;
 mod window_tree;
-mod utility_types;
 mod dashboard_defs;
 
 use sdl2::{
@@ -17,7 +17,7 @@ use crate::{
 	dashboard_defs::themes,
 	window_tree::{ColorSDL, PixelAreaSDL},
 
-	utility_types::{
+	utils::{
 		file_utils,
 		generic_result::*,
 		dynamic_optional::DynamicOptional,

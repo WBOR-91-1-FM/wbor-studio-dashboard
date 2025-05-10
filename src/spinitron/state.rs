@@ -25,7 +25,7 @@ use crate::{
 		}
 	},
 
-	utility_types::{
+	utils::{
 		ipc::*,
 		time::*,
 		file_utils,

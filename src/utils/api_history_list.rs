@@ -6,7 +6,7 @@ use std::{
 use futures::stream::{FuturesUnordered, StreamExt};
 
 use crate::{
-	utility_types::{
+	utils::{
 		vec2f::Vec2f,
 		generic_result::*,
 		update_rate::UpdateRate,

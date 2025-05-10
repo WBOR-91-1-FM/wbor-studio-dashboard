@@ -16,7 +16,7 @@ use crate::{
 	texture::text,
 	window_tree::{CanvasSDL, PixelAreaSDL, PreciseRect},
 
-	utility_types::{
+	utils::{
 		time::*,
 		file_utils,
 		generic_result::*,

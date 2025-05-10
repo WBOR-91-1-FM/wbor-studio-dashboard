@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use crate::{
-	utility_types::{
+	utils::{
 		vec2f::Vec2f,
 		update_rate::UpdateRate
 	},

@@ -9,7 +9,7 @@ use crate::{
 		pool::{TextureCreationInfo, TexturePool, RemakeTransitionInfo}
 	},
 
-	utility_types::{
+	utils::{
 		file_utils,
 		vec2f::Vec2f,
 		time::Duration,

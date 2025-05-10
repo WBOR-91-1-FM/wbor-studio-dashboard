@@ -1,4 +1,4 @@
-use crate::utility_types::generic_result::*;
+use crate::utils::generic_result::*;
 
 pub async fn read_file_contents(path: &str) -> GenericResult<Vec<u8>> {
 	use tokio::io::AsyncReadExt;

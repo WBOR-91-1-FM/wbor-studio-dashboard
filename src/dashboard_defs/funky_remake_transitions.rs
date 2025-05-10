@@ -1,7 +1,7 @@
 use rand::Rng;
 
 use crate::{
-	utility_types::{
+	utils::{
 		file_utils,
 		time::Duration,
 		generic_result::*

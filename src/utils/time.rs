@@ -1,4 +1,4 @@
-use crate::utility_types::generic_result::*;
+use crate::utils::generic_result::*;
 
 use chrono::DateTime;
 pub use chrono::Timelike;

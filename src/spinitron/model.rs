@@ -12,7 +12,7 @@ use crate::{
 	window_tree::PixelAreaSDL,
 	texture::pool::TextureCreationInfo,
 
-	utility_types::{
+	utils::{
 		time::*,
 		generic_result::*
 	},
