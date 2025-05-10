@@ -14,7 +14,7 @@ use sdl2::{
 use crate::{
 	request,
 	texture::text,
-	window_tree::{CanvasSDL, PreciseRect},
+	window_tree::{CanvasSDL, PixelAreaSDL, PreciseRect},
 
 	utility_types::{
 		time::*,
@@ -145,7 +145,7 @@ impl<'a> RemakeTransitions<'a> {
 //////////
 
 // TODO: use `Cow` around the whole struct instead, if possible
-#[derive(Clone, Debug)]
+#[derive(Hash, Debug)]
 pub enum TextureCreationInfo<'a> {
 	RawBytes(Cow<'a, [u8]>),
 	Path(Cow<'a, str>),
@@ -212,7 +212,7 @@ the `unsafe_textures` feature help this?
 */
 
 pub struct TexturePool<'a> {
-	max_texture_size: (u32, u32),
+	max_texture_size: PixelAreaSDL,
 
 	/* Used as an offset time in some time calculations,
 	in contrast to the start of Unix time (just to not lose too much
@@ -228,7 +228,7 @@ pub struct TexturePool<'a> {
 	font_cache: HashMap<FontCacheKey, FontPair<'a>>,
 
 	// This maps texture handles of side-scrolling text textures to metadata about that scrolling text
-	text_metadata: text::TextMetadata,
+	text_metadata_set: text::TextMetadataSet,
 
 	// This maps texture handles to remake transitions (structs that define how textures should be rendered when remade)
 	remake_transitions: RemakeTransitions<'a>
@@ -247,7 +247,7 @@ impl<'a> TexturePool<'a> {
 
 	pub fn new(texture_creator: &'a TextureCreator,
 		ttf_context: &'a ttf::Sdl2TtfContext,
-		max_texture_size: (u32, u32),
+		max_texture_size: PixelAreaSDL,
 		max_remake_transition_queue_size: usize) -> Self {
 
 		Self {
@@ -258,7 +258,7 @@ impl<'a> TexturePool<'a> {
 
 			textures: Vec::new(),
 			font_cache: HashMap::new(),
-			text_metadata: text::TextMetadata::new(),
+			text_metadata_set: text::TextMetadataSet::new(),
 			remake_transitions: RemakeTransitions::new(max_remake_transition_queue_size)
 		}
 	}
@@ -287,7 +287,7 @@ impl<'a> TexturePool<'a> {
 			)
 		}
 
-		let curr_is_text_texture = self.text_metadata.contains_handle(handle);
+		let curr_is_text_texture = self.text_metadata_set.contains_handle(handle);
 
 		if let Some(transition) = self.remake_transitions.get_from_handle_mut(handle) {
 			let percent_done = transition.get_percent_done();
@@ -361,8 +361,8 @@ impl<'a> TexturePool<'a> {
 		let integer_screen_dest = Rect::new(
 			screen_dest.x as i32,
 			screen_dest.y as i32,
-			screen_dest.width.ceil() as u32,
-			screen_dest.height.ceil() as u32
+			screen_dest.width.ceil() as _,
+			screen_dest.height.ceil() as _
 		);
 
 		// Note: the foreground is a transition layer, drawn on top of the base texture.
@@ -406,7 +406,7 @@ impl<'a> TexturePool<'a> {
 				}
 				else {
 					let texture = this.get_texture_from_handle(handle);
-					let text_metadata = this.text_metadata.get(handle);
+					let text_metadata = this.text_metadata_set.get(handle);
 					(texture, text_metadata)
 				};
 
@@ -414,7 +414,7 @@ impl<'a> TexturePool<'a> {
 					this.draw_text_texture_to_canvas(texture, text_metadata, canvas, integer_screen_dest)
 				}
 				else {
-					canvas.copy_f::<_, FRect>(texture, None, screen_dest.into()).to_generic()
+					canvas.copy_f::<_, FRect>(texture, None, screen_dest.into()).to_generic_result()
 				}
 			}
 			else {
@@ -438,7 +438,7 @@ impl<'a> TexturePool<'a> {
 				*/
 
 				// Update the text metadata appropriately
-				self.text_metadata.update(handle, &moved_transition.maybe_text_metadata);
+				self.text_metadata_set.update(handle, &moved_transition.maybe_text_metadata);
 
 				// And finally, move the new texture into its new slot
 				*self.get_texture_from_handle_mut(handle) = moved_transition.new_texture;
@@ -472,7 +472,7 @@ impl<'a> TexturePool<'a> {
 
 		// This can be extended later to allow for stuff like rotation
 		fn draw(texture: &Texture, canvas: &mut CanvasSDL, src: Option<Rect>, dest: Rect) -> MaybeError {
-			canvas.copy(texture, src, dest).to_generic()
+			canvas.copy(texture, src, dest).to_generic_result()
 		}
 
 		fn compute_time_seed(secs_fract: f64, text_metadata: &text::TextMetadataItem) -> f64 {
@@ -539,7 +539,7 @@ impl<'a> TexturePool<'a> {
 	src and screen dest that may wrap around to the left side of the screen */
 	fn split_overflowing_scrolled_rect(
 		texture_src: Rect, screen_dest: Rect,
-		texture_size: (u32, u32),
+		texture_size: PixelAreaSDL,
 		text: &str) -> (Rect, Option<(Rect, Rect)>) {
 
 		/* Input data notes:
@@ -598,7 +598,7 @@ impl<'a> TexturePool<'a> {
 		let handle = TextureHandle {handle: self.textures.len() as InnerTextureHandle};
 		let texture = self.make_raw_texture(creation_info)?;
 
-		self.text_metadata.update(&handle, &text::TextMetadataItem::maybe_new(&texture, creation_info));
+		self.text_metadata_set.update(&handle, &text::TextMetadataItem::maybe_new(&texture, creation_info));
 		self.textures.push(texture);
 
 		Ok(handle)
@@ -618,7 +618,7 @@ impl<'a> TexturePool<'a> {
 			));
 		}
 		else {
-			self.text_metadata.update(handle, &text::TextMetadataItem::maybe_new(&new_texture, creation_info));
+			self.text_metadata_set.update(handle, &text::TextMetadataItem::maybe_new(&new_texture, creation_info));
 			*self.get_texture_from_handle_mut(handle) = new_texture;
 		}
 
@@ -629,6 +629,7 @@ impl<'a> TexturePool<'a> {
 
 	////////// TODO: implement these fully
 
+	/*
 	pub fn set_color_mod_for(&mut self, _handle: &TextureHandle, _r: u8, _g: u8, _b: u8) {
 		unimplemented!("Texture color mod setting is currently not supported! In the future, it will \
 			be supported by carrying it over for transitioning/remade textures.");
@@ -643,6 +644,7 @@ impl<'a> TexturePool<'a> {
 
 		// self.get_texture_from_handle_mut(handle).set_alpha_mod(a);
 	}
+	*/
 
 	pub fn set_blend_mode_for(&mut self, handle: &TextureHandle, _blend_mode: BlendMode) {
 		// TODO: specify a blend mode when making a transition? Or perhaps just do queueing logic internally here?
@@ -680,7 +682,7 @@ impl<'a> TexturePool<'a> {
 		if let Some(options) = maybe_options {
 			let set_options = |font: &mut ttf::Font| {
 				font.set_style(options.style);
-				font.set_hinting(options.hinting.clone());
+				font.set_hinting((*options.hinting).clone());
 
 				if let Some(outline_width) = options.maybe_outline_width {
 					font.set_outline_width(outline_width);
@@ -695,7 +697,7 @@ impl<'a> TexturePool<'a> {
 	}
 
 	fn get_point_and_surface_size_for_initial_font(initial_font: &ttf::Font,
-		text_display_info: &text::TextDisplayInfo) -> GenericResult<(FontPointSize, (u32, u32))> {
+		text_display_info: &text::TextDisplayInfo) -> GenericResult<(FontPointSize, PixelAreaSDL)> {
 
 		let initial_output_size = initial_font.size_of(text_display_info.text.inner())?;
 
@@ -865,15 +867,15 @@ impl<'a> TexturePool<'a> {
 		let mut joined_surface = Surface::new(
 			total_surface_width.max(text_display_info.pixel_area.0),
 			pixel_height, subsurfaces[0].pixel_format_enum()
-		).to_generic()?;
+		).to_generic_result()?;
 
 		let mut dest_rect = Rect::new(0, 0, 1, 1);
 
 		for mut subsurface in subsurfaces {
-			subsurface.set_blend_mode(BlendMode::None).to_generic()?;
+			subsurface.set_blend_mode(BlendMode::None).to_generic_result()?;
 
 			(dest_rect.w, dest_rect.h) = (subsurface.width() as i32, subsurface.height() as i32);
-			subsurface.blit(None, &mut joined_surface, dest_rect).to_generic()?;
+			subsurface.blit(None, &mut joined_surface, dest_rect).to_generic_result()?;
 			dest_rect.x += dest_rect.w;
 		}
 
@@ -915,9 +917,9 @@ impl<'a> TexturePool<'a> {
 			let mut blank_surface = font_pair.0.render(Self::BLANK_TEXT_DEFAULT).blended(text_display_info.color)?;
 
 			Ok(if blank_surface.width() < max_width || blank_surface.height() != needed_height {
-				let mut corrected = Surface::new(max_width, needed_height, blank_surface.pixel_format_enum()).to_generic()?;
-				blank_surface.set_blend_mode(BlendMode::None).to_generic()?;
-				blank_surface.blit(None, &mut corrected, None).to_generic()?;
+				let mut corrected = Surface::new(max_width, needed_height, blank_surface.pixel_format_enum()).to_generic_result()?;
+				blank_surface.set_blend_mode(BlendMode::None).to_generic_result()?;
+				blank_surface.blit(None, &mut corrected, None).to_generic_result()?;
 				corrected
 			}
 			else {
@@ -932,6 +934,19 @@ impl<'a> TexturePool<'a> {
 	//////////
 
 	fn make_raw_texture(&mut self, creation_info: &TextureCreationInfo) -> GenericResult<Texture<'a>> {
+		/*
+		TODO: introduce an optimization for texture loading that works like this:
+		1. A new `TextureCreationInfo` variant called `PreloadedSurface`, that contains the info for a surface loaded on another task (probably via `spawn_blocking`)
+		2. Load surfaces in on other tasks (provide bytes via `RWops`), and then, since surfaces aren't `Send`, serialize them to some other type (which would be contained within `PreloadedSurface`)
+		3. Send those `PreloadedSurface`s over to the main thread when it's time to load, and directly write the pixel data into an allocated texture (or, make a surface, and then convert that to a texture); regardless, ensure that a fast pixel format is used
+
+		This would be useful, since texture loading is still pretty slow, partly because compressed formats like `.png` have to
+		be decoded, and have their formats/pixel orders converted in various ways. This is the majority of the performance impact
+		when loading in textures.
+
+		With this, probably add some code into this function that emits a warning whenever texture creation takes too long here (e.g. over 10ms).
+		*/
+
 		match creation_info {
 			// Use this whenever possible (whenever you can preload data into byte form)!
 			TextureCreationInfo::RawBytes(bytes) =>
@@ -943,7 +958,7 @@ impl<'a> TexturePool<'a> {
 			TextureCreationInfo::Url(url) => {
 				use futures::executor::block_on;
 
-				let response = block_on(request::get(url))?;
+				let response = block_on(request::get(url, None))?;
 				let bytes = block_on(response.bytes())?;
 
 				self.texture_creator.load_texture_bytes(&bytes)
@@ -957,6 +972,6 @@ impl<'a> TexturePool<'a> {
 
 				Ok(self.texture_creator.create_texture_from_surface(surface)?)
 			}
-		}.to_generic()
+		}.to_generic_result()
 	}
 }

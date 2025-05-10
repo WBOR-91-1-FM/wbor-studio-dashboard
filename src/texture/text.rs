@@ -7,11 +7,46 @@ use std::{
 
 use crate::{
 	texture::pool,
-	window_tree::ColorSDL
+	window_tree::{ColorSDL, PixelAreaSDL}
 };
 
-// TODO: make a constructor for this, instead of making everything `pub`.
-#[derive(Clone, Debug)]
+////////// Defining some hashable wrapper types
+
+macro_rules! define_hashable_wrapper {
+	($name:ident, $inner:ty, $hash_fn:expr) => {
+		#[derive(Clone, Debug)]
+		pub struct $name {
+			field: $inner
+		}
+
+		impl std::hash::Hash for $name {
+			fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+				let typed_hash_fn: fn(&$inner, &mut H) = $hash_fn;
+				(typed_hash_fn)(&self.field, state);
+			}
+		}
+
+		impl std::ops::Deref for $name {
+			type Target = $inner;
+
+			fn deref(&self) -> &Self::Target {
+				&self.field
+			}
+		}
+	};
+}
+
+define_hashable_wrapper!(HashableF64, f64, |inner, state| inner.to_bits().hash(state));
+define_hashable_wrapper!(HashableHinting, ttf::Hinting, |inner, state| (inner.clone() as i32).hash(state));
+
+define_hashable_wrapper!(HashableTextTextureScrollEaser, TextTextureScrollEaser, |inner, state| {
+	inner.0.hash(state);
+	inner.1.to_bits().hash(state);
+});
+
+////////// Defining `FontInfo`
+
+#[derive(Clone, Hash, Debug)]
 pub struct FontInfo {
 	/* TODO:
 	- Support non-static paths for these two
@@ -19,17 +54,41 @@ pub struct FontInfo {
 	- Only load fallbacks when necessary
 	- Check if the entire Unicode supplementary multilingual plane is supported
 	*/
-	pub path: &'static str,
-	pub unusual_chars_fallback_path: &'static str,
+	pub(in crate::texture) path: &'static str,
+	pub(in crate::texture) unusual_chars_fallback_path: &'static str,
 
-	pub font_has_char: fn(&ttf::Font, char) -> bool,
+	pub(in crate::texture) font_has_char: fn(&ttf::Font, char) -> bool,
 
-	pub style: ttf::FontStyle,
-	pub hinting: ttf::Hinting,
-	pub maybe_outline_width: Option<u16>
+	pub(in crate::texture) style: ttf::FontStyle,
+	pub(in crate::texture) hinting: HashableHinting,
+	pub(in crate::texture) maybe_outline_width: Option<u16>
 }
 
-#[derive(Clone, Debug)]
+impl FontInfo {
+	pub const fn new(path: &'static str, unusual_chars_fallback_path: &'static str,
+		font_has_char: fn(&ttf::Font, char) -> bool, style: ttf::FontStyle,
+		hinting: ttf::Hinting, maybe_outline_width: Option<u16>) -> Self {
+
+		Self {
+			path,
+			unusual_chars_fallback_path,
+			font_has_char,
+			style,
+			hinting: HashableHinting {field: hinting},
+			maybe_outline_width
+		}
+	}
+
+	pub fn with_style(&self, style: ttf::FontStyle) -> Self {
+		let mut cloned = self.clone();
+		cloned.style = style;
+		cloned
+	}
+}
+
+////////// Defining `DisplayText`
+
+#[derive(Clone, Hash, Debug)]
 pub struct DisplayText<'a> {
 	text: Cow<'a, str>
 }
@@ -95,12 +154,12 @@ impl DisplayText<'_> {
 		Self {text: text.into()}
 	}
 
-    pub fn inner(&self) -> &str {
-        &self.text
-    }
+	pub fn inner(&self) -> &str {
+		&self.text
+	}
 }
 
-//////////
+////////// Defining `TextTextureScrollEaser`, and `TextDisplayInfo`
 
 /*
 The first item, the function itself:
@@ -110,24 +169,38 @@ The second item is the period of the function.
 */
 pub type TextTextureScrollEaser = (fn(f64, bool) -> (f64, bool), f64);
 
-// TODO: make a constructor for this, instead of making everything `pub`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Hash, Debug)]
 pub struct TextDisplayInfo<'a> {
-	pub text: DisplayText<'a>,
-	pub color: ColorSDL,
-	pub pixel_area: (u32, u32),
-	pub scroll_easer: TextTextureScrollEaser,
-	pub scroll_speed_multiplier: f64
+	pub(in crate::texture) text: DisplayText<'a>,
+	pub(in crate::texture) color: ColorSDL,
+	pub(in crate::texture) pixel_area: PixelAreaSDL,
+	pub(in crate::texture) scroll_easer: HashableTextTextureScrollEaser,
+	pub(in crate::texture) scroll_speed_multiplier: HashableF64
 }
 
-//////////
+impl<'a> TextDisplayInfo<'a> {
+	pub const fn new(display_text: DisplayText<'a>, color: ColorSDL,
+		pixel_area: PixelAreaSDL, scroll_easer: TextTextureScrollEaser,
+		scroll_speed_multiplier: f64) -> TextDisplayInfo<'a> {
+
+		Self {
+			text: display_text,
+			color,
+			pixel_area,
+			scroll_easer: HashableTextTextureScrollEaser {field: scroll_easer},
+			scroll_speed_multiplier: HashableF64 {field: scroll_speed_multiplier}
+		}
+	}
+}
+
+////////// Defining `TextMetadataItem`, and `TextMetadataSet`
 
 #[derive(Clone)]
 pub(in crate::texture) struct TextMetadataItem {
-	pub size: (u32, u32),
-	pub scroll_speed: f64,
-	pub scroll_easer: TextTextureScrollEaser,
-	pub text: String
+	pub(in crate::texture) size: PixelAreaSDL,
+	pub(in crate::texture) scroll_speed: f64,
+	pub(in crate::texture) scroll_easer: TextTextureScrollEaser,
+	pub(in crate::texture) text: String
 }
 
 impl TextMetadataItem {
@@ -139,8 +212,8 @@ impl TextMetadataItem {
 
 			Some(TextMetadataItem {
 				size: (texture_query.width, texture_query.height),
-				scroll_speed: display_width_to_texture_width_ratio * text_display_info.scroll_speed_multiplier,
-				scroll_easer: text_display_info.scroll_easer,
+				scroll_speed: display_width_to_texture_width_ratio * *text_display_info.scroll_speed_multiplier,
+				scroll_easer: *text_display_info.scroll_easer,
 				text: text_display_info.text.inner().to_string() // TODO: maybe copy it with a reference count instead?
 			})
 		}
@@ -150,11 +223,11 @@ impl TextMetadataItem {
 	}
 }
 
-pub(in crate::texture) struct TextMetadata {
+pub(in crate::texture) struct TextMetadataSet {
 	metadata: HashMap<pool::TextureHandle, TextMetadataItem>
 }
 
-impl TextMetadata {
+impl TextMetadataSet {
 	pub fn new() -> Self {
 		Self {metadata: HashMap::new()}
 	}

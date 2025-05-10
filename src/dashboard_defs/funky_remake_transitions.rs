@@ -39,6 +39,7 @@ fn pick_random_easing_pair(rand_generator: &mut rand::rngs::ThreadRng)
 
 	use easing_fns::transition::{opacity, aspect_ratio};
 
+	// TODO: could I make one that is stepped (that stops at certain blend intervals at certain timesteps)?
 	let easing_pairs = [
 		(opacity::LINEAR_BLENDED_FADE, aspect_ratio::LINEAR),
 		(opacity::BURST_BLENDED_FADE, aspect_ratio::LINEAR),

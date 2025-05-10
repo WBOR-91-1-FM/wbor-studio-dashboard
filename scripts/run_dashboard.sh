@@ -13,6 +13,7 @@ send_discord_webhook() {
 
 ########## First, do some initial setup
 
+NUM_PROJECT_LOG_LINES=12
 SLEEP_AMOUNT_SECS_UPON_PANIC=50
 PROJECT_DIR="/Users/wborguest/wbor-studio-dashboard" # Full path to project dir
 
@@ -45,7 +46,9 @@ while true; do
 Wait for $SLEEP_AMOUNT_SECS_UPON_PANIC seconds, then try a relaunch."
 
 		if [ "$CRASH_DISCORD_WEBHOOK" != "null" ]; then
-			escaped_log=$(tail -n 12 "$PROJECT_DIR/project.log" | jq -Rs .)
+			log_tail=$(tail -n $NUM_PROJECT_LOG_LINES "$PROJECT_DIR/project.log")
+			escaped_log=$(printf '```\n%s\n```' "$log_tail" | jq -Rs .)
+
 			send_discord_webhook "$CRASH_DISCORD_WEBHOOK" "\"The dashboard crashed! Here's a bit of the log:\""
 			send_discord_webhook "$CRASH_DISCORD_WEBHOOK" "$escaped_log"
 		else

@@ -1,12 +1,12 @@
 use std::{
 	borrow::Cow,
-	hash::{Hash, Hasher},
 	collections::BTreeSet
 };
 
 use crate::{
 	utility_types::{
 		vec2f::Vec2f,
+		hash::hash_obj,
 		update_rate::UpdateRate
 	},
 
@@ -81,19 +81,11 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 	type ErrorWindowState = Option<u64>; // This is the current hash of the error state (if `None`, not initialized yet)
 
 	impl updatable_text_pattern::UpdatableTextWindowMethods for ErrorWindowState {
-		fn should_skip_update(updater_params: &mut WindowUpdaterParams) -> bool {
-			let inner_shared_state = updater_params.shared_window_state.get_mut::<SharedWindowState>();
+		fn should_skip_update(params: &mut WindowUpdaterParams) -> bool {
+			let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 
-			let wrapped_individual_state = updater_params.window.get_state_mut
+			let wrapped_individual_state = params.window.get_state_mut
 				::<updatable_text_pattern::UpdatableTextWindowFields<ErrorWindowState>>();
-
-			//////////
-
-			fn hash_obj<T: Hash>(obj: &T) -> u64 {
-				let mut hasher = std::hash::DefaultHasher::new();
-				obj.hash(&mut hasher);
-				hasher.finish()
-			}
 
 			let no_errors_to_display = inner_shared_state.error_state.source_list.is_empty();
 
@@ -120,7 +112,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 			};
 
 			// Skipping drawing if not displaying any errors.
-			updater_params.window.set_draw_skipping(no_errors_to_display);
+			params.window.set_draw_skipping(no_errors_to_display);
 
 			skip_update
 		}
@@ -145,8 +137,8 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 		text_color,
 		scroll_easer: easing_fns::scroll::LEFT_LINEAR,
 		update_rate,
-		maybe_border_color: None,
-		scroll_speed_multiplier: 1.0
+		border_info: None,
+		scroll_speed_multiplier: 0.3
 	};
 
 	let mut window = updatable_text_pattern::make_window(

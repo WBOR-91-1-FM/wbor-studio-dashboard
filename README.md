@@ -20,13 +20,13 @@
 - `homebrew` (macOS):
 
 ```sh
-brew install rust sdl2 sdl2_image sdl2_ttf
+brew install rust sdl2 sdl2_image sdl2_ttf sdl2_gfx
 ```
 
 - `dnf` (Fedora):
 
 ```sh
-sudo dnf install rust cargo SDL2-devel SDL2_image-devel SDL2_ttf-devel
+sudo dnf install rust cargo SDL2-devel SDL2_image-devel SDL2_ttf-devel SDL2_gfx-devel
 ```
 
 - `apt-get` (Raspbian, Debian, and many others):
@@ -34,7 +34,7 @@ sudo dnf install rust cargo SDL2-devel SDL2_image-devel SDL2_ttf-devel
 ```sh
 # Doing the second line just because `apt-get` only has an outdated version of the toolchain:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
+sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-gfx-dev
 ```
 
 ---
@@ -71,9 +71,17 @@ If you want to make a new theme, start off by copying `standard.rs`, and make yo
 ## Scripts
 
 - To delete recent Twilio messages, use `delete_twilio_msgs.sh`. Change the number of messages to delete in the script, and it'll delete that number of messages one-by-one.
-- To send surprises to the dashboard (images that appear for a certain amount of time, with certain chances of appearing at any second), use `trigger_surprise.sh`. Just pass it the name of a surprise that you've set up in one of your theme files (e.g. `standard.rs`), and it'll send it over a local socket which the dashboard reads from.
-- To update Twilio instantly (without waiting for it to poll again every `n` seconds), use `trigger_twilio_update.sh`.
+
 - To run the dashboard on its computer, use `run_dashboard.sh`. Note that this is only made to work in the WBOR studio. If the dashboard ever panics, the script will sleep for a bit, and then try launching it again (while writing all output to a log file `project.log`). Also, if a Discord channel webhook is set up in `api_keys.json`, any crashes will automatically send a message to the channel associated with that webhook.
+
+- To communicate with the dashboard, use `communicate_with_dashboard.sh`:
+  - To send a surprise (an image that appears for some amount of time, with a certain random chance of appearing during some time of the day), pass these arguments: `surprise assets/<surprise_with_given_path>`. The surprise path must be one previously defined in `src/dashboard_defs/themes/shared_utils.rs`.
+  <br>
+
+  - To update the results from the Spinitron API immediately (instead of waiting for the next API call every `N` seconds), pass this argument: `spinitron_refresh`.
+  <br>
+
+  - And for instant Twilio updates, pass this argument: `twilio_refresh`.
 
 ---
 

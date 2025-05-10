@@ -10,6 +10,7 @@ use crate::{
 		Window,
 		ColorSDL,
 		WindowContents,
+		WindowBorderInfo,
 		WindowUpdaterParams
 	},
 
@@ -29,7 +30,7 @@ use crate::{
 pub type ComputedInTextUpdater<'a> = (Cow<'a, FontInfo>, &'static str);
 
 pub trait UpdatableTextWindowMethods {
-	fn should_skip_update(updater_params: &mut WindowUpdaterParams) -> bool;
+	fn should_skip_update(params: &mut WindowUpdaterParams) -> bool;
 	fn compute_within_updater<'a>(inner_shared_state: &'a SharedWindowState) -> ComputedInTextUpdater<'a>;
 	fn extract_text(&self, inner_shared_state: &SharedWindowState) -> Cow<str>;
 	fn extract_texture_contents(window_contents: &mut WindowContents) -> &mut WindowContents;
@@ -42,7 +43,7 @@ pub struct UpdatableTextWindowFields<IndividualState> {
 	pub scroll_easer: TextTextureScrollEaser,
 	pub scroll_speed_multiplier: f64,
 	pub update_rate: UpdateRate,
-	pub maybe_border_color: Option<ColorSDL>
+	pub border_info: WindowBorderInfo
 }
 
 //////////
@@ -66,13 +67,13 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 		let texture_creation_info = TextureCreationInfo::Text((
 			modified_font_info,
 
-			TextDisplayInfo {
-				text: DisplayText::new(&extracted_text).with_padding("", right_padding),
-				color: wrapped_individual_state.text_color,
-				pixel_area: params.area_drawn_to_screen,
-				scroll_easer: wrapped_individual_state.scroll_easer,
-				scroll_speed_multiplier: wrapped_individual_state.scroll_speed_multiplier
-			}
+			TextDisplayInfo::new(
+				DisplayText::new(&extracted_text).with_padding("", right_padding),
+				wrapped_individual_state.text_color,
+				params.area_drawn_to_screen,
+				wrapped_individual_state.scroll_easer,
+				wrapped_individual_state.scroll_speed_multiplier
+			)
 		));
 
 		let texture_contents = IndividualState::extract_texture_contents(
@@ -94,7 +95,7 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 		vec![(updater_fn::<IndividualState>, fields.update_rate)],
 		DynamicOptional::new(fields.clone()),
 		initial_contents,
-		fields.maybe_border_color,
+		fields.border_info,
 		top_left,
 		size,
 		vec![]

@@ -1,7 +1,6 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-use chrono::Duration;
+use rand::Rng;
 use sdl2::render::BlendMode;
+use tokio::process::Command;
 
 use crate::{
 	error_msg,
@@ -12,6 +11,7 @@ use crate::{
 	utility_types::{
 		file_utils,
 		vec2f::Vec2f,
+		time::Duration,
 		generic_result::*,
 		dynamic_optional::DynamicOptional
 	}
@@ -29,8 +29,6 @@ pub struct ApiKeys {
 }
 
 //////////
-
-static FALLBACK_TEXTURE_CREATION_INFO_PATH_INDEX: AtomicUsize = AtomicUsize::new(0);
 
 lazy_static::lazy_static!(
 	static ref FALLBACK_TEXTURE_PATHS: Vec<String> = file_utils::read_filenames_from_directory("assets/fallback_textures");
@@ -155,29 +153,23 @@ pub const ALL_SURPRISES: [SurpriseCreationInfo; 8] = [
 //////////
 
 pub fn get_fallback_texture_creation_info() -> TextureCreationInfo<'static> {
-	let ordering = Ordering::SeqCst;
-	let mut index = FALLBACK_TEXTURE_CREATION_INFO_PATH_INDEX.fetch_add(1, ordering);
-
-	if index >= FALLBACK_TEXTURE_PATHS.len() {
-		index = 0;
-		FALLBACK_TEXTURE_CREATION_INFO_PATH_INDEX.store(0, ordering);
-	}
-
+	let mut rand_generator = rand::thread_rng(); // TODO: can I cache this per each thread that uses it?
+	let index = rand_generator.gen_range(0..FALLBACK_TEXTURE_PATHS.len());
 	TextureCreationInfo::from_path(&FALLBACK_TEXTURE_PATHS[index])
 }
 
 //////////
 
-pub fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
-	let output = std::process::Command::new(command)
+pub async fn run_command(command: &str, args: &[&str]) -> GenericResult<String> {
+	let output = Command::new(command)
 		.args(args)
-		.output()?;
+		.output().await?;
 
 	if !output.status.success() {
 		error_msg!("This command failed: '{command} {}'", args.join(" "))
 	}
 	else {
-		String::from_utf8(output.stdout).to_generic().map(|s| s.trim().to_owned())
+		String::from_utf8(output.stdout).map(|s| s.trim().to_owned()).to_generic_result()
 	}
 }
 
@@ -190,7 +182,7 @@ pub async fn make_creation_info_for_static_texture_set(all_info: &StaticTextureS
 }
 
 pub fn add_static_texture_set(set: &mut Vec<Window>, all_info: &StaticTextureSetInfo,
-	all_creation_info: &[TextureCreationInfo<'_>], texture_pool: &mut TexturePool<'_>) {
+	all_creation_info: &[TextureCreationInfo], texture_pool: &mut TexturePool) {
 
 	set.extend(all_info.iter().zip(all_creation_info).map(
 		|(&(_, tl, size, skip_ar_correction), creation_info)| {

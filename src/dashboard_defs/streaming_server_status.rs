@@ -10,10 +10,11 @@ use crate::{
 
 	utility_types::{
 		vec2f::Vec2f,
+		time::Duration,
 		generic_result::*,
 		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
-		continually_updated::{ContinuallyUpdated, Updatable}
+		continually_updated::{ContinuallyUpdated, ContinuallyUpdatable}
 	}
 };
 
@@ -29,12 +30,12 @@ impl ServerStatusChecker {
 	}
 }
 
-impl Updatable for ServerStatusChecker {
+impl ContinuallyUpdatable for ServerStatusChecker {
 	type Param = ();
 
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
 		for _ in 0..self.num_retries {
-			match request::get(&self.url).await {
+			match request::get(&self.url, None).await {
 				Ok(_) => return Ok(()),
 				Err(_) => continue
 			}
@@ -44,22 +45,26 @@ impl Updatable for ServerStatusChecker {
 	}
 }
 
+// Checking the updater once every X seconds, and polling the API once every Y seconds
 fn server_status_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<ServerStatusChecker>>();
-	individual_window_state.update(&(), &mut inner_shared_state.error_state);
+	individual_window_state.update((), &mut inner_shared_state.error_state);
 	Ok(())
 }
 
-pub async fn make_streaming_server_status_window(url: &str, ping_rate: UpdateRate, num_retries: u8) -> Window {
+pub fn make_streaming_server_status_window(url: &str, api_update_rate: Duration,
+	view_refresh_update_rate: UpdateRate, num_retries: u8) -> Window {
+
 	let pinger_updater = ContinuallyUpdated::new(
-		&ServerStatusChecker::new(url, num_retries),
-		&(),
-		"the online streaming server"
-	).await;
+		ServerStatusChecker::new(url, num_retries),
+		(),
+		"the online streaming server",
+		api_update_rate
+	);
 
 	Window::new(
-		vec![(server_status_updater_fn, ping_rate)],
+		vec![(server_status_updater_fn, view_refresh_update_rate)],
 		DynamicOptional::new(pinger_updater),
 		WindowContents::Nothing,
 		None,

@@ -10,6 +10,7 @@ use crate::{
 		Window,
 		ColorSDL,
 		WindowContents,
+		WindowBorderInfo,
 		WindowUpdaterParams
 	},
 
@@ -21,19 +22,18 @@ use crate::{
 };
 
 pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
-	border_color: ColorSDL, text_color: ColorSDL, text: String) -> Window {
+	border_info: WindowBorderInfo, text_color: ColorSDL, text: String) -> Window {
 
 	type CreditWindowState = String;
 
 	impl updatable_text_pattern::UpdatableTextWindowMethods for CreditWindowState {
-		fn should_skip_update(updater_params: &mut WindowUpdaterParams) -> bool {
-			let window_contents = updater_params.window.get_contents();
+		fn should_skip_update(params: &mut WindowUpdaterParams) -> bool {
+			let window_contents = params.window.get_contents();
 			matches!(window_contents, WindowContents::Texture(_))
 		}
 
 		fn compute_within_updater<'a>(inner_shared_state: &'a SharedWindowState) -> updatable_text_pattern::ComputedInTextUpdater<'a> {
-			let mut italicized_font_info = inner_shared_state.font_info.clone();
-			italicized_font_info.style = sdl2::ttf::FontStyle::ITALIC;
+			let italicized_font_info = inner_shared_state.font_info.with_style(sdl2::ttf::FontStyle::ITALIC);
 			(Cow::Owned(italicized_font_info), "")
 		}
 
@@ -52,7 +52,7 @@ pub fn make_credit_window(top_left: Vec2f, size: Vec2f,
 		scroll_easer: easing_fns::scroll::OSCILLATE_NO_WRAP,
 		scroll_speed_multiplier: 1.75,
 		update_rate: UpdateRate::ALMOST_NEVER,
-		maybe_border_color: Some(border_color)
+		border_info
 	};
 
 	updatable_text_pattern::make_window(fields, top_left, size, WindowContents::Nothing)
