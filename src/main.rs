@@ -243,7 +243,7 @@ async fn main() {
 			}
 		}
 
-		////////// Initializing the top-level window and shared window state when needed. This also handles cases when the network is down upon launch.
+		////////// Initializing the top-level window and shared window state when needed.
 
 		if maybe_top_level_window.is_none() {
 			let time_before_making_core_init_info = get_timestamp();

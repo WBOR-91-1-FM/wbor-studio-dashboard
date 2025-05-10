@@ -83,6 +83,7 @@ type TimestampedWeatherInterval = (ReferenceTimestamp, WeatherInterval);
 
 #[derive(Clone)] // This is used for the `ContinuallyUpdated` bit
 struct WeatherApiState {
+	api_key: String,
 	request_urls: Option<[Cow<'static, str>; 2]>, // This is loaded in asynchronously
 	curr_weather_info: Vec<TimestampedWeatherInterval> // Info for different timestamps (TODO: make this an `Arc`?)
 }
@@ -96,17 +97,13 @@ struct WeatherState {
 	maybe_remake_transition_info: Option<RemakeTransitionInfo>
 }
 
-async fn build_weather_request_urls(maybe_api_key: &str) -> [Cow<'static, str>; 2] {
+async fn build_weather_request_urls(maybe_api_key: &str) -> GenericResult<[Cow<'static, str>; 2]> {
 	#[derive(serde::Deserialize)]
 	struct LocationInfo {
 		loc: String
 	}
 
-	/* Unwrapping on this because:
-	- The API key is only passed on the first call to this
-	- If the API call failed and returned via `?`, the second time around, the API key will be `None` (which will lead to a second panic)
-	(TODO: can I somehow make it possible to retry launching the dashboard if this fails (e.g. if the network is down)? */
-	let location_info: LocationInfo = request::get_as!("https://ipinfo.io/json").unwrap();
+	let location_info: LocationInfo = request::get_as!("https://ipinfo.io/json")?;
 
 	// Here's the code behind the proxy: `https://github.com/WBOR-91-1-FM/wbor-weather-proxy`
 	const PROXY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
@@ -123,20 +120,19 @@ async fn build_weather_request_urls(maybe_api_key: &str) -> [Cow<'static, str>; 
 		]
 	);
 
-	[Cow::Borrowed(PROXY_REQUEST_URL), Cow::Owned(fallback_request_url)]
+	Ok([Cow::Borrowed(PROXY_REQUEST_URL), Cow::Owned(fallback_request_url)])
 }
 
 impl ContinuallyUpdatable for WeatherApiState {
-	type Param = Option<String>; // The first time, this is the API key; the other times, it's nothing
+	type Param = ();
 
-	async fn update(&mut self, maybe_api_key: &Self::Param) -> MaybeError {
+	async fn update(&mut self, _: &Self::Param) -> MaybeError {
 		// return Ok(()); // Use this line when developing locally, and you don't want to rate-limit this API in the studio!
 
 		////////// If necessary, build the request URL from the API key (the API key is only supplied in the beginning).
 
 		if self.request_urls.is_none() {
-			let api_key = maybe_api_key.as_ref().unwrap();
-			self.request_urls = Some(build_weather_request_urls(api_key).await);
+			self.request_urls = Some(build_weather_request_urls(&self.api_key).await?);
 		}
 
 		////////// Now, request the API
@@ -187,7 +183,7 @@ fn weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let there_are_already_window_contents = params.window.get_contents() != &WindowContents::Nothing;
 	let individual_window_state = params.window.get_state_mut::<WeatherState>();
 
-	individual_window_state.continually_updated.update(None, &mut inner_shared_state.error_state);
+	individual_window_state.continually_updated.update((), &mut inner_shared_state.error_state);
 
 	let api_state = individual_window_state.continually_updated.get_curr_data();
 	let curr_time = get_reference_time();
@@ -272,14 +268,13 @@ pub fn make_weather_window(
 	//////////
 
 	let api_state = WeatherApiState {
+		api_key: api_key.to_owned(),
 		request_urls: None,
 		curr_weather_info: Vec::new()
 	};
 
-	let api_key_param = Some(api_key.to_owned());
-
 	let continually_updated = ContinuallyUpdated::new(
-		api_state, api_key_param, "Weather", api_update_rate
+		api_state, (), "Weather", api_update_rate
 	);
 
 	let weather_state = WeatherState {
