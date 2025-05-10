@@ -84,9 +84,7 @@ async fn do_spinitron_request<Model: SpinitronModelWithProps, WrappingTheModel: 
 
 	// TODO: can I cache these constructed URLs later on, to avoid rebuilding them? Or, perhaps cache the underlying built request object...
 	let urls_to_attempt = BASE_URLS.iter().map(|base_url| {
-		let url = request::build_url(base_url, &path_params, &query_params);
-		println!("Spinitron API URL: {url}");
-		url
+		request::build_url(base_url, &path_params, &query_params)
 	});
 
 	request::get_with_fallbacks_as(urls_to_attempt, "Spinitron").map_ok(|(model, _)| model).await
