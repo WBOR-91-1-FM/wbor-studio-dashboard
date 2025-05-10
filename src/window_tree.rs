@@ -25,6 +25,7 @@ use crate::{
 // TODO: maybe put these in `utility_types`
 pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
+pub type PixelAreaSDL = (u32, u32);
 
 // This should be used instead of `FRect` whenever possible
 #[derive(Copy, Clone)]
@@ -51,7 +52,7 @@ pub struct WindowUpdaterParams<'a, 'b, 'c, 'd> {
 	pub window: &'a mut WindowFieldsAccessibleToUpdater,
 	pub texture_pool: &'b mut TexturePool<'c>,
 	pub shared_window_state: &'d mut DynamicOptional,
-	pub area_drawn_to_screen: (u32, u32)
+	pub area_drawn_to_screen: PixelAreaSDL
 }
 
 pub type WindowUpdaters = Vec<(
@@ -289,7 +290,7 @@ impl Window {
 					window: &mut self.fields_for_updater,
 					texture_pool: &mut rendering_params.texture_pool,
 					shared_window_state: &mut rendering_params.shared_window_state,
-					area_drawn_to_screen: (screen_dest.width.ceil() as u32, screen_dest.height.ceil() as u32)
+					area_drawn_to_screen: (screen_dest.width.ceil() as _, screen_dest.height.ceil() as _)
 				};
 
 				// TODO: report this as an internal dashboard error too

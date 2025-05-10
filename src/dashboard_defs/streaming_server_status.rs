@@ -35,7 +35,7 @@ impl ContinuallyUpdatable for ServerStatusChecker {
 
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
 		for _ in 0..self.num_retries {
-			match request::get(&self.url).await {
+			match request::get(&self.url, None).await {
 				Ok(_) => return Ok(()),
 				Err(_) => continue
 			}
@@ -49,7 +49,7 @@ impl ContinuallyUpdatable for ServerStatusChecker {
 fn server_status_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
 	let individual_window_state = params.window.get_state_mut::<ContinuallyUpdated<ServerStatusChecker>>();
-	individual_window_state.update(&(), &mut inner_shared_state.error_state);
+	individual_window_state.update((), &mut inner_shared_state.error_state);
 	Ok(())
 }
 

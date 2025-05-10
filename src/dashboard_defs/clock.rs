@@ -3,6 +3,7 @@ use crate::{
 		Window,
 		ColorSDL,
 		GeneralLine,
+		PixelAreaSDL,
 		WindowContents,
 		WindowUpdaterParams
 	},
@@ -80,7 +81,7 @@ impl ClockHands {
 		fn updater_fn(params: WindowUpdaterParams) -> MaybeError {
 			let curr_time = get_local_time();
 
-			let time_units: [(u32, u32); NUM_CLOCK_HANDS] = [
+			let time_units: [PixelAreaSDL; NUM_CLOCK_HANDS] = [
 				(curr_time.timestamp_subsec_millis(), 1000),
 				(curr_time.second(), 60),
 				(curr_time.minute(), 60),

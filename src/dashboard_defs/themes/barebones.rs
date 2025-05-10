@@ -31,7 +31,7 @@ use crate::{
 		surprise::make_surprise_window,
 		error::{make_error_window, ErrorState},
 		shared_window_state::SharedWindowState,
-		twilio::{make_twilio_window, TwilioState},
+		twilio::{make_twilio_windows, TwilioState},
 		clock::{ClockHandConfig, ClockHandConfigs, ClockHands},
 		streaming_server_status::make_streaming_server_status_window,
 		spinitron::{make_spinitron_windows, SpinitronModelWindowInfo, SpinitronModelWindowsInfo}
@@ -275,9 +275,12 @@ pub async fn make_dashboard(
 			shared_api_update_rate,
 			&api_keys.twilio_account_sid,
 			&api_keys.twilio_auth_token,
+
 			11,
 			Duration::days(5),
 			false,
+
+			ColorSDL::RGB(238, 238, 238),
 
 			Some(RemakeTransitionInfo::new(
 				Duration::seconds(2),
@@ -295,7 +298,7 @@ pub async fn make_dashboard(
 
 	////////// Making a Twilio window
 
-	let twilio_window = make_twilio_window(
+	let twilio_windows = make_twilio_windows(
 		&twilio_state,
 		shared_view_refresh_update_rate,
 
@@ -306,7 +309,7 @@ pub async fn make_dashboard(
 		WindowContents::Color(ColorSDL::RGB(23, 23, 23)),
 
 		Vec2f::new(0.0, 0.45),
-		theme_border_info_1, ColorSDL::RGB(238, 238, 238),
+		theme_border_info_1,
 
 		WindowContents::Nothing
 	);
@@ -348,9 +351,11 @@ pub async fn make_dashboard(
 
 	////////// Making some static texture windows
 
-	let mut all_main_windows = vec![twilio_window, weather_window, credit_window, streaming_server_status_window];
-	all_main_windows.extend(spinitron_windows);
+	let mut all_main_windows = vec![credit_window, streaming_server_status_window, weather_window];
 	add_static_texture_set(&mut all_main_windows, &main_static_texture_info, &main_static_texture_creation_info, texture_pool);
+
+	all_main_windows.extend(twilio_windows);
+	all_main_windows.extend(spinitron_windows);
 
 	/* The error window goes last (so that it can manage
 	errors in one shared update iteration properly) */

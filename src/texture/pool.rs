@@ -14,7 +14,7 @@ use sdl2::{
 use crate::{
 	request,
 	texture::text,
-	window_tree::{CanvasSDL, PreciseRect},
+	window_tree::{CanvasSDL, PixelAreaSDL, PreciseRect},
 
 	utility_types::{
 		time::*,
@@ -145,7 +145,7 @@ impl<'a> RemakeTransitions<'a> {
 //////////
 
 // TODO: use `Cow` around the whole struct instead, if possible
-#[derive(Clone, Hash, Debug)]
+#[derive(Hash, Debug)]
 pub enum TextureCreationInfo<'a> {
 	RawBytes(Cow<'a, [u8]>),
 	Path(Cow<'a, str>),
@@ -212,7 +212,7 @@ the `unsafe_textures` feature help this?
 */
 
 pub struct TexturePool<'a> {
-	max_texture_size: (u32, u32),
+	max_texture_size: PixelAreaSDL,
 
 	/* Used as an offset time in some time calculations,
 	in contrast to the start of Unix time (just to not lose too much
@@ -247,7 +247,7 @@ impl<'a> TexturePool<'a> {
 
 	pub fn new(texture_creator: &'a TextureCreator,
 		ttf_context: &'a ttf::Sdl2TtfContext,
-		max_texture_size: (u32, u32),
+		max_texture_size: PixelAreaSDL,
 		max_remake_transition_queue_size: usize) -> Self {
 
 		Self {
@@ -361,8 +361,8 @@ impl<'a> TexturePool<'a> {
 		let integer_screen_dest = Rect::new(
 			screen_dest.x as i32,
 			screen_dest.y as i32,
-			screen_dest.width.ceil() as u32,
-			screen_dest.height.ceil() as u32
+			screen_dest.width.ceil() as _,
+			screen_dest.height.ceil() as _
 		);
 
 		// Note: the foreground is a transition layer, drawn on top of the base texture.
@@ -539,7 +539,7 @@ impl<'a> TexturePool<'a> {
 	src and screen dest that may wrap around to the left side of the screen */
 	fn split_overflowing_scrolled_rect(
 		texture_src: Rect, screen_dest: Rect,
-		texture_size: (u32, u32),
+		texture_size: PixelAreaSDL,
 		text: &str) -> (Rect, Option<(Rect, Rect)>) {
 
 		/* Input data notes:
@@ -697,7 +697,7 @@ impl<'a> TexturePool<'a> {
 	}
 
 	fn get_point_and_surface_size_for_initial_font(initial_font: &ttf::Font,
-		text_display_info: &text::TextDisplayInfo) -> GenericResult<(FontPointSize, (u32, u32))> {
+		text_display_info: &text::TextDisplayInfo) -> GenericResult<(FontPointSize, PixelAreaSDL)> {
 
 		let initial_output_size = initial_font.size_of(text_display_info.text.inner())?;
 
@@ -958,7 +958,7 @@ impl<'a> TexturePool<'a> {
 			TextureCreationInfo::Url(url) => {
 				use futures::executor::block_on;
 
-				let response = block_on(request::get(url))?;
+				let response = block_on(request::get(url, None))?;
 				let bytes = block_on(response.bytes())?;
 
 				self.texture_creator.load_texture_bytes(&bytes)

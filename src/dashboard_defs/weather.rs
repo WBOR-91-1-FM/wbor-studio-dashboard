@@ -34,11 +34,7 @@ use crate::{
 	}
 };
 
-/*
-TODO:
-- Could emoji-based forecasting work with the `ApiHistoryList` type?
-- Indicate stale data from the cache somehow?
-*/
+// TODO: Should I do emoji-based forecasting work with the `ApiHistoryList` type?
 
 lazy_static::lazy_static!(
 	// Based on the weather codes from here: https://docs.tomorrow.io/reference/weather-data-layers
@@ -101,6 +97,36 @@ struct WeatherState {
 	maybe_remake_transition_info: Option<RemakeTransitionInfo>
 }
 
+async fn build_weather_request_urls(maybe_api_key: &str) -> [Cow<'static, str>; 2] {
+	#[derive(serde::Deserialize)]
+	struct LocationInfo {
+		loc: String
+	}
+
+	/* Unwrapping on this because:
+	- The API key is only passed on the first call to this
+	- If the API call failed and returned via `?`, the second time around, the API key will be `None` (which will lead to a second panic)
+	(TODO: can I somehow make it possible to retry launching the dashboard if this fails (e.g. if the network is down)? */
+	let location_info: LocationInfo = request::get_as!("https://ipinfo.io/json").unwrap();
+
+	// Here's the code behind the proxy: `https://github.com/WBOR-91-1-FM/wbor-weather-proxy`
+	const PROXY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
+
+	let fallback_request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
+		&[],
+
+		&[
+			("apikey", Cow::Borrowed(maybe_api_key)),
+			("location", Cow::Borrowed(&location_info.loc)),
+			("timesteps", Cow::Borrowed("1m")), // Timesteps of 1 minute, which is the highest allowed
+			("units", Cow::Borrowed("imperial")), // Using degrees!
+			("fields", Cow::Borrowed("temperature,weatherCode"))
+		]
+	);
+
+	[Cow::Borrowed(PROXY_REQUEST_URL), Cow::Owned(fallback_request_url)]
+}
+
 impl ContinuallyUpdatable for WeatherApiState {
 	type Param = Option<String>; // The first time, this is the API key; the other times, it's nothing
 
@@ -110,35 +136,15 @@ impl ContinuallyUpdatable for WeatherApiState {
 		////////// If necessary, build the request URL from the API key (the API key is only supplied in the beginning).
 
 		if self.request_urls.is_none() {
-			/* Unwrapping on this because:
-			- The API key is only passed on the first call to this
-			- If the API call failed and returned via `?`, the second time around, the API key will be `None` (which will lead to a second panic) */
-			let curr_location_json: serde_json::Value = request::as_type(request::get("https://ipinfo.io/json")).await.unwrap();
-			let location = &curr_location_json["loc"].as_str().expect("No location field available!");
-
-			// Here's the code behind the proxy: `https://github.com/WBOR-91-1-FM/wbor-weather-proxy`
-			const PROXY_REQUEST_URL: &str = "https://api-2.wbor.org/weather";
-
-			let fallback_request_url = request::build_url("https://api.tomorrow.io/v4/timelines",
-				&[],
-
-				&[
-					("apikey", Cow::Borrowed(maybe_api_key.as_ref().unwrap())),
-					("location", Cow::Borrowed(location)),
-					("timesteps", Cow::Borrowed("1m")), // Timesteps of 1 minute, which is the highest allowed
-					("units", Cow::Borrowed("imperial")), // Using degrees!
-					("fields", Cow::Borrowed("temperature,weatherCode"))
-				]
-			);
-
-			self.request_urls = Some([Cow::Borrowed(PROXY_REQUEST_URL), Cow::Owned(fallback_request_url)]);
+			let api_key = maybe_api_key.as_ref().unwrap();
+			self.request_urls = Some(build_weather_request_urls(api_key).await);
 		}
 
 		////////// Now, request the API
 
 		let request_url_iterator = self.request_urls.as_ref().unwrap().iter();
 
-		let (all_info_json, url) = request::get_as_type_with_fallbacks(
+		let (all_info_json, url): (serde_json::Value, _) = request::get_with_fallbacks_as(
 			request_url_iterator, "weather info"
 		).await?;
 
@@ -154,7 +160,7 @@ impl ContinuallyUpdatable for WeatherApiState {
 
 			if let (Some(timestamp), Some(temperature), Some(associated_code)) = maybe_interval_fields {
 				let (weather_code_descriptor, associated_emoji) = WEATHER_CODE_MAPPING.get(&(associated_code as u16)).unwrap();
-				let timestamp: ReferenceTimestamp = parse_time_from_rfc3339(timestamp).unwrap().into();
+				let timestamp: ReferenceTimestamp = parse_rfc3339_timestamp(timestamp).unwrap();
 				Some((timestamp, (temperature as f32, *weather_code_descriptor, *associated_emoji)))
 			}
 			else {
@@ -182,7 +188,7 @@ fn weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 	let there_are_already_window_contents = params.window.get_contents() != &WindowContents::Nothing;
 	let individual_window_state = params.window.get_state_mut::<WeatherState>();
 
-	individual_window_state.continually_updated.update(&None, &mut inner_shared_state.error_state);
+	individual_window_state.continually_updated.update(None, &mut inner_shared_state.error_state);
 
 	let api_state = individual_window_state.continually_updated.get_curr_data();
 	let curr_time = get_reference_time();
@@ -271,7 +277,7 @@ pub fn make_weather_window(
 		curr_weather_info: Vec::new()
 	};
 
-	let api_key_param = Some(String::from(api_key));
+	let api_key_param = Some(api_key.to_owned());
 
 	let continually_updated = ContinuallyUpdated::new(
 		api_state, api_key_param, "Weather", api_update_rate

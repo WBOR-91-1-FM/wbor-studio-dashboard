@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use serde::Deserialize;
 use futures::TryFutureExt;
 
 use crate::{
@@ -7,8 +8,8 @@ use crate::{
 	utility_types::generic_result::*,
 
 	spinitron::{
-		wrapper_types::MaybeSpinitronModelId,
-		model::{SpinitronModelWithProps, NUM_SPINITRON_MODEL_TYPES}
+		wrapper_types::{SpinitronModelId, MaybeSpinitronModelId},
+		model::{SpinitronModel, SpinitronModelWithProps, NUM_SPINITRON_MODEL_TYPES}
 	}
 };
 
@@ -16,43 +17,50 @@ use crate::{
 - Later on, maybe set up a mock API, for the sake of testing
 - Would it be possible to show the current PSA on the dashboard?
 - Fix the mysterious Serde-Spinitron-API error (that arose from a portion of the logs on the studio dashboard)
+- Cache constructed Spinitron URLs (or whole requests) ahead of time
+- Make the 2 util fns below compile-time constants somehow
 */
 
-async fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
-	api_key: &str, maybe_model_id: MaybeSpinitronModelId,
-	maybe_item_count: Option<usize>
-) -> GenericResult<serde_json::Value> {
+//////////
 
-	////////// Getting the API endpoint
+fn get_api_endpoint_from_spinitron_model<Model: SpinitronModel>() -> String {
+	let full_typename: &str = std::any::type_name::<Model>();
 
-	let full_typename = std::any::type_name::<T>();
-	let last_colon_ind = full_typename.rfind(':').context("Expected a colon in the model typename")?;
+	let last_colon_ind = full_typename.rfind(':').expect("Expected a colon in the model typename");
 	let typename = &full_typename[last_colon_ind + 1..];
 
 	let mut typename_chars = typename.chars();
-	let first_char = typename_chars.next().context("The typename has no chars in it, which is impossible")?;
+	let first_char = typename_chars.next().expect("The typename has no chars in it, which is impossible");
 	let api_endpoint = format!("{}{}s", first_char.to_lowercase(), &typename[1..]);
-
-	////////// Checking endpoint validity
 
 	const VALID_ENDPOINTS: [&str; NUM_SPINITRON_MODEL_TYPES] = ["spins", "playlists", "personas", "shows"];
 
-	if !VALID_ENDPOINTS.contains(&api_endpoint.as_str()) {
-		return error_msg!("Invalid Spinitron API endpoint '{api_endpoint}'");
-	}
+	assert!(VALID_ENDPOINTS.contains(&api_endpoint.as_str()), "Invalid Spinitron API endpoint '{api_endpoint}'");
 
-	////////// Limiting the requested fields by what exists within the given model type
+	api_endpoint
+}
 
-	let default_model_as_serde_value = serde_json::to_value(T::default())?;
+fn get_spinitron_model_fields<Model: SpinitronModelWithProps>() -> String {
+	let default_model_as_serde_value = serde_json::to_value(Model::default()).expect("Could not serialize a default Spinitron model");
 
 	let default_model_as_serde_obj = default_model_as_serde_value.as_object()
-		.context("Expected JSON to be an object for the default Spinitron model")?;
+		.expect("Expected JSON to be an object for the default Spinitron model");
 
 	// TODO: stop the `collect` allocation below
 	let fields: Vec<&str> = default_model_as_serde_obj.iter().map(|(key, _)| key.as_str()).collect();
-	let joined_fields = fields.join(",");
+	fields.join(",")
+}
+
+//////////
+
+// TODO: could inlining this reduce some future sizes?
+async fn do_spinitron_request<Model: SpinitronModelWithProps, WrappingTheModel: for<'de> Deserialize<'de>>(
+	api_key: &str, maybe_model_id: MaybeSpinitronModelId, maybe_item_count: Option<usize>) -> GenericResult<WrappingTheModel> {
 
 	////////// Making some initial path and query params, and possibly adding a model id and item count to them
+
+	let api_endpoint = get_api_endpoint_from_spinitron_model::<Model>();
+	let joined_fields = get_spinitron_model_fields::<Model>();
 
 	let mut path_params: Vec<Cow<str>> = vec![Cow::Borrowed(&api_endpoint)];
 
@@ -74,37 +82,42 @@ async fn get_json_from_spinitron_request<T: SpinitronModelWithProps>(
 	// Try the proxy URL first, and then try the standard Spinitron API URL
 	const BASE_URLS: [&str; 2] = ["https://api-1.wbor.org/api", "https://spinitron.com/api"];
 
-	// TODO: can I cache these URLs later on, to avoid rebuilding them? Or, perhaps cache the underlying built request object...
-	let fallbacks = BASE_URLS.iter().map(|base_url| {
-		request::build_url(base_url, &path_params, &query_params)
+	// TODO: can I cache these constructed URLs later on, to avoid rebuilding them? Or, perhaps cache the underlying built request object...
+	let urls_to_attempt = BASE_URLS.iter().map(|base_url| {
+		let url = request::build_url(base_url, &path_params, &query_params);
+		println!("Spinitron API URL: {url}");
+		url
 	});
 
-	request::get_as_type_with_fallbacks(fallbacks, "Spinitron").map_ok(|(json, _)| json).await
-}
-
-fn get_vec_from_spinitron_json<T: SpinitronModelWithProps>(json: &serde_json::Value) -> GenericResult<Vec<T>> {
-	let parsed_json_as_object = json.as_object().context("Expected JSON to be an object")?;
-	serde_json::from_value(parsed_json_as_object["items"].clone()).to_generic_result()
+	request::get_with_fallbacks_as(urls_to_attempt, "Spinitron").map_ok(|(model, _)| model).await
 }
 
 //////////
 
-pub async fn get_models<T: SpinitronModelWithProps>(api_key: &str, maybe_item_count: Option<usize>) -> GenericResult<Vec<T>> {
-	let response_json = get_json_from_spinitron_request::<T>(api_key, None, maybe_item_count).await?;
-	get_vec_from_spinitron_json(&response_json)
+pub async fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: SpinitronModelId) -> GenericResult<T> {
+	// If requesting via a model id, just a raw item will be returned
+	do_spinitron_request::<T, T>(api_key, Some(id), Some(1)).await
 }
 
-pub async fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: MaybeSpinitronModelId) -> GenericResult<T> {
-	let response_json = get_json_from_spinitron_request::<T>(api_key, id, Some(1)).await?;
+pub async fn get_most_recent_model<T: SpinitronModelWithProps>(api_key: &str) -> GenericResult<T> {
+	#[derive(Deserialize)]
+	struct ModelItemWrapper<T> {items: [T; 1]}
 
-	if id.is_some() {
-		// If requesting a via model id, just a raw item will be returned
-		serde_json::from_value(response_json).to_generic_result()
-	}
-	else {
-		// Otherwise, the first out of the one-entry `Vec` will be returned
-		let wrapped_in_vec: Vec<T> = get_vec_from_spinitron_json(&response_json)?;
-		assert!(wrapped_in_vec.len() == 1);
-		Ok(wrapped_in_vec[0].clone())
-	}
+	// With no model ID, the first out of the one-entry `Vec` will be returned (not specifying an ID gets you an embedded `items` array)
+	let response = do_spinitron_request::<T, ModelItemWrapper<T>>(
+		api_key, None, Some(1)
+	).await?;
+
+	Ok(response.items[0].clone())
+}
+
+pub async fn get_models<T: SpinitronModelWithProps>(api_key: &str, maybe_item_count: Option<usize>) -> GenericResult<Vec<T>> {
+	#[derive(Deserialize)]
+	struct ModelItemsWrapper<T> {items: Vec<T>}
+
+	let response = do_spinitron_request::<T, ModelItemsWrapper<T>>(
+		api_key, None, maybe_item_count
+	).await?;
+
+	Ok(response.items)
 }

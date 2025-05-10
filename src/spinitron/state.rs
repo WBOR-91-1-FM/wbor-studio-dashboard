@@ -10,18 +10,9 @@ use futures::{
 
 use crate::{
 	request,
+	window_tree::PixelAreaSDL,
 	dashboard_defs::error::ErrorState,
 	texture::pool::{TexturePool, TextureHandle, TextureCreationInfo},
-
-	utility_types::{
-		ipc::*,
-		time::*,
-		file_utils,
-		hash::hash_obj,
-		generic_result::*,
-		api_history_list::{APIHistoryList, ApiHistoryListTraits, ApiHistoryListTextureManager},
-		continually_updated::{ContinuallyUpdatable, ContinuallyUpdated, ContinuallyUpdatedState}
-	},
 
 	spinitron::{
 		wrapper_types::SpinitronModelId,
@@ -32,6 +23,16 @@ use crate::{
 			Spin, Playlist, Persona, Show,
 			SpinitronModel, SpinitronModelName
 		}
+	},
+
+	utility_types::{
+		ipc::*,
+		time::*,
+		file_utils,
+		hash::hash_obj,
+		generic_result::*,
+		continually_updated::{ContinuallyUpdatable, ContinuallyUpdated, ContinuallyUpdatedState},
+		api_history_list::{ApiHistoryList, ApiHistoryListImplementer, ApiHistoryListTextureManager}
 	}
 };
 
@@ -53,7 +54,7 @@ struct ModelAgeData {
 }
 
 impl ModelAgeData {
-	fn new(custom_expiry_duration: Duration, model: &dyn SpinitronModel) -> GenericResult<Self> {
+	fn new<Model: SpinitronModel>(custom_expiry_duration: Duration, model: &Model) -> Self {
 		let data = Self {
 			custom_expiry_duration,
 			curr_age_state: ModelAgeState::CurrentlyActive,
@@ -64,8 +65,8 @@ impl ModelAgeData {
 	}
 
 	// This returns the new model age data
-	fn update(mut self, model: &dyn SpinitronModel) -> GenericResult<ModelAgeData> {
-		if let Some((start_time, end_time)) = model.maybe_get_time_range()? {
+	fn update<Model: SpinitronModel + ?Sized>(mut self, model: &Model) -> ModelAgeData {
+		if let (start_time, Some(end_time)) = model.get_time_range() {
 			let curr_time = get_reference_time();
 
 			let time_after_start = curr_time.signed_duration_since(start_time);
@@ -97,60 +98,74 @@ impl ModelAgeData {
 			self.just_updated_state = self.curr_age_state != new_age_state;
 			self.curr_age_state = new_age_state;
 		}
+		else {
+			self.just_updated_state = false; // TODO: handle this more properly later on!
+		}
 
-		Ok(self)
+		self
 	}
 }
 
-////////// The implementer for the spin history list trait:
-
-type WindowSize = (u32, u32);
+////////// The implementer for the spin history list:
 
 #[derive(Clone)]
-struct SpinHistoryListTraitImplementer {
+struct SpinHistoryListImplementer {}
+
+struct SpinHistoryListImplementerParam {
 	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>,
-	item_texture_size: WindowSize,
-	just_found_true_texture_size: bool
+	item_texture_size: SpinHistoryItemTextureSize
 }
 
-impl ApiHistoryListTraits<SpinitronModelId, Spin, Spin> for SpinHistoryListTraitImplementer {
-	fn may_need_to_sort_api_results(&self) -> bool {
-		false // Spins come in order!
-	}
+impl ApiHistoryListImplementer for SpinHistoryListImplementer {
+	type Key = SpinitronModelId;
+	type NonNative = Spin;
+	type Native = Arc<Spin>;
 
-	fn get_key_from_non_native_item(&self, offshore: &Spin) -> SpinitronModelId {
-		offshore.get_id()
-	}
+	type Param = SpinHistoryListImplementerParam;
+	type ResolveTextureCreationInfoParam = ();
+	type IntermediateTextureCreationInfo = Arc<Vec<u8>>;
 
-	fn get_timestamp_from_non_native_item(&self, offshore: &Spin) -> ReferenceTimestamp {
-		offshore.get_start_time()
-	}
+	fn may_need_to_sort_api_results() -> bool {false /* Spins come in order! */}
+	fn compare(a: &Self::NonNative, b: &Self::NonNative) -> std::cmp::Ordering {a.get_start_time().cmp(&b.get_start_time())}
 
-	fn native_item_is_expired(&self, _: &Spin) -> bool {
-		false
-	}
+	fn get_key(offshore: &Self::NonNative) -> Self::Key {offshore.get_id()}
+	fn is_expired(_: &Self::Param, _: &Self::NonNative) -> bool {false /* Spins don't expire in the history list */}
 
-	fn non_native_item_is_expired(&self, _offshore: &Spin) -> bool {
-		false
-	}
+	fn create_new_local(_: &Self::Param, offshore: &Self::NonNative) -> Self::Native {Arc::new(offshore.clone())}
 
-	fn action_when_expired(&self, _: &Spin) {
-
-	}
-
-	fn create_new_local(&self, offshore: &Spin) -> Arc<Spin> {
-		Arc::new(offshore.clone())
-	}
-
-	fn action_when_updating_local(&self, mut _local: &mut Arc<Spin>, _offshore: &Spin) -> bool {
+	fn update_local(param: &Self::Param, _: &mut Self::Native) -> bool {
 		// Only updating local if the true texture size was just found
-		self.just_found_true_texture_size
+		param.item_texture_size.just_found_true_size
 	}
 
-	async fn get_texture_creation_info(&self, spin: Arc<Spin>) -> Arc<TextureCreationInfo<'static>> {
-		let maybe_info = spin.get_texture_creation_info(ModelAgeState::CurrentlyActive, self.item_texture_size);
-		let bytes = get_model_texture_bytes(maybe_info, self.get_fallback_texture_creation_info).await;
-		Arc::new(TextureCreationInfo::RawBytes(Cow::Owned(bytes)))
+	async fn get_intermediate_texture_creation_info(param: &Self::Param, local: &Self::Native) -> Self::IntermediateTextureCreationInfo {
+		let maybe_info = local.get_texture_creation_info(ModelAgeState::CurrentlyActive, param.item_texture_size.size);
+		let bytes = get_model_texture_bytes(maybe_info, param.get_fallback_texture_creation_info).await;
+		Arc::new(bytes)
+	}
+
+	fn resolve_texture_creation_info<'a>(_: &(), _: &Self::Native, intermediate_texture_creation_info: &'a Self::IntermediateTextureCreationInfo) -> TextureCreationInfo<'a> {
+		TextureCreationInfo::RawBytes(Cow::Borrowed(intermediate_texture_creation_info))
+	}
+}
+
+#[derive(Copy, Clone)]
+struct SpinHistoryItemTextureSize {
+	size: PixelAreaSDL,
+	just_found_true_size: bool
+}
+
+impl SpinHistoryItemTextureSize {
+	fn new(size: PixelAreaSDL) -> Self {
+		Self {
+			size,
+			just_found_true_size: false
+		}
+	}
+
+	fn update(&mut self, new_size: PixelAreaSDL) {
+		self.just_found_true_size = self.size != new_size;
+		self.size = new_size;
 	}
 }
 
@@ -162,7 +177,7 @@ struct ModelDataCacheEntry {
 	texture_creation_info_hash: u64,
 	texture_creation_info_hash_changed: bool,
 
-	string: Arc<String>,
+	string: Arc<Cow<'static, str>>,
 	string_changed: bool
 }
 
@@ -179,7 +194,9 @@ struct SpinitronStateData {
 	age_data: [ModelAgeData; NUM_SPINITRON_MODEL_TYPES],
 	cached_model_data: [ModelDataCacheEntry; NUM_SPINITRON_MODEL_TYPES],
 
-	spin_history_list: APIHistoryList<SpinitronModelId, Spin, Spin, SpinHistoryListTraitImplementer>
+	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>,
+	spin_history_item_texture_size: SpinHistoryItemTextureSize,
+	spin_history_list: ApiHistoryList<SpinHistoryListImplementer>
 }
 
 // The third param is the fallback texture creation info, and the fourth one is the spin window size
@@ -188,8 +205,8 @@ type SpinitronStateDataParams<'a> = (
 	fn() -> TextureCreationInfo<'static>, // Fallback texture creation info getter
 	Duration, // The API update rate
 	[Duration; NUM_SPINITRON_MODEL_TYPES], // Custom model expiry durations
-	WindowSize, // The spin texture size (for the primary spin)
-	WindowSize, // The spin history item texture size
+	PixelAreaSDL, // The spin texture size (for the primary spin)
+	PixelAreaSDL, // The spin history item texture size
 	usize // The number of spins shown in the history
 );
 
@@ -209,7 +226,7 @@ async fn get_model_texture_bytes(
 				file_utils::read_file_contents(path).await,
 
 			TextureCreationInfo::Url(url) => {
-				let response = request::get(url).await?;
+				let response = request::get(url, None).await?;
 				let bytes = response.bytes().await?;
 				Ok(bytes.to_vec())
 			}
@@ -251,18 +268,12 @@ impl SpinitronStateData {
 			arc_default::<Spin>(), arc_default::<Playlist>(), arc_default::<Persona>(), arc_default::<Show>()
 		);
 
-		let models_with_custom_expiry_durations: [(&dyn SpinitronModel, Duration); NUM_SPINITRON_MODEL_TYPES] = [
-			(spin.as_ref(), custom_model_expiry_durations[0]),
-			(playlist.as_ref(), custom_model_expiry_durations[1]),
-			(persona.as_ref(), custom_model_expiry_durations[2]),
-			(show.as_ref(), custom_model_expiry_durations[3])
+		let age_data = [
+			ModelAgeData::new(custom_model_expiry_durations[0], spin.as_ref()),
+			ModelAgeData::new(custom_model_expiry_durations[1], playlist.as_ref()),
+			ModelAgeData::new(custom_model_expiry_durations[2], persona.as_ref()),
+			ModelAgeData::new(custom_model_expiry_durations[3], show.as_ref())
 		];
-
-		// TODO: don't unwrap once `try_map` becomes stable
-		let age_data = models_with_custom_expiry_durations
-			.map(|(model, custom_expiry_duration)|
-				ModelAgeData::new(custom_expiry_duration, model).unwrap()
-			);
 
 		//////////
 
@@ -274,19 +285,13 @@ impl SpinitronStateData {
 			age_data,
 			cached_model_data: std::array::from_fn(|_| ModelDataCacheEntry::default()),
 
-			spin_history_list: APIHistoryList::new(
-				num_spins_shown_in_history,
-
-				SpinHistoryListTraitImplementer {
-					get_fallback_texture_creation_info,
-					item_texture_size: spin_history_item_texture_size,
-					just_found_true_texture_size: false
-				}
-			)
+			get_fallback_texture_creation_info,
+			spin_history_item_texture_size: SpinHistoryItemTextureSize::new(spin_history_item_texture_size),
+			spin_history_list: ApiHistoryList::new(num_spins_shown_in_history)
 		}
 	}
 
-	async fn compute_cacheable_model_data(&self, model_name: SpinitronModelName, spin_texture_size: WindowSize) -> ModelDataCacheEntry {
+	async fn compute_cacheable_model_data(&self, model_name: SpinitronModelName, spin_texture_size: PixelAreaSDL) -> ModelDataCacheEntry {
 		let model = self.get_model_by_name(model_name);
 		let age_state = self.age_data[model_name as usize].curr_age_state.clone();
 
@@ -300,21 +305,20 @@ impl SpinitronStateData {
 
 		////////// Doing this hashing stuff, because we don't want to invoke a transition when a model's ID changes, and either of its textures stays the same
 
+		/* Comparing hashes means that we don't need to store the old `TextureCreationInfo`; but it does mean that we have to
+		iterate over the new `TextureCreationInfo` with no early returns (which would've been possible if doing direct comparisons). */
 		let texture_creation_info_hash_changed = texture_creation_info_hash != prev_entry.texture_creation_info_hash;
-		let string_changed = maybe_new_model_string != prev_entry.string.as_str();
+		let string_changed = maybe_new_model_string != *prev_entry.string;
 
 		let texture_bytes = if texture_creation_info_hash_changed {
-			let get_fallback_texture_creation_info =
-				self.spin_history_list.get_implementer().get_fallback_texture_creation_info;
-
-			Arc::new(get_model_texture_bytes(texture_creation_info, get_fallback_texture_creation_info).await)
+			Arc::new(get_model_texture_bytes(texture_creation_info, self.get_fallback_texture_creation_info).await)
 		}
 		else {
 			prev_entry.texture_bytes.clone()
 		};
 
 		let string = if string_changed {
-			Arc::new(maybe_new_model_string.into_owned())
+			Arc::new(maybe_new_model_string)
 		}
 		else {
 			prev_entry.string.clone()
@@ -330,10 +334,6 @@ impl SpinitronStateData {
 			string,
 			string_changed
 		}
-	}
-
-	fn get_models(&self) ->  [&dyn SpinitronModel; NUM_SPINITRON_MODEL_TYPES] {
-		[self.spin.as_ref(), self.playlist.as_ref(), self.persona.as_ref(), self.show.as_ref()]
 	}
 
 	const fn get_model_names() -> &'static [SpinitronModelName; NUM_SPINITRON_MODEL_TYPES] {
@@ -353,10 +353,10 @@ impl SpinitronStateData {
 		}
 	}
 
-	async fn sync_models(&mut self) -> MaybeError {
+	async fn sync_models(&mut self, spin_history_item_texture_size: PixelAreaSDL) -> MaybeError {
 		let api_key = self.api_key.as_str();
 
-		//////////
+		////////// Defining the spin and playlist/persona futures
 
 		let spin_future = async {
 			// Step 1: get the current spin, and the spin history.
@@ -366,11 +366,17 @@ impl SpinitronStateData {
 
 			// This will be true the first time (since the old id will be 0)
 			if maybe_new_spin.get_id() != self.spin.get_id() {
-				self.spin = Arc::new(maybe_new_spin);
+				self.spin = maybe_new_spin;
 			}
 
+			// Sync the internal item texture size with the external one
+			self.spin_history_item_texture_size.update(spin_history_item_texture_size);
+
 			// Step 2: update the spin history list.
-			self.spin_history_list.update(&mut spin_history).await?;
+			self.spin_history_list.update(&mut spin_history, &SpinHistoryListImplementerParam {
+				get_fallback_texture_creation_info: self.get_fallback_texture_creation_info,
+				item_texture_size: self.spin_history_item_texture_size
+			}).await;
 
 			// Explicitly defining the result here is needed for type inference of `Ok(())` in other places
 			let result: MaybeError = Ok(());
@@ -386,58 +392,54 @@ impl SpinitronStateData {
 			if maybe_new_playlist.get_id() != self.playlist.get_id() {
 				/* Step 4: get the persona id based on the playlist id (since otherwise, you'll
 				just get some persona that's first in Spinitron's internal list of personas. */
-				self.persona = Arc::new(Persona::get(api_key, &maybe_new_playlist).await?);
-				self.playlist = Arc::new(maybe_new_playlist);
+				self.persona = Persona::get(api_key, &maybe_new_playlist).await?;
+				self.playlist = maybe_new_playlist;
 			}
 
 			Ok(())
 		};
 
-		let show_future = async {
-			let curr_minutes = get_local_time().minute();
-			let show_not_initialized_yet = self.show.get_id() == 0;
+		////////// Possibly making a show future, and conditionally joining on all of them
 
-			// Shows can only be scheduled under 30-minute intervals (will not switch immediately if added sporadically)
-			if curr_minutes == 0 || curr_minutes == 30 || show_not_initialized_yet {
+		let curr_minutes = get_local_time().minute();
+		let show_not_initialized_yet = self.show.get_id() == 0;
+
+		// Shows can only be scheduled under 30-minute intervals (will not switch immediately if added sporadically)
+		if curr_minutes == 0 || curr_minutes == 30 || show_not_initialized_yet {
+
+			// In this case, join on 1 more future
+			let show_future = async {
 				/* Step 5: get the current show id (based on what's on the
 				schedule, irrespective of what show was last on).
 				This is not in the branch above, since the show should
 				change directly on schedule, not when a new playlist is made. */
-				self.show = Arc::new(Show::get(api_key).await?);
-			}
+				self.show = Show::get(api_key).await?;
+				Ok(())
+			};
 
-			Ok(())
-		};
+			tokio::try_join!(spin_future, playlist_and_persona_future, show_future)?;
+		}
+		else {
+			tokio::try_join!(spin_future, playlist_and_persona_future)?;
+		}
 
 		//////////
-
-		tokio::try_join!(spin_future, playlist_and_persona_future, show_future)?;
 
 		Ok(())
 	}
 }
 
 impl ContinuallyUpdatable for SpinitronStateData {
-	type Param = (WindowSize, WindowSize);
+	type Param = (PixelAreaSDL, PixelAreaSDL);
 
 	async fn update(&mut self, (spin_texture_size, spin_history_item_texture_size): &Self::Param) -> MaybeError {
-		////////// Update some variables associated with the spin history list
-
-		let implementer = self.spin_history_list.get_implementer_mut();
-
-		implementer.just_found_true_texture_size = implementer.item_texture_size != *spin_history_item_texture_size;
-
-		if implementer.just_found_true_texture_size {
-			implementer.item_texture_size = *spin_history_item_texture_size;
-		}
-
 		////////// Update the models
 
 		let get_model_ids = |data: &Self|
-			data.get_models().map(|model| model.get_id());
+			Self::get_model_names().map(|name| data.get_model_by_name(name).get_id());
 
 		let original_ids = get_model_ids(self);
-		self.sync_models().await?;
+		self.sync_models(*spin_history_item_texture_size).await?;
 		let new_ids = get_model_ids(self);
 
 		////////// Collect futures for new models to cache
@@ -446,21 +448,23 @@ impl ContinuallyUpdatable for SpinitronStateData {
 		for model_name in Self::get_model_names() {
 			let i = *model_name as usize;
 
-			self.age_data[i] = self.age_data[i].clone().update(self.get_model_by_name(*model_name))?;
+			self.age_data[i] = self.age_data[i].clone().update(self.get_model_by_name(*model_name));
 
 			let cache_entry = &mut self.cached_model_data[i];
 			cache_entry.texture_creation_info_hash_changed = false; // Marking the texture as not updated
 			cache_entry.string_changed = false; // Marking the text as not updated
 		}
 
-		// Next, updating stuff asynchronously
+		////////// Next, updating stuff asynchronously (TODO: for more concurrency, can I merge this loop with the one in `sync_models` above?)
+
 		let new_to_cache_futures = FuturesUnordered::new();
 
 		for model_name in Self::get_model_names() {
 			let i = *model_name as usize;
 
-			// Under these conditions, the texture may have updated (sometimes, models will have the same texture across different IDs though)
-			// TODO: perhaps also check based on a texture or text updating? The id may not be definitive... (e.g. changing the album cover after submitting a spin)
+			/* Under these conditions, the texture may have updated (sometimes, models will have the same texture across different IDs though).
+			TODO: perhaps also check based on a texture or text updating? The id may not be definitive... (e.g. changing the album cover after submitting a spin).
+			Maybe abandon the ID check, and just check based on a TCI hash check? */
 			let maybe_updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
 
 			if maybe_updated {
@@ -485,12 +489,12 @@ impl ContinuallyUpdatable for SpinitronStateData {
 //////////
 
 pub struct SpinitronState {
-	continually_updated: ContinuallyUpdated<SpinitronStateData>,
 	just_got_new_continual_data: bool,
+	continually_updated: ContinuallyUpdated<SpinitronStateData>,
 	instant_update_socket_listener: IpcSocketListener,
 
-	history_list_texture_manager: ApiHistoryListTextureManager<SpinitronModelId, Spin, Spin, SpinHistoryListTraitImplementer>,
-	spin_history_texture_size: WindowSize
+	spin_history_item_texture_size: PixelAreaSDL,
+	history_list_texture_manager: ApiHistoryListTextureManager<SpinHistoryListImplementer>
 }
 
 impl SpinitronState {
@@ -507,17 +511,16 @@ impl SpinitronState {
 		);
 
 		Ok(Self {
-			continually_updated,
 			just_got_new_continual_data: false,
+			continually_updated,
 			instant_update_socket_listener: make_ipc_socket_listener("spinitron_instant_update").await?,
 
-			history_list_texture_manager: ApiHistoryListTextureManager::new(max_spin_history_items, None),
-			spin_history_texture_size: initial_spin_history_texture_size_guess
-
+			spin_history_item_texture_size: initial_spin_history_texture_size_guess,
+			history_list_texture_manager: ApiHistoryListTextureManager::new(max_spin_history_items, None)
 		})
 	}
 
-	fn make_correct_texture_size_from_window_size(window_size: WindowSize) -> WindowSize {
+	fn make_correct_texture_size_from_window_size(window_size: PixelAreaSDL) -> PixelAreaSDL {
 		let axis_size = window_size.0.min(window_size.1);
 		(axis_size, axis_size)
 	}
@@ -548,28 +551,25 @@ impl SpinitronState {
 
 	//////////
 
-	pub fn get_historic_spin_at_index(&mut self, spin_index: usize, spin_history_window_size: WindowSize) -> Option<TextureHandle> {
-		self.spin_history_texture_size = Self::make_correct_texture_size_from_window_size(spin_history_window_size);
+	pub fn get_historic_spin_at_index(&mut self, spin_index: usize, spin_history_window_size: PixelAreaSDL) -> Option<TextureHandle> {
+		self.spin_history_item_texture_size = Self::make_correct_texture_size_from_window_size(spin_history_window_size);
 		self.history_list_texture_manager.get_texture_at_index(spin_index, &self.get().spin_history_list)
 	}
 
-	pub fn update(&mut self, spin_window_size: WindowSize, texture_pool: &mut TexturePool, error_state: &mut ErrorState) -> MaybeError {
+	pub fn update(&mut self, spin_window_size: PixelAreaSDL, texture_pool: &mut TexturePool, error_state: &mut ErrorState) {
 		let spin_texture_size = Self::make_correct_texture_size_from_window_size(spin_window_size);
-		let continual_param = (spin_texture_size, self.spin_history_texture_size);
+		let continual_param = (spin_texture_size, self.spin_history_item_texture_size);
 
-		////////// Check for an instant wakeup, and check if we got new continual data or not (TODO: deduplicate this from the Twilio code?)
+		////////// Check for an instant wakeup, and check if we got new continual data or not
 
 		if try_listening_to_ipc_socket(&mut self.instant_update_socket_listener).is_some() {
 			// The result of this wakeup may take until the next update iteration to be processed
 			self.continually_updated.wake_up_if_sleeping();
 		}
 
-		let continual_state = self.continually_updated.update(&continual_param, error_state);
+		let continual_state = self.continually_updated.update(continual_param, error_state);
 		self.just_got_new_continual_data = continual_state == ContinuallyUpdatedState::GotNewData;
-
-		if !self.just_got_new_continual_data {
-			return Ok(());
-		}
+		if !self.just_got_new_continual_data {return;}
 
 		//////////
 
@@ -583,7 +583,8 @@ impl SpinitronState {
 		history_list_texture_manager.update_from_history_list(
 			// I can't use the `get` function here, and it's unclear why...
 			&self.continually_updated.get_curr_data().spin_history_list,
-			texture_pool
-		)
+			texture_pool,
+			&()
+		);
 	}
 }

@@ -1,6 +1,17 @@
-use std::borrow::Cow;
+use std::{
+	borrow::Cow,
+	time::Duration
+};
+
+use reqwest::Client;
+use tokio::sync::OnceCell;
 
 use crate::utility_types::generic_result::*;
+
+//////////
+
+static CLIENT: OnceCell<Client> = OnceCell::const_new();
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10); // TODO: put this in a config file somewhere
 
 //////////
 
@@ -24,11 +35,17 @@ pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	url
 }
 
-pub async fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
-	const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+//////////
 
-	let client = reqwest::Client::new(); // TODO: figure out why client sharing results in a deadlock
-	let mut request_builder = client.get(url).timeout(DEFAULT_TIMEOUT);
+pub async fn get(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
+	let client = CLIENT.get_or_init(|| async {
+		let build_client_sync = || reqwest::ClientBuilder::new().timeout(DEFAULT_TIMEOUT).build().unwrap();
+		tokio::task::spawn_blocking(build_client_sync).await.unwrap()
+	}).await;
+
+	//////////
+
+	let mut request_builder = client.get(url);
 
 	if let Some(header) = maybe_header {
 		request_builder = request_builder.header(header.0, header.1);
@@ -52,25 +69,28 @@ pub async fn get_with_maybe_header(url: &str, maybe_header: Option<(&str, &str)>
 	}
 }
 
-pub async fn get(url: &str) -> Response {
-	get_with_maybe_header(url, None).await
+macro_rules! get_as {
+	(@opt $header:expr) => {Some($header)};
+	(@opt) => {None};
+
+	($url:expr $(, $header:expr)?) => {{
+		match $crate::request::get($url, $crate::request::get_as!(@opt $($header)?)).await {
+			Ok(response) => response.json().await.to_generic_result(),
+			Err(err) => Err(err)
+		}
+	}};
 }
 
-// This function is monadic!
-pub async fn as_type<T: for<'de> serde::Deserialize<'de>>(response: impl std::future::Future<Output = Response>) -> GenericResult<T> {
-	let unpacked_response = response.await?;
-	let text = unpacked_response.text().await?;
-	serde_json::from_str(&text).to_generic_result()
-}
+pub(crate) use get_as;
 
 // TODO: how could I make it an exact-sized iterator, to print out the URL index over the total count?
-pub async fn get_as_type_with_fallbacks(urls: impl Iterator<Item = impl AsRef<str>>, description: &str)
-	-> GenericResult<(serde_json::Value, impl AsRef<str>)> {
+pub async fn get_with_fallbacks_as<T: for<'de> serde::Deserialize<'de>, Url: AsRef<str>>
+	(urls: impl Iterator<Item = Url>, description: &str) -> GenericResult<(T, Url)> {
 
 	for (i, url) in urls.enumerate() {
-		match as_type(get(url.as_ref())).await {
-			Ok(json) => {
-				return Ok((json, url));
+		match get_as!(url.as_ref()) {
+			Ok(result) => {
+				return Ok((result, url));
 			}
 
 			Err(err) => {

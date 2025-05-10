@@ -1,11 +1,23 @@
 use std::{
 	sync::Arc,
-	borrow::Cow,
-	collections::HashMap
+	borrow::Cow
 };
+
+use serde::{Deserializer, Deserialize};
 
 use crate::{
 	request,
+
+	dashboard_defs::{
+		easing_fns,
+		error::ErrorState,
+		shared_window_state::SharedWindowState
+	},
+
+	texture::{
+		text::{DisplayText, FontInfo, TextDisplayInfo},
+		pool::{RemakeTransitionInfo, TextureCreationInfo, TexturePool}
+	},
 
 	utility_types::{
 		ipc::*,
@@ -14,190 +26,39 @@ use crate::{
 		generic_result::*,
 		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
-		continually_updated::{ContinuallyUpdated, ContinuallyUpdatable, ContinuallyUpdatedState}
-	},
+		continually_updated::{ContinuallyUpdatable, ContinuallyUpdated, ContinuallyUpdatedState},
 
-	dashboard_defs::{
-		easing_fns,
-		error::ErrorState,
-		shared_window_state::SharedWindowState,
+		api_history_list::{
+			ApiHistoryList, ApiHistoryListTextureManager, ApiHistoryListImplementer,
+			ApiHistoryListSubWindowInfo, make_api_history_list_window
+		}
 	},
 
 	window_tree::{
 		Window,
 		ColorSDL,
+		PixelAreaSDL,
 		WindowContents,
 		WindowBorderInfo,
 		WindowUpdaterParams
-	},
-
-	texture::{
-		subpool_manager::TextureSubpoolManager,
-		text::{FontInfo, DisplayText, TextDisplayInfo},
-		pool::{TextureCreationInfo, TextureHandle, TexturePool, RemakeTransitionInfo}
 	}
 };
 
-// TODO: split this file up into some smaller files
-
 //////////
 
-type MessageID = Arc<str>;
-
-enum SyncedMessageMapAction<'a, V, OffshoreV> {
-	ExpireLocal(&'a V),
-	MaybeUpdateLocal(&'a mut V, &'a OffshoreV),
-	MakeLocalFromOffshore(&'a OffshoreV)
-}
-
-/* This is a utility type used for synchronizing
-message info maps with other such maps. */
-#[derive(Clone)]
-struct SyncedMessageMap<V> {
-	map: HashMap<MessageID, V>
-}
-
-impl<V> SyncedMessageMap<V> {
-	fn new(max_size: usize) -> Self {
-		Self {map: HashMap::with_capacity(max_size)}
-	}
-
-	fn from(map: HashMap<MessageID, V>, max_size: usize) -> Self {
-		assert!(map.len() <= max_size);
-		Self {map}
-	}
-
-	fn sync<OffshoreV>(&mut self, max_size: usize,
-		offshore_map: &SyncedMessageMap<OffshoreV>,
-
-		// TODO: make the output an enum too (would that be a dependent type?); perhaps via a mutable output parameter
-		mut syncer: impl FnMut(SyncedMessageMapAction<'_, V, OffshoreV>) -> GenericResult<Option<V>>) -> MaybeError {
-
-		let local = &mut self.map;
-		let offshore = &offshore_map.map;
-
-		// 1. Removing local ones that are not in the offshore
-		local.retain(|local_key, local_value| {
-			let keep_local_key = offshore.contains_key(local_key);
-			if !keep_local_key {syncer(SyncedMessageMapAction::ExpireLocal(local_value)).unwrap();}
-			keep_local_key
-		});
-
-		for (offshore_key, offshore_value) in offshore {
-			if let Some(local_value) = local.get_mut(offshore_key) {
-				// 2. If there's a local value already in the ofshore, update it
-				syncer(SyncedMessageMapAction::MaybeUpdateLocal(local_value, offshore_value))?;
-			}
-			else {
-				// 3. Otherwise, adding local ones that are not in the offshore
-				let as_local_value = syncer(SyncedMessageMapAction::MakeLocalFromOffshore(offshore_value))?.unwrap();
-				local.insert(offshore_key.clone(), as_local_value);
-			}
-		}
-
-		////////// Doing a size assertion (mostly just to check that everything is working)
-
-		let local_len = local.len();
-
-		assert!(local_len <= max_size);
-		assert!(local_len == offshore.len());
-
-		////////// Returning
-
-		Ok(())
-	}
-}
-
-//////////
-
+type MessageId = u128; // This maps onto Twilio's 32-character SIDs
 type MessageAgeData = Option<(&'static str, &'static str, i64)>;
 
-// TODO: should/could I include caller ID, and an image, if sent?
 #[derive(Clone)]
-struct MessageInfo {
-	age_data: MessageAgeData,
-	display_text: String,
-	maybe_from: Option<String>, // This is `None` if the message identity is hidden
-	body: String,
-	num_attachments: u32, // The amount of media attachments sent to the message
-	time_sent: ReferenceTimestamp,
-	time_loaded_by_app: ReferenceTimestamp, // This includes sub-second precision, while the time sent above does not
-	just_updated: bool
-}
+struct MessageHistoryListImplementer {}
 
-struct ImmutableTwilioStateData {
-	account_sid: String,
-	request_auth: String,
-	max_num_messages_in_history: usize,
-	message_history_duration: Duration,
+struct MessageHistoryListImplementerParam {
+	curr_time: ReferenceTimestamp,
+	curr_history_cutoff_time: ReferenceTimestamp,
 	reveal_texter_identities: bool
 }
 
-#[derive(Clone)]
-struct TwilioStateData {
-	// Immutable fields (in an `Arc` so they are not needlessly copied during the continual updating):
-	immutable: Arc<ImmutableTwilioStateData>,
-
-	// Mutable fields:
-	curr_messages: SyncedMessageMap<MessageInfo>,
-	unformatted_and_formatted_phone_number: Option<(String, String)> // This is `None` if it hasn't been initialized yet
-}
-
-// TODO: put the non-continually-updated fields in their own struct
-pub struct TwilioState {
-	continually_updated: ContinuallyUpdated<TwilioStateData>,
-	just_got_new_continual_data: bool, // This is for when a new Twilio update has arrived
-	instant_update_socket_listener: IpcSocketListener,
-
-	/* This is not continually updated because the text history windows need to
-	be able to modify it directly. That is not possible with continually updated
-	objects, because once their internal task finishes its work, any modifications
-	made by the creator of the continually updated object will be overwritten with all
-	newly computed data. */
-	texture_subpool_manager: TextureSubpoolManager,
-	id_to_texture_map: SyncedMessageMap<TextureHandle>, // TODO: integrate the subpool manager into this with the searching operations
-	historically_sorted_messages_by_id: Vec<MessageID>, // TODO: avoid resorting with smart insertions and deletions?
-	maybe_remake_transition_info: Option<RemakeTransitionInfo>
-}
-
-//////////
-
-impl TwilioStateData {
-	fn new(account_sid: &str, auth_token: &str,
-		max_num_messages_in_history: usize,
-		message_history_duration: Duration,
-		reveal_texter_identities: bool) -> Self {
-
-		use base64::{engine::general_purpose::STANDARD, Engine};
-		let request_auth_base64 = STANDARD.encode(format!("{account_sid}:{auth_token}"));
-
-		Self {
-			immutable: Arc::new(ImmutableTwilioStateData {
-				account_sid: account_sid.to_owned(),
-				request_auth: "Basic ".to_owned() + &request_auth_base64,
-				max_num_messages_in_history,
-				message_history_duration,
-				reveal_texter_identities
-			}),
-
-			curr_messages: SyncedMessageMap::new(max_num_messages_in_history),
-
-			unformatted_and_formatted_phone_number: None
-		}
-	}
-
-	async fn do_twilio_request(&self, endpoint: &str, path_params: &[Cow<'_, str>], query_params: &[(&str, Cow<'_, str>)]) -> GenericResult<serde_json::Value> {
-		let base_url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/{endpoint}.json", self.immutable.account_sid);
-		let request_url = request::build_url(&base_url, path_params, query_params);
-
-		request::as_type(request::get_with_maybe_header(
-			&request_url, // TODO: cache the constructed requests, and why is there a 11200 error in the response for messages?
-			Some(("Authorization", &self.immutable.request_auth))
-		)).await
-	}
-
-	//////////
-
+impl MessageHistoryListImplementer {
 	fn get_message_age_data(curr_time: ReferenceTimestamp, time_sent: ReferenceTimestamp) -> MessageAgeData {
 		let duration = curr_time - time_sent;
 
@@ -260,6 +121,223 @@ impl TwilioStateData {
 	}
 }
 
+impl ApiHistoryListImplementer for MessageHistoryListImplementer {
+	type Key = MessageId;
+	type NonNative = IncomingMessageInfo;
+	type Native = MessageInfo;
+
+	type Param = MessageHistoryListImplementerParam;
+	type ResolveTextureCreationInfoParam = (&'static FontInfo, ColorSDL, PixelAreaSDL);
+	type IntermediateTextureCreationInfo = ();
+
+	fn may_need_to_sort_api_results() -> bool {
+		true
+	}
+
+	fn compare(a: &IncomingMessageInfo, b: &IncomingMessageInfo) -> std::cmp::Ordering {
+		// Note: the smallest unit of time in `time_sent` is seconds.
+		match a.time_sent.cmp(&b.time_sent) {
+			std::cmp::Ordering::Equal => {
+				/* If the messages were sent within the same second, ordering issues can occur.
+				When that happens, resort to basing the ordering on the time that it was loaded by the app
+				(which corresponds to the order provided by Twilio). This is not fully reliable either
+				(since Twilio has no ordering guarantee), but it serves as a more reliable fallback in general,
+				and using this ordering seems to work for me in practice. */
+				b.time_loaded_by_app.cmp(&a.time_loaded_by_app)
+			}
+
+			other => other
+		}
+	}
+
+	fn get_key(offshore: &IncomingMessageInfo) -> MessageId {
+		offshore.sid
+	}
+
+	fn is_expired(param: &Self::Param, offshore: &IncomingMessageInfo) -> bool {
+		offshore.time_sent < param.curr_history_cutoff_time
+	}
+
+	fn create_new_local(param: &Self::Param, offshore: &IncomingMessageInfo) -> MessageInfo {
+		let age_data = Self::get_message_age_data(param.curr_time, offshore.time_sent);
+		let maybe_from = param.reveal_texter_identities.then(|| offshore.from.clone());
+		let trimmed_body = offshore.body.trim().to_string();
+		let num_attachments = offshore.num_attachments;
+
+		let display_text = Self::make_message_display_text(
+			age_data, &trimmed_body, num_attachments, maybe_from.as_deref()
+		);
+
+		MessageInfo {
+			age_data,
+			time_sent: offshore.time_sent,
+
+			maybe_from,
+			body: trimmed_body,
+			display_text,
+
+			num_attachments
+		}
+	}
+
+	fn update_local(param: &Self::Param, local: &mut MessageInfo) -> bool {
+		// Only making a new string if the age data became expired
+		let age_data = Self::get_message_age_data(param.curr_time, local.time_sent);
+
+		let just_updated = age_data != local.age_data;
+
+		if just_updated {
+			local.display_text = Self::make_message_display_text(
+				age_data, &local.body, local.num_attachments, local.maybe_from.as_deref()
+			);
+
+			local.age_data = age_data;
+		}
+
+		just_updated
+	}
+
+	async fn get_intermediate_texture_creation_info(_: &Self::Param, _: &MessageInfo) -> Self::IntermediateTextureCreationInfo {}
+
+	fn resolve_texture_creation_info<'a>(param: &Self::ResolveTextureCreationInfoParam, local: &MessageInfo, _: &'a ()) -> TextureCreationInfo<'a> {
+		TextureCreationInfo::Text((
+			Cow::Borrowed(param.0),
+
+			TextDisplayInfo::new(
+				// Ensuring that the displayed text is well-formed for on-screen rendering
+				DisplayText::new(&local.display_text).with_padding("", " "),
+
+				param.1,
+				param.2,
+				easing_fns::scroll::PAUSE_THEN_SCROLL_LEFT,
+				1.0
+			)
+		))
+	}
+}
+
+//////////
+
+fn serde_parse_sid_to_u128<'de, D>(deserializer: D) -> Result<u128, D::Error> where D: Deserializer<'de> {
+	let as_string = String::deserialize(deserializer)?;
+
+	if as_string.len() != 34 {
+		Err(serde::de::Error::custom("Twilio SIDs should be 34 chars!"))
+	}
+	else {
+		u128::from_str_radix(&as_string[2..], 16).map_err(serde::de::Error::custom)
+	}
+}
+
+fn serde_parse_string_to_u32<'de, D>(deserializer: D) -> Result<u32, D::Error> where D: Deserializer<'de> {
+	let as_string = String::deserialize(deserializer)?;
+	as_string.parse::<u32>().map_err(serde::de::Error::custom)
+}
+
+#[derive(Deserialize)]
+struct IncomingMessageInfo {
+	#[serde(rename = "sid", deserialize_with = "serde_parse_sid_to_u128")]
+	sid: u128, // This is normally a string, but making it an integer here for easier comparisons
+
+	// This field is originally called `date_created`, but calling it `time_sent` instead, which makes more sense
+	#[serde(rename = "date_created", deserialize_with = "serde_parse::rfc2822_timestamp")]
+	time_sent: ReferenceTimestamp,
+
+	/* This field is not in the incoming message JSON, but is added by the app. It's used as a fallback key for sorting
+	the incoming messages, since the time sent may not be granular enough (this has sub-second precision, but the time sent
+	only goes down to 1 second). TODO: will the incoming message info structs be deserialized in order? If not, this would break that... */
+	#[serde(skip_deserializing, default = "ReferenceTimezone::now")]
+	time_loaded_by_app: ReferenceTimestamp,
+
+	from: String,
+	body: String,
+
+	#[serde(rename = "num_media", deserialize_with = "serde_parse_string_to_u32")]
+	num_attachments: u32
+}
+
+#[derive(Clone)]
+struct MessageInfo {
+	age_data: MessageAgeData,
+	time_sent: ReferenceTimestamp,
+
+	maybe_from: Option<String>, // This is `None` if the message identity is hidden
+	body: String,
+	display_text: String,
+
+	num_attachments: u32
+}
+
+struct ImmutableTwilioStateData {
+	account_sid: String,
+	request_auth: String,
+	max_num_messages_in_history_as_string: String,
+
+	max_num_messages_in_history: usize,
+	message_history_duration: Duration,
+	reveal_texter_identities: bool,
+
+	text_color: ColorSDL
+}
+
+#[derive(Clone)]
+struct TwilioStateData {
+	// Immutable fields (in an `Arc` so they are not needlessly copied during the continual updating):
+	immutable: Arc<ImmutableTwilioStateData>,
+
+	// Mutable fields:
+	unformatted_and_formatted_phone_number: Option<(String, String)>,
+	message_history_list: ApiHistoryList<MessageHistoryListImplementer>
+}
+
+pub struct TwilioState {
+	just_got_new_continual_data: bool, // This is for when a new Twilio update has arrived
+	continually_updated: ContinuallyUpdated<TwilioStateData>,
+	instant_update_socket_listener: IpcSocketListener,
+	message_history_list_texture_manager: ApiHistoryListTextureManager<MessageHistoryListImplementer>
+}
+
+//////////
+
+impl TwilioStateData {
+	fn new(account_sid: &str, auth_token: &str,
+		max_num_messages_in_history: usize,
+		message_history_duration: Duration,
+		reveal_texter_identities: bool,
+		text_color: ColorSDL) -> Self {
+
+		use base64::{engine::general_purpose::STANDARD, Engine};
+		let request_auth_base64 = STANDARD.encode(format!("{account_sid}:{auth_token}"));
+
+		Self {
+			immutable: Arc::new(ImmutableTwilioStateData {
+				account_sid: account_sid.to_owned(),
+				request_auth: "Basic ".to_owned() + &request_auth_base64,
+				max_num_messages_in_history_as_string: max_num_messages_in_history.to_string(),
+
+				max_num_messages_in_history,
+				message_history_duration,
+
+				reveal_texter_identities,
+				text_color
+			}),
+
+			unformatted_and_formatted_phone_number: None,
+			message_history_list: ApiHistoryList::new(max_num_messages_in_history)
+		}
+	}
+
+	async fn do_twilio_request<T: for<'de> serde::Deserialize<'de>>
+		(&self, endpoint: &str, path_params: &[Cow<'_, str>], query_params: &[(&str, Cow<'_, str>)]) -> GenericResult<T> {
+
+		let base_url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/{endpoint}.json", self.immutable.account_sid);
+		let request_url = request::build_url(&base_url, path_params, query_params);
+
+		// TODO: cache the constructed requests, and why is there a 11200 error in the response for messages?
+		request::get_as!(&request_url, ("Authorization", &self.immutable.request_auth))
+	}
+}
+
 impl ContinuallyUpdatable for TwilioStateData {
 	type Param = ();
 
@@ -267,142 +345,58 @@ impl ContinuallyUpdatable for TwilioStateData {
 		////////// Initializing the phone number if needed
 
 		if self.unformatted_and_formatted_phone_number.is_none() {
-			let json = self.do_twilio_request("IncomingPhoneNumbers", &[], &[]).await?;
 
-			let Some(phone_numbers) = json["incoming_phone_numbers"].as_array()
-			else {panic!("Expected the Twilio phone numbers to be an array!");};
+			let response: serde_json::Value = self.do_twilio_request("IncomingPhoneNumbers", &[], &[]).await?;
 
-			assert!(phone_numbers.len() == 1);
+			let numbers_json = response["incoming_phone_numbers"].as_array().unwrap();
+			assert!(numbers_json.len() == 1);
 
-			let number = phone_numbers[0]["phone_number"].as_str().expect("Expected the phone number to be a string!");
+			let number = &numbers_json[0]["phone_number"].as_str().unwrap();
 
 			self.unformatted_and_formatted_phone_number = Some((
-				number.to_owned(),
-				TwilioStateData::format_phone_number(number, "Messages to ", ":", "")
+				number.to_string(),
+				MessageHistoryListImplementer::format_phone_number(number, "Messages to ", ":", "")
 			));
 		}
 
-		////////// Making a request, and getting a response
+		////////// Preparing to make a request
 
 		let curr_time = ReferenceTimezone::now();
-		let history_cutoff_time = curr_time - self.immutable.message_history_duration;
-		let history_cutoff_day = history_cutoff_time.format("%Y-%m-%d");
-
-		/* TODO:
-		- Should I really limit the page size here? Twilio not returning messages in order might make this a problem...
-		- When messages are sent with very small time gaps between each other, they can end up out of order - how to resolve? And is this a synchronization issue?
-		*/
-
-		let max_messages = self.immutable.max_num_messages_in_history;
+		let curr_history_cutoff_time = curr_time - self.immutable.message_history_duration;
+		let curr_history_cutoff_day = curr_history_cutoff_time.format("%Y-%m-%d").to_string();
 
 		let phone_number = self.unformatted_and_formatted_phone_number
-			.as_ref().map(|both| both.0.as_str()).unwrap();
+			.as_ref().map(|(unformatted, _)| unformatted.as_str()).unwrap();
 
-		let json = self.do_twilio_request("Messages", &[],
+		////////// Making a request
+
+		#[derive(serde::Deserialize)]
+		struct TwilioMessageResponse {
+			messages: Vec<IncomingMessageInfo>
+		}
+
+		/* This will always be in the range of 0 <= num_messages <= self.num_messages_in_history.
+		TODO: Should I really limit the page size here? Twilio not returning messages in order might make this a problem... */
+		let mut message_response: TwilioMessageResponse = self.do_twilio_request("Messages", &[],
 			&[
 				("To", Cow::Borrowed(phone_number)), // Adding this filters out all outbound messages
-				("PageSize", Cow::Borrowed(&max_messages.to_string())),
-				("DateSent%3E", Cow::Borrowed(&history_cutoff_day.to_string())) // Note: the '%3E' is a URL-encoded '>'
+				("PageSize", Cow::Borrowed(&self.immutable.max_num_messages_in_history_as_string)),
+				("DateSent%3E", Cow::Borrowed(&curr_history_cutoff_day)) // Note: the '%3E' is a URL-encoded '>'
 			]
 		).await?;
 
-		////////// Creating a map of incoming messages
+		////////// Updating the message history list from the response
 
-		// This will always be in the range of 0 <= num_messages <= self.num_messages_in_history
-		let json_messages = json["messages"].as_array().unwrap();
+		let implementer_param = MessageHistoryListImplementerParam {
+			curr_time, curr_history_cutoff_time, reveal_texter_identities: self.immutable.reveal_texter_identities
+		};
 
-		let incoming_message_map = HashMap::from_iter(
-			json_messages.iter().filter_map(|message| {
-				let message_field = |name| message[name].as_str().unwrap();
+		self.message_history_list.update(&mut message_response.messages, &implementer_param).await;
 
-				// Using the date created instead, since it is never null at the beginning (unlike the date sent)
-				let unparsed_time_sent = message_field("date_created");
-				let time_sent = parse_time_from_rfc2822(unparsed_time_sent).unwrap();
-
-				if time_sent >= history_cutoff_time {
-					let id = message_field("uri");
-
-					// If a key on the heap already existed, reuse it
-					let (id_on_heap, time_loaded_by_app) =
-						if let Some((already_id, already_message)) = self.curr_messages.map.get_key_value(id) {
-							(already_id.clone(), already_message.time_loaded_by_app)
-						}
-						else {
-							(id.into(), ReferenceTimezone::now())
-						};
-
-					let maybe_from = if self.immutable.reveal_texter_identities {
-						Some(message_field("from"))
-					}
-					else {
-						None
-					};
-
-					let body = message_field("body");
-					let num_attachments = message_field("num_media").parse().unwrap();
-
-					Some((id_on_heap, (maybe_from, body, num_attachments, time_sent, time_loaded_by_app)))
-				}
-				else {
-					None
-				}
-			})
-		);
-
-		//////////
-
-		self.curr_messages.sync(
-			max_messages,
-			&SyncedMessageMap::from(incoming_message_map, max_messages),
-
-			|action_type| {
-				match action_type {
-					SyncedMessageMapAction::ExpireLocal(_) => {},
-
-					SyncedMessageMapAction::MaybeUpdateLocal(curr_message, _) => {
-						// Only making a new string if the age data became expired
-						let age_data = Self::get_message_age_data(curr_time, curr_message.time_sent);
-
-						curr_message.just_updated = age_data != curr_message.age_data;
-
-						if curr_message.just_updated {
-							curr_message.display_text = Self::make_message_display_text(
-								age_data, &curr_message.body, curr_message.num_attachments, curr_message.maybe_from.as_deref()
-							);
-
-							curr_message.age_data = age_data;
-						}
-					},
-
-					SyncedMessageMapAction::MakeLocalFromOffshore((maybe_from, body, num_attachments, wrongly_typed_time_sent, time_loaded_by_app)) => {
-						let time_sent = (*wrongly_typed_time_sent).into();
-						let age_data = Self::get_message_age_data(curr_time, time_sent);
-
-						let num_attachments = *num_attachments;
-						let trimmed_body = body.trim().to_string();
-						let boxed_maybe_from = maybe_from.map(|from| from.to_owned());
-
-						return Ok(Some(MessageInfo {
-							age_data,
-							display_text: Self::make_message_display_text(age_data, &trimmed_body, num_attachments, *maybe_from),
-							maybe_from: boxed_maybe_from,
-							body: trimmed_body,
-							num_attachments,
-							time_sent,
-							time_loaded_by_app: *time_loaded_by_app,
-							just_updated: true
-						}));
-					}
-				}
-
-				Ok(None)
-			}
-		)
+		Ok(())
 	}
 }
 
-/* TODO: eventually, integrate `new` into `ContinuallyUpdatable`, and
-reduce the boilerplate for the `ContinuallyUpdatable` stuff in general */
 impl TwilioState {
 	pub async fn new(
 		api_update_rate: Duration,
@@ -410,288 +404,160 @@ impl TwilioState {
 		max_num_messages_in_history: usize,
 		message_history_duration: Duration,
 		reveal_texter_identities: bool,
+
+		text_color: ColorSDL,
 		maybe_remake_transition_info: Option<RemakeTransitionInfo>) -> GenericResult<Self> {
 
 		let data = TwilioStateData::new(
 			account_sid, auth_token, max_num_messages_in_history,
-			message_history_duration, reveal_texter_identities
+			message_history_duration, reveal_texter_identities, text_color
 		);
 
 		Ok(Self {
-			continually_updated: ContinuallyUpdated::new(data, (), "Twilio", api_update_rate),
 			just_got_new_continual_data: false,
+			continually_updated: ContinuallyUpdated::new(data, (), "Twilio", api_update_rate),
 			instant_update_socket_listener: make_ipc_socket_listener("twilio_instant_update").await?,
-
-			texture_subpool_manager: TextureSubpoolManager::new(max_num_messages_in_history),
-			id_to_texture_map: SyncedMessageMap::new(max_num_messages_in_history),
-			historically_sorted_messages_by_id: Vec::new(),
-			maybe_remake_transition_info
+			message_history_list_texture_manager: ApiHistoryListTextureManager::new(max_num_messages_in_history, maybe_remake_transition_info)
 		})
 	}
 
 	pub fn update(&mut self, error_state: &mut ErrorState,
-		texture_pool: &mut TexturePool,
-		pixel_area: (u32, u32), font_info: &FontInfo,
-		text_color: ColorSDL) -> MaybeError {
+		texture_pool: &mut TexturePool, font_info: &'static FontInfo, pixel_area: PixelAreaSDL) {
 
-		////////// Check for an instant wakeup, and check if we got new continual data or not
+		////////// Check for an instant wakeup
 
-		if try_listening_to_ipc_socket(&mut self.instant_update_socket_listener).is_some() {
+		let do_ipc_socket_wakeup = try_listening_to_ipc_socket(&mut self.instant_update_socket_listener).is_some();
+
+		if do_ipc_socket_wakeup {
 			// The result of this wakeup may take until the next update iteration to be processed
 			self.continually_updated.wake_up_if_sleeping();
 		}
 
-		let continual_state = self.continually_updated.update(&(), error_state);
-		self.just_got_new_continual_data = continual_state == ContinuallyUpdatedState::GotNewData;
+		////////// Check if we got new continual data or not
 
-		if !self.just_got_new_continual_data {
-			return Ok(());
-		}
+		// The pixel area and text color are passed to the message history list implementer
+		let continual_state = self.continually_updated.update((), error_state);
+		self.just_got_new_continual_data = continual_state == ContinuallyUpdatedState::GotNewData;
+		if !self.just_got_new_continual_data {return;}
 
 		//////////
 
-		let curr_continual_data = self.continually_updated.get_curr_data();
-
-		let local = &mut self.id_to_texture_map;
-		let offshore = &curr_continual_data.curr_messages;
-
-		let mut texture_creation_info = TextureCreationInfo::Text((
-			Cow::Borrowed(font_info),
-
-			TextDisplayInfo::new(
-				DisplayText::new(""),
-				text_color,
-				pixel_area,
-				easing_fns::scroll::PAUSE_THEN_SCROLL_LEFT,
-				1.0
-			)
-		));
-
-		local.sync(
-			curr_continual_data.immutable.max_num_messages_in_history,
-			offshore,
-
-			|action_type| {
-				let mut update_texture_creation_info = |offshore_message_info: &MessageInfo| {
-					if let TextureCreationInfo::Text((_, ref mut text_display_info)) = &mut texture_creation_info {
-						// println!(">>> Update texture display info");
-						text_display_info.set_text(DisplayText::new(&offshore_message_info.display_text).with_padding("", " "));
-					}
-				};
-
-				match action_type {
-					SyncedMessageMapAction::ExpireLocal(local_texture) => {
-						// println!(">>> Give texture slot back");
-						self.texture_subpool_manager.give_back_slot(local_texture);
-					},
-
-					SyncedMessageMapAction::MaybeUpdateLocal(local_texture, offshore_message_info) => {
-						if offshore_message_info.just_updated {
-							// println!(">>> Update local texture");
-							update_texture_creation_info(offshore_message_info);
-
-							self.texture_subpool_manager.re_request_slot(
-								local_texture, &texture_creation_info,
-								self.maybe_remake_transition_info.as_ref(),
-								texture_pool
-							)?;
-						}
-					},
-
-					SyncedMessageMapAction::MakeLocalFromOffshore(offshore_message_info) => {
-						// println!(">>> Allocate texture from base slot");
-						assert!(offshore_message_info.just_updated);
-						update_texture_creation_info(offshore_message_info);
-
-						return Ok(Some(self.texture_subpool_manager.request_slot(
-							&texture_creation_info,
-							self.maybe_remake_transition_info.as_ref(),
-							texture_pool
-						)?));
-					}
-				}
-
-				Ok(None)
-			}
-		)?;
-
-		////////// After the syncing, sorting the messages by their IDs, and doing an assertion
-
-		self.historically_sorted_messages_by_id = offshore.map.keys().cloned().collect();
-
-		self.historically_sorted_messages_by_id.sort_by(|m1_id, m2_id| {
-			let (m1, m2) = (&offshore.map[m1_id], &offshore.map[m2_id]);
-
-			// Note: the smallest unit of time in `time_sent` is seconds.
-			match m1.time_sent.cmp(&m2.time_sent) {
-				/* If the messages were sent within the same second, ordering issues can occur.
-				When that happens, resort to basing the ordering on the time that it was loaded by the app
-				(which corresponds to the order provided by Twilio). This is not fully reliable either
-				(since Twilio has no ordering guarantee), but it serves as a more reliable fallback in general,
-				and using this ordering seems to work for me in practice. */
-
-				std::cmp::Ordering::Equal => m2.time_loaded_by_app.cmp(&m1.time_loaded_by_app),
-				other => other
-			}
-		});
-
-		assert!(self.historically_sorted_messages_by_id.len() == local.map.len());
-
-		Ok(())
+		let twilio_state = self.continually_updated.get_curr_data();
+		let param = (font_info, twilio_state.immutable.text_color, pixel_area);
+		self.message_history_list_texture_manager.update_from_history_list(&twilio_state.message_history_list, texture_pool, &param)
 	}
 }
 
 //////////
 
-pub fn make_twilio_window(
+fn history_updater_fn(params: WindowUpdaterParams) -> MaybeError {
+	let message_index = *params.window.get_state::<usize>();
+	let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
+	let twilio_state = &mut inner_shared_state.twilio_state;
+
+	//////////
+
+	// The first window handles the updating
+	if message_index == 0 {
+		twilio_state.update(
+			&mut inner_shared_state.error_state,
+			params.texture_pool,
+			inner_shared_state.font_info,
+			params.area_drawn_to_screen
+		);
+	}
+
+	if !twilio_state.just_got_new_continual_data {
+		return Ok(());
+	}
+
+	//////////
+
+	let maybe_texture = twilio_state.message_history_list_texture_manager.get_texture_at_index(
+		message_index, &twilio_state.continually_updated.get_curr_data().message_history_list
+	);
+
+	*params.window.get_contents_mut() = if let Some(texture) = maybe_texture {
+		WindowContents::Texture(texture)
+	}
+	else {
+		WindowContents::Nothing
+	};
+
+	//////////
+
+	Ok(())
+}
+
+fn top_box_updater_fn(params: WindowUpdaterParams) -> MaybeError {
+	let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
+	let twilio_state = inner_shared_state.twilio_state.continually_updated.get_curr_data();
+
+	let WindowContents::Many(many) = params.window.get_contents_mut()
+	else {panic!("The top box for Twilio did not contain a vec of contents!");};
+
+	if let WindowContents::Nothing = many[1] {
+		let formatted_number = match &twilio_state.unformatted_and_formatted_phone_number {
+			Some((_, formatted_number)) => formatted_number,
+
+			None => {
+				return Ok(()); // Will check for the number again next time
+			}
+		};
+
+		let texture_creation_info = TextureCreationInfo::Text((
+			Cow::Borrowed(inner_shared_state.font_info),
+
+			TextDisplayInfo::new(
+				DisplayText::new(formatted_number).with_padding(" ", ""),
+				twilio_state.immutable.text_color,
+				params.area_drawn_to_screen,
+				easing_fns::scroll::STAY_PUT,
+				1.0
+			)
+		));
+
+		many[1] = WindowContents::make_texture_contents(&texture_creation_info, params.texture_pool)?;
+	}
+
+	Ok(())
+}
+
+//////////
+
+pub fn make_twilio_windows(
 	twilio_state: &TwilioState,
 	view_refresh_update_rate: UpdateRate,
 
 	top_left: Vec2f, size: Vec2f,
 	top_box_height: f64,
 	top_box_contents: WindowContents,
-	message_background_contents_text_crop_factor: Vec2f,
-	overall_border_info: WindowBorderInfo, text_color: ColorSDL,
-	message_background_contents: WindowContents) -> Window {
-
-	struct TwilioHistoryWindowState {
-		message_index: usize,
-		text_color: ColorSDL
-	}
-
-	////////// Making a series of history windows
+	message_text_zoom_factor: Vec2f,
+	overall_border_info: WindowBorderInfo,
+	message_background_contents: WindowContents) -> Vec<Window> {
 
 	let max_num_messages_in_history = twilio_state.continually_updated.get_curr_data().immutable.max_num_messages_in_history;
+	let subwindow_size = Vec2f::new(1.0, 1.0 / max_num_messages_in_history as f64);
 
-	fn history_updater_fn(params: WindowUpdaterParams) -> MaybeError {
-		let individual_window_state = params.window.get_state::<TwilioHistoryWindowState>();
-		let inner_shared_state = params.shared_window_state.get_mut::<SharedWindowState>();
-		let twilio_state = &mut inner_shared_state.twilio_state;
-		let message_index = individual_window_state.message_index;
+	let subwindow_info = (0..max_num_messages_in_history).map(|i|
+		ApiHistoryListSubWindowInfo {
+			top_left: Vec2f::new(0.0, i as f64 * subwindow_size.y()),
+			main_window_zoom_factor: message_text_zoom_factor,
+			background_contents: message_background_contents.clone(),
+			skip_aspect_ratio_correction_for_background_contents: true
+	});
 
-		//////////
-
-		// The first window handles the updating
-		if message_index == 0 {
-			twilio_state.update(
-				&mut inner_shared_state.error_state,
-				params.texture_pool, params.area_drawn_to_screen,
-				inner_shared_state.font_info, individual_window_state.text_color
-			)?;
-		}
-
-		if !twilio_state.just_got_new_continual_data {
-			return Ok(());
-		}
-
-		//////////
-
-		let sorted_message_ids = &twilio_state.historically_sorted_messages_by_id;
-
-		// Then, possibly assigning a texture to the window contents
-		if message_index < sorted_message_ids.len() {
-			let message_id = &sorted_message_ids[individual_window_state.message_index];
-
-			// If this condition is not met, that means that the created texture is still pending
-			if let Some(message_texture) = twilio_state.id_to_texture_map.map.get(message_id) {
-				*params.window.get_contents_mut() = WindowContents::Texture(message_texture.clone());
-			}
-			else {
-				panic!("A message texture was not allocated when it should have been!");
-			}
-		}
-		else {
-			*params.window.get_contents_mut() = WindowContents::Nothing;
-		}
-
-		Ok(())
-	}
-
-	//////////
-
-	fn top_box_updater_fn(params: WindowUpdaterParams) -> MaybeError {
-		let inner_shared_state = params.shared_window_state.get::<SharedWindowState>();
-		let twilio_state = inner_shared_state.twilio_state.continually_updated.get_curr_data();
-		let text_color = *params.window.get_state::<ColorSDL>();
-
-		let WindowContents::Many(many) = params.window.get_contents_mut()
-		else {panic!("The top box for Twilio did not contain a vec of contents!");};
-
-		if let WindowContents::Nothing = many[1] {
-			//////////
-
-			let formatted_number = match &twilio_state.unformatted_and_formatted_phone_number {
-				Some((_, formatted_number)) => formatted_number,
-
-				None => {
-					return Ok(()); // Will check for the number again next time
-				}
-			};
-
-			//////////
-
-			let texture_creation_info = TextureCreationInfo::Text((
-				Cow::Borrowed(inner_shared_state.font_info),
-
-				TextDisplayInfo::new(
-					DisplayText::new(formatted_number).with_padding(" ", ""),
-					text_color,
-					params.area_drawn_to_screen,
-					easing_fns::scroll::STAY_PUT,
-					1.0
-				)
-			));
-
-			many[1] = WindowContents::make_texture_contents(&texture_creation_info, params.texture_pool)?;
-		}
-
-		Ok(())
-	}
-
-
-	//////////
-
-	let (cropped_text_tl_in_history_window, cropped_text_size_in_history_window) = (
-		message_background_contents_text_crop_factor * Vec2f::new_scalar(0.5),
-		Vec2f::ONE - message_background_contents_text_crop_factor
+	let message_history_window = make_api_history_list_window(
+		(top_left, size),
+		overall_border_info,
+		subwindow_size,
+		&[(history_updater_fn, view_refresh_update_rate)],
+		subwindow_info
 	);
 
-	let history_window_height = 1.0 / max_num_messages_in_history as f64;
-
-	let all_subwindows = (0..max_num_messages_in_history).map(|i| {
-		// Note: I can't directly put the background contents into the history windows since it's sized differently
-		let history_window = Window::new(
-			vec![(history_updater_fn, view_refresh_update_rate)],
-
-			DynamicOptional::new(TwilioHistoryWindowState {message_index: i, text_color}),
-			WindowContents::Nothing,
-			None,
-			cropped_text_tl_in_history_window,
-			cropped_text_size_in_history_window,
-			vec![]
-		);
-
-		// This is just the history window with the background contents
-		let mut with_background_contents = Window::new(
-			vec![],
-			DynamicOptional::NONE,
-			message_background_contents.clone(),
-			None,
-			Vec2f::new(0.0, i as f64 * history_window_height),
-			Vec2f::new(1.0, history_window_height),
-			vec![history_window]
-		);
-
-		// Don't want to not stretch the message bubbles
-		with_background_contents.set_aspect_ratio_correction_skipping(true);
-		with_background_contents
-	}).collect();
-
-	//////////
-
-	let top_box = Window::new(
+	let top_box_window = Window::new(
 		vec![(top_box_updater_fn, view_refresh_update_rate)],
-		DynamicOptional::new(text_color),
+		DynamicOptional::NONE,
 		WindowContents::Many(vec![top_box_contents, WindowContents::Nothing]),
 		None,
 		Vec2f::new(top_left.x(), top_left.y() - top_box_height),
@@ -699,24 +565,5 @@ pub fn make_twilio_window(
 		vec![]
 	);
 
-	// This just contains the history windows
-	let history_window_container = Window::new(
-		vec![],
-		DynamicOptional::NONE,
-		WindowContents::Nothing,
-		overall_border_info,
-		top_left,
-		size,
-		all_subwindows
-	);
-
-	Window::new(
-		vec![],
-		DynamicOptional::NONE,
-		WindowContents::Nothing,
-		None,
-		Vec2f::ZERO,
-		Vec2f::ONE,
-		vec![history_window_container, top_box]
-	)
+	vec![message_history_window, top_box_window]
 }

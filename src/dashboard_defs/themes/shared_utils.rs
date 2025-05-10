@@ -169,7 +169,7 @@ pub async fn run_command(command: &str, args: &[&str]) -> GenericResult<String> 
 		error_msg!("This command failed: '{command} {}'", args.join(" "))
 	}
 	else {
-		String::from_utf8(output.stdout).to_generic_result().map(|s| s.trim().to_owned())
+		String::from_utf8(output.stdout).map(|s| s.trim().to_owned()).to_generic_result()
 	}
 }
 

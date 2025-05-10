@@ -1,5 +1,3 @@
-pub use anyhow::Context; // For `.context`
-
 pub type MaybeError = GenericResult<()>;
 pub type GenericResult<T> = anyhow::Result<T>;
 

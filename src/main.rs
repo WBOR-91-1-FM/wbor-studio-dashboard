@@ -14,8 +14,8 @@ use sdl2::{
 };
 
 use crate::{
-	window_tree::ColorSDL,
 	dashboard_defs::themes,
+	window_tree::{ColorSDL, PixelAreaSDL},
 
 	utility_types::{
 		file_utils,
@@ -34,7 +34,7 @@ use crate::{
 enum ScreenOption {
 	/* This runs it as a small app window, which can optionally
 	be borderless, and optionally be translucent too. */
-	Windowed(u32, u32, bool, Option<f64>),
+	Windowed(PixelAreaSDL, bool, Option<f64>),
 
 	/* This allows you to switch windows without shutting
 	down the app. It is slower than real fullscreen. */
@@ -113,26 +113,27 @@ async fn main() {
 	let sdl_video_subsystem = sdl_context.video().unwrap();
 	let mut sdl_event_pump = sdl_context.event_pump().unwrap();
 
-	let build_window = |width: u32, height: u32, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
-		applier(&mut sdl_video_subsystem.window(&app_config.title, width, height)).allow_highdpi().build();
+	let build_window = |size: PixelAreaSDL, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
+		applier(&mut sdl_video_subsystem.window(&app_config.title, size.0, size.1)).allow_highdpi().build();
 
 	let mut sdl_window = match app_config.screen_option {
-		ScreenOption::Windowed(width, height, borderless, _) => build_window(
-			width, height,
+		ScreenOption::Windowed(size, borderless, _) => build_window(
+			size,
 			if borderless {|wb| wb.position_centered().borderless()}
 			else {WindowBuilder::position_centered}
 		),
 
 		// The resolution passed in here is irrelevant
 		ScreenOption::FullscreenDesktop => build_window(
-			0, 0, WindowBuilder::fullscreen_desktop
+			(0, 0),
+			WindowBuilder::fullscreen_desktop
 		),
 
 		ScreenOption::Fullscreen => {
 			let mode = sdl_video_subsystem.display_mode(0, 0).unwrap();
 
 			build_window(
-				mode.w as u32, mode.h as u32,
+				(mode.w as _, mode.h as _),
 				WindowBuilder::fullscreen
 			)
 		}

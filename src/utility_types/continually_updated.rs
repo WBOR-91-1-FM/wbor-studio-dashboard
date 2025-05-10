@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use tokio::{
 	time::timeout,
 	sync::mpsc::{self, error::{TrySendError, TryRecvError}}
@@ -64,7 +62,7 @@ And for that, sleep in increments of 1 second, perhaps (just as a test), to get 
 impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 	fn channel_error(name: &str, transfer_description: &str, err: impl std::fmt::Display, should_panic: bool) {
 		let message = format!("Problem from '{name}' with {transfer_description} ({}): '{err}'",
-			if should_panic {"should ideally never happen!"} else {"probably harmless, at program shutdown"}
+			if should_panic {"should ideally never happen"} else {"probably harmless, at program shutdown"}
 		);
 
 		if should_panic {
@@ -75,9 +73,9 @@ impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 		}
 	}
 
-	pub fn new(mut data: T, initial_param: T::Param, name: &'static str, min_time_between_updates: Duration) -> Self {
+	pub fn new(mut data: T, mut param: T::Param, name: &'static str, min_time_between_updates: Duration) -> Self {
 		let (data_sender, data_receiver) = mpsc::channel(1);
-		let (param_sender, mut param_receiver) = mpsc::channel(1);
+		let (param_sender, mut param_receiver) = mpsc::channel::<T::Param>(1);
 		let (wakeup_sender, mut wakeup_receiver) = mpsc::channel(1);
 
 		let cloned_data = data.clone();
@@ -88,15 +86,16 @@ impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 			loop {
 				let time_before = get_reference_time();
 
-				////////// Getting a param
+				////////// Updating the current param
 
-				let param = if is_first_iteration {
+				if is_first_iteration {
 					is_first_iteration = false;
-					Cow::Borrowed(&initial_param)
 				}
 				else {
 					match param_receiver.recv().await {
-						Some(inner_param) => Cow::Owned(inner_param),
+						Some(inner_param) => {
+							param = inner_param.clone();
+						}
 
 						None => {
 							return Self::channel_error( // Ending the task
@@ -108,14 +107,14 @@ impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 
 				////////// Computing a result
 
-				// TODO: can I rollback in a more efficient way, without another clone?
+				// TODO: can I roll back in a more efficient way, without another clone?
 				let data_before_update = data.clone();
 
 				let result = match data.update(&param).await {
 					Ok(()) => Ok(data.clone()),
 
 					Err(err) => {
-						data = data_before_update; // TODO: would rollbacks be able to `lock` something in an invalid state?
+						data = data_before_update; // TODO: would rollbacks be able to 'lock' something in an invalid state?
 						Err(err.to_string())
 					}
 				};
@@ -150,7 +149,7 @@ impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 
 					// Then, sleep for the remaining time, unless a wakeup was sent
 					match timeout(time_to_sleep, wakeup_receiver.recv()).await {
-						Ok(Some(())) => {}, // A wakeup was sent!
+						Ok(Some(())) => {} // A wakeup was sent!
 
 						Ok(None) => {
 							return; // This happens quite often, so I'm leaving this out
@@ -173,7 +172,7 @@ impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 	}
 
 	// This allows the param receiver to move past its await point, and starts a new update iteration with a new param.
-	fn run_new_update_iteration(&self, param: &T::Param) {
+	fn run_new_update_iteration(&self, param: T::Param) {
 		let transfer_description = "sending a parameter to its task";
 
 		match self.param_sender.try_send(param.clone()) {
@@ -198,7 +197,7 @@ impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 		}
 	}
 
-	pub fn update(&mut self, param: &T::Param, error_state: &mut ErrorState) -> ContinuallyUpdatedState {
+	pub fn update(&mut self, param: T::Param, error_state: &mut ErrorState) -> ContinuallyUpdatedState {
 		match self.data_receiver.try_recv() {
 			Ok(Ok(new_data)) => {
 				self.curr_data = new_data;
@@ -209,8 +208,9 @@ impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 
 			Ok(Err(err)) => {
 				error_state.report(self.name, &err);
-				// Still waiting for new data, even though we got a failure back...
 				self.run_new_update_iteration(param);
+
+				// Still waiting for new data, even though we got something back (a failure)...
 				ContinuallyUpdatedState::Pending
 			}
 

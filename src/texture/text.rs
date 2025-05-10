@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
 	texture::pool,
-	window_tree::ColorSDL
+	window_tree::{ColorSDL, PixelAreaSDL}
 };
 
 ////////// Defining some hashable wrapper types
@@ -173,14 +173,14 @@ pub type TextTextureScrollEaser = (fn(f64, bool) -> (f64, bool), f64);
 pub struct TextDisplayInfo<'a> {
 	pub(in crate::texture) text: DisplayText<'a>,
 	pub(in crate::texture) color: ColorSDL,
-	pub(in crate::texture) pixel_area: (u32, u32),
+	pub(in crate::texture) pixel_area: PixelAreaSDL,
 	pub(in crate::texture) scroll_easer: HashableTextTextureScrollEaser,
 	pub(in crate::texture) scroll_speed_multiplier: HashableF64
 }
 
 impl<'a> TextDisplayInfo<'a> {
 	pub const fn new(display_text: DisplayText<'a>, color: ColorSDL,
-		pixel_area: (u32, u32), scroll_easer: TextTextureScrollEaser,
+		pixel_area: PixelAreaSDL, scroll_easer: TextTextureScrollEaser,
 		scroll_speed_multiplier: f64) -> TextDisplayInfo<'a> {
 
 		Self {
@@ -191,17 +191,13 @@ impl<'a> TextDisplayInfo<'a> {
 			scroll_speed_multiplier: HashableF64 {field: scroll_speed_multiplier}
 		}
 	}
-
-	pub fn set_text(&mut self, text: DisplayText<'a>) {
-		self.text = text;
-	}
 }
 
 ////////// Defining `TextMetadataItem`, and `TextMetadataSet`
 
 #[derive(Clone)]
 pub(in crate::texture) struct TextMetadataItem {
-	pub(in crate::texture) size: (u32, u32),
+	pub(in crate::texture) size: PixelAreaSDL,
 	pub(in crate::texture) scroll_speed: f64,
 	pub(in crate::texture) scroll_easer: TextTextureScrollEaser,
 	pub(in crate::texture) text: String
