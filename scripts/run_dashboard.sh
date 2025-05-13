@@ -32,17 +32,21 @@ fi
 
 ########## Third, if the dashboard fails at any point, try a relaunch
 
+print_to_log() {
+	echo -e "$1" >> "$PROJECT_DIR/project.log"
+}
+
 while true; do
-	echo -e "---------------------------------------\n\nStarting dashboard at $(date)\n" >> "$PROJECT_DIR/project.log"
+	print_to_log "---------------------------------------\n\nStarting dashboard at $(date)\n"
 	RUST_BACKTRACE=1 RUST_LOG=wbor_studio_dashboard cargo run --release >>"$PROJECT_DIR/project.log" 2>&1
 
 	EXIT_CODE=$?
 
 	if [ $EXIT_CODE -eq 0 ]; then
-		echo "Dashboard was killed peacefully. Exiting."
+		print_to_log "\nDashboard was killed peacefully. Exiting.\n"
 		break
 	else
-		echo "Something went wrong with the dashboard (likely a panic, which should be addressed!). \
+		print_to_log "Something went wrong with the dashboard (likely a panic, which should be addressed!). \
 Wait for $SLEEP_AMOUNT_SECS_UPON_PANIC seconds, then try a relaunch."
 
 		if [ "$CRASH_DISCORD_WEBHOOK" != "null" ]; then
@@ -52,7 +56,7 @@ Wait for $SLEEP_AMOUNT_SECS_UPON_PANIC seconds, then try a relaunch."
 			send_discord_webhook "$CRASH_DISCORD_WEBHOOK" "\"The dashboard crashed! Here's a bit of the log:\""
 			send_discord_webhook "$CRASH_DISCORD_WEBHOOK" "$escaped_log"
 		else
-			echo "No Discord webhook available for alerting a crash!"
+			print_to_log "No Discord webhook available for alerting a crash!"
 		fi
 
 		sleep $SLEEP_AMOUNT_SECS_UPON_PANIC
