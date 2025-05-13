@@ -13,7 +13,7 @@ send_discord_webhook() {
 
 ########## First, do some initial setup
 
-NUM_PROJECT_LOG_LINES=12
+NUM_PROJECT_LOG_LINES=20
 SLEEP_AMOUNT_SECS_UPON_PANIC=50
 PROJECT_DIR="/Users/wborguest/wbor-studio-dashboard" # Full path to project dir
 
@@ -46,17 +46,18 @@ while true; do
 		print_to_log "\nDashboard was killed peacefully. Exiting.\n"
 		break
 	else
-		print_to_log "Something went wrong with the dashboard (likely a panic, which should be addressed!). \
-Wait for $SLEEP_AMOUNT_SECS_UPON_PANIC seconds, then try a relaunch."
+		print_to_log "\nSomething went wrong with the dashboard (likely a panic, which should be addressed!). \
+Wait for $SLEEP_AMOUNT_SECS_UPON_PANIC seconds, then try a relaunch.\n"
 
 		if [ "$CRASH_DISCORD_WEBHOOK" != "null" ]; then
 			log_tail=$(tail -n $NUM_PROJECT_LOG_LINES "$PROJECT_DIR/project.log")
 			escaped_log=$(printf '```\n%s\n```' "$log_tail" | jq -Rs .)
+			curr_time=$(date)
 
-			send_discord_webhook "$CRASH_DISCORD_WEBHOOK" "\"The dashboard crashed! Here's a bit of the log:\""
+			send_discord_webhook "$CRASH_DISCORD_WEBHOOK" "\"$curr_time\nThe dashboard crashed! Here's a bit of the log:\""
 			send_discord_webhook "$CRASH_DISCORD_WEBHOOK" "$escaped_log"
 		else
-			print_to_log "No Discord webhook available for alerting a crash!"
+			print_to_log "\nNo Discord webhook available for alerting a crash!\n"
 		fi
 
 		sleep $SLEEP_AMOUNT_SECS_UPON_PANIC
