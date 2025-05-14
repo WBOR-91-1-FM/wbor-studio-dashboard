@@ -46,7 +46,7 @@ impl ErrorState {
 	}
 
 	// This should only ever be called if the number of sources is greater than zero.
-	pub fn make_message(&self) -> String {
+	fn make_message(&self) -> String {
 		let mut message = String::new();
 
 		let num_sources = self.source_list.len();
