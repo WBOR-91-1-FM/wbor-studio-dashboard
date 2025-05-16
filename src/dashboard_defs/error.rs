@@ -1,6 +1,6 @@
 use std::{
 	borrow::Cow,
-	collections::BTreeSet
+	collections::BTreeMap
 };
 
 use crate::{
@@ -28,42 +28,43 @@ use crate::{
 
 #[derive(Hash)]
 pub struct ErrorState {
-	source_list: BTreeSet<&'static str>
+	errors: BTreeMap<&'static str, String> // Error source -> error message
 }
 
 impl ErrorState {
 	pub fn new() -> Self {
-		Self {source_list: BTreeSet::new()}
+		Self {errors: BTreeMap::new()}
 	}
 
-	pub fn report(&mut self, source: &'static str, err: &str) {
-		self.source_list.insert(source);
+	pub fn report(&mut self, source: &'static str, err: String) {
 		log::error!("Error from '{source}': '{err}'");
+
+		self.errors.insert(source, err);
 	}
 
 	pub fn unreport(&mut self, source: &'static str) {
-		self.source_list.remove(source);
+		self.errors.remove(source);
 	}
 
 	// This should only ever be called if the number of sources is greater than zero.
 	fn make_message(&self) -> String {
 		let mut message = String::new();
 
-		let num_sources = self.source_list.len();
+		let num_sources = self.errors.len();
 		assert!(num_sources > 0);
 
 		let last_source_index = num_sources - 1;
 		let plural_suffix = if num_sources == 1 {""} else {"s"};
 
-		for (i, source) in self.source_list.iter().enumerate() {
+		for (i, (source, error)) in self.errors.iter().enumerate() {
 			let (is_first_source, is_last_source) = (i == 0, i == last_source_index);
 			let (subsection_ending, maybe_and) = if is_last_source {(".", "and ")} else {("", "")};
 
 			let subsection = if is_first_source {
-				format!("Error{plural_suffix} encountered from '{source}'{subsection_ending}")
+				format!("Error{plural_suffix} encountered from '{source}' ({error}){subsection_ending}")
 			}
 			else {
-				format!(", {maybe_and}'{source}'{subsection_ending}")
+				format!(", {maybe_and}'{source}' ({error}){subsection_ending}")
 			};
 
 			message.push_str(subsection.as_str());
@@ -87,7 +88,7 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 			let wrapped_individual_state = params.window.get_state_mut
 				::<updatable_text_pattern::UpdatableTextWindowFields<ErrorWindowState>>();
 
-			let no_errors_to_display = inner_shared_state.error_state.source_list.is_empty();
+			let no_errors_to_display = inner_shared_state.error_state.errors.is_empty();
 
 			let skip_update = match &mut wrapped_individual_state.inner {
 				Some(prev_hash) => {

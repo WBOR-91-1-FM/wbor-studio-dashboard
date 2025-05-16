@@ -166,7 +166,7 @@ pub async fn run_command(command: &str, args: &[&str]) -> GenericResult<String> 
 		.output().await?;
 
 	if !output.status.success() {
-		error_msg!("This command failed: '{command} {}'", args.join(" "))
+		error_msg!("this command failed: '{command} {}'", args.join(" "))
 	}
 	else {
 		String::from_utf8(output.stdout).map(|s| s.trim().to_owned()).to_generic_result()

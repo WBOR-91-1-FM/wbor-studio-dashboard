@@ -63,7 +63,7 @@ pub async fn get(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
 	}
 	else {
 		error_msg!(
-			"Response status code for URL '{url}' was '{status_code}', with this reason: '{}'",
+			"response status code for URL '{url}' was '{status_code}', with this reason: '{}'",
 			status.canonical_reason().unwrap_or("unknown")
 		)
 	}
@@ -94,11 +94,11 @@ pub async fn get_with_fallbacks_as<T: for<'de> serde::Deserialize<'de>, Url: AsR
 			}
 
 			Err(err) => {
-				log::warn!("Got an error from {description} URL #{}: '{err}'.", i + 1);
+				log::warn!("got an error from {description} URL #{}: '{err}'.", i + 1);
 				continue;
 			}
 		};
 	}
 
-	error_msg!("None of the {description} URLs worked!")
+	error_msg!("none of the {description} URLs worked")
 }

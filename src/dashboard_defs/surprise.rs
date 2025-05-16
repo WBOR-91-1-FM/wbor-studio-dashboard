@@ -167,7 +167,7 @@ pub async fn make_surprise_window(
 	let surprise_path_set: HashSet<SurprisePath> = make_path_iterator().collect();
 
 	if surprise_path_set.len() != surprise_creation_info.len() {
-		return error_msg!("There are duplicate paths in the set of surprises");
+		return error_msg!("there are duplicate paths in the set of surprises");
 	}
 
 	////////// Setting up the shared surprise info that can be triggered via IPC

@@ -41,7 +41,7 @@ impl ContinuallyUpdatable for ServerStatusChecker {
 			}
 		}
 
-		error_msg!("Could not reach the streaming server!")
+		error_msg!("could not reach the streaming server")
 	}
 }
 

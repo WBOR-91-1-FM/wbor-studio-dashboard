@@ -207,7 +207,7 @@ impl<T: ContinuallyUpdatable + 'static> ContinuallyUpdated<T> {
 			}
 
 			Ok(Err(err)) => {
-				error_state.report(self.name, &err);
+				error_state.report(self.name, err);
 				self.run_new_update_iteration(param);
 
 				// Still waiting for new data, even though we got something back (a failure)...
