@@ -14,7 +14,7 @@ pub struct Vec2f {
 //////////
 
 pub fn assert_in_unit_interval(f: Component) {
-	assert!((0.0..=1.0).contains(&f));
+	assert!((0.0..=1.0).contains(&f), "{f} was not in the unit interval!");
 }
 
 //////////
