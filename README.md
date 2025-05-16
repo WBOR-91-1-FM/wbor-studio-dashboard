@@ -89,9 +89,30 @@ If you want to make a new theme, start off by copying `standard.rs`, and make yo
 
 This dashboard is meant to keep running for a long, long time, no matter what happens.
 
-1. Power outages: in the studio, the `run_dashboard.sh` script is a login item, ensuring that if the station loses power, upon startup/login the dashboard will launch itself again.
-2. Fatal bugs/panics: using the `run_dashboard.sh` script, any panics are covered: the script ensures that the dashboard boots itself up again (after a small waiting period). These fatal errors can then be examined in the logs.
-3. Network errors at launch: if the core state relating to the dashboard can't be initialized (e.g. state regarding an API like Spinitron or Twilio), the problem is often because the network isn't up. In `main.rs`, if this state can't be initialized, the dashboard sleeps for a bit, and then tries again shortly after.
-4. Other errors: errors arising from window updaters are printed out, not resulting in a crash. And with the `ContinuallyUpdated` type, if some state during any async updating results in an error, the older state is automatically reverted back to (these errors are also displayed to the screen). This ensures that state corresponding to any API (e.g. text messages fetched from Twilio) is eventually consistent.
+1. **Power outages**: in the studio, the `run_dashboard.sh` script is a login item, ensuring that if the station loses power, upon startup/login the dashboard will launch itself again.
+2. **Fatal bugs/panics**: using the `run_dashboard.sh` script, any panics are covered: the script ensures that the dashboard boots itself up again (after a small waiting period). These fatal errors can then be examined in the logs.
+3. **Network errors at launch**: if the core state relating to the dashboard can't be initialized (e.g. state regarding an API like Spinitron or Twilio), the problem is often because the network isn't up. In `main.rs`, if this state can't be initialized, the dashboard sleeps for a bit, and then tries again shortly after.
+4. **Other errors**: errors arising from window updaters are printed out, not resulting in a crash. And with the `ContinuallyUpdated` type, if some state during any async updating results in an error, the older state is automatically reverted back to (these errors are also displayed to the screen). This ensures that state corresponding to any API (e.g. text messages fetched from Twilio) is eventually consistent.
 
 All of this means is that the dashboard is incredibly resilient. Disconnect the power, turn off the network, do anything at all: it'll find a way to boot itself up again.
+
+---
+
+## Tests
+
+The dashboard doesn't technically have any unit tests, but it has something even better:
+
+- When a texture is updated on the dashboard, transition animations may be invoked.
+- These include opacity easing between the old and new textures, as well as interpolating the aspect ratio between the two textures.
+- It's hard to ensure that these easers always return values between 0 and 1 (due to weird floating-point edge cases), so I use [kani](https://github.com/model-checking/kani), a bit-precise model checker, to ensure that these functions are correct for all possible inputs.
+<br>
+- In `dashboard_defs/easing_fns.rs`, I've written a series of proofs that Kani verifies, to statically verify that these easers are correct!
+
+To install `kani`, run this:
+
+```sh
+cargo install --locked kani-verifier
+cargo kani setup
+```
+
+Next, to run the proofs, run `cargo kani`. Most of the easer proofs finish pretty quickly, but a few take a very long time. Expect all of them to be done in around ten minutes.

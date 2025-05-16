@@ -475,6 +475,7 @@ impl<'a> TexturePool<'a> {
 			canvas.copy(texture, src, dest).to_generic_result()
 		}
 
+		// TODO: ensure that this works 100% of the time, using Kani
 		fn compute_time_seed(secs_fract: f64, text_metadata: &text::TextMetadataItem) -> f64 {
 			/* Note: any text that appears to scroll faster when compressed on the x-axis (during a transition)
 			is not scrolling faster; it's just getting 'pushed' rightwards (or 'pulled' leftwards);
@@ -499,7 +500,7 @@ impl<'a> TexturePool<'a> {
 		let time_seed = compute_time_seed(secs_fract, text_metadata);
 
 		let (scroll_fract, should_wrap) = (text_metadata.scroll_easer.0)(
-			time_seed, texture_size.0 <= dest_width
+			time_seed, text_metadata.scroll_easer.1, texture_size.0 <= dest_width
 		);
 
 		assert_in_unit_interval(scroll_fract);

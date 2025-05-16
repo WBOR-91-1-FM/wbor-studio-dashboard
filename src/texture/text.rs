@@ -163,11 +163,11 @@ impl DisplayText<'_> {
 
 /*
 The first item, the function itself:
-	Input: seed (some number of real-time fractional seconds), and if the text fits fully in the box.
+	Input: seed (some number of real-time fractional seconds), the period of the function, and if the text fits fully in the box.
 	Output: scroll amount (range: [0, 1]), and if the text should wrap or not.
-The second item is the period of the function.
+The second item is the period.
 */
-pub type TextTextureScrollEaser = (fn(f64, bool) -> (f64, bool), f64);
+pub type TextTextureScrollEaser = (fn(f64, f64, bool) -> (f64, bool), f64);
 
 #[derive(Clone, Hash, Debug)]
 pub struct TextDisplayInfo<'a> {
