@@ -133,7 +133,8 @@ pub async fn make_surprise_window(
 		let trigger_appearance_by_chance = appearance_was_randomly_triggered(surprise_info, rand_generator);
 
 		if (trigger_appearance_by_chance || trigger_appearance_artificially) && not_currently_active {
-			log::info!("Trigger surprise with path '{}'!", surprise_info.path);
+			let log_start = if trigger_appearance_artificially {"Artificially trigger"} else {"Trigger"};
+			log::info!("{log_start} surprise with path '{}'!", surprise_info.path);
 			surprise_info.curr_num_steps_when_appeared = Some(0);
 		}
 
