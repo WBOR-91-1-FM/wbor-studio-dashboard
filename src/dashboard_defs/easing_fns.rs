@@ -138,7 +138,7 @@ macro_rules! generate_proof_group {
 					//////////
 
 					let time_seed: f64 = kani::any();
-					kani::assume(time_seed.is_finite() && (0.0, period).contains(time_seed));
+					kani::assume(time_seed.is_finite() && (0.0..=period).contains(&time_seed));
 
 					let (scroll_amount, _) = func(time_seed, period, kani::any());
 
