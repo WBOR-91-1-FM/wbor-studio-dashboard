@@ -34,8 +34,6 @@ impl ContinuallyUpdatable for ServerStatusChecker {
 	type Param = ();
 
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
-		let mut last_error = None;
-
 		for i in 0..self.num_retries {
 			let result: GenericResult<serde_json::Value> = request::get_as!(&self.url);
 
@@ -46,7 +44,7 @@ impl ContinuallyUpdatable for ServerStatusChecker {
 
 				Err(err) => {
 					if i == self.num_retries - 1 {
-						last_error = Some(err);
+						return Err(err);
 					}
 
 					continue;
@@ -54,7 +52,7 @@ impl ContinuallyUpdatable for ServerStatusChecker {
 			}
 		}
 
-		Err(last_error.unwrap())
+		unreachable!()
 	}
 }
 
