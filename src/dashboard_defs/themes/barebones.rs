@@ -77,7 +77,7 @@ pub async fn make_dashboard(
 
 	let shared_api_update_rate = Duration::seconds(15);
 	let weather_api_update_rate = Duration::minutes(10);
-	let streaming_server_status_api_update_rate = Duration::seconds(20);
+	let streaming_server_status_api_update_rate = Duration::seconds(30);
 
 	let shared_view_refresh_update_rate = update_rate_creator.new_instance(0.25);
 	let weather_view_refresh_update_rate = update_rate_creator.new_instance(60.0); // Once per minute
