@@ -59,7 +59,6 @@ struct AppConfig {
 	use_linear_filtering: bool,
 	window_always_on_top: bool,
 
-	pause_subduration_ms_when_retrying_window_info_init: u32,
 	maybe_pause_subduration_ms_when_window_unfocused: Option<u32>,
 
 	screen_option: ScreenOption
@@ -261,9 +260,8 @@ async fn main() {
 				}
 
 				Err(err) => {
-					log::error!("Error with initializing the core init info: '{err}'. Waiting a bit, and then trying again shortly.");
-					sdl_timer.delay(app_config.pause_subduration_ms_when_retrying_window_info_init);
-					continue;
+					log::error!("Error with initializing the core init info: '{err}'.");
+					return; // Exiting the app
 				}
 			}
 		}
