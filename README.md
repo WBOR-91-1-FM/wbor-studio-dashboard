@@ -10,6 +10,7 @@
 
 - Runs on a monitor in the on-air studio.
 - Want to contribute, or have any questions? [Get in touch here.](https://wbor.org/contact)
+- The dashboard made it onto [TechCrunch](https://techcrunch.com/2025/05/16/thousands-of-people-have-embarked-on-a-virtual-road-trip-via-google-street-view/)! See the first image on the left, and zoom in on the old iMac.
 
 <https://github.com/user-attachments/assets/8e64e88a-d347-480f-9769-66d297655cc8>
 
