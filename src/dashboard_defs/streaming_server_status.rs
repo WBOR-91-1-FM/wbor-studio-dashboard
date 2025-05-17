@@ -34,14 +34,27 @@ impl ContinuallyUpdatable for ServerStatusChecker {
 	type Param = ();
 
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
-		for _ in 0..self.num_retries {
-			match request::get(&self.url, None).await {
-				Ok(_) => return Ok(()),
-				Err(_) => continue
+		let mut last_error = None;
+
+		for i in 0..self.num_retries {
+			let result: GenericResult<serde_json::Value> = request::get_as!(&self.url);
+
+			match result {
+				Ok(_) => {
+					return Ok(());
+				},
+
+				Err(err) => {
+					if i == self.num_retries - 1 {
+						last_error = Some(err);
+					}
+
+					continue;
+				}
 			}
 		}
 
-		error_msg!("could not reach the streaming server")
+		Err(last_error.unwrap())
 	}
 }
 
