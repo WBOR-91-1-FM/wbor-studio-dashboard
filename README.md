@@ -107,6 +107,7 @@ The dashboard doesn't technically have any unit tests, but it has something even
 - These include opacity easing between the old and new textures, as well as interpolating the aspect ratio between the two textures.
 - It's hard to ensure that these easers always return values between 0 and 1 (due to weird floating-point edge cases), so I use [kani](https://github.com/model-checking/kani), a bit-precise model checker, to ensure that these functions are correct for all possible inputs.
 <br>
+
 - In `dashboard_defs/easing_fns.rs`, I've written a series of proofs that Kani verifies, to statically verify that these easers are correct!
 
 To install `kani`, run this:
