@@ -62,11 +62,7 @@ async fn do_spinitron_request<Model: SpinitronModelWithProps, WrappingTheModel: 
 	let joined_fields = get_spinitron_model_fields::<Model>();
 
 	let mut path_params: Vec<Cow<str>> = vec![Cow::Borrowed(&api_endpoint)];
-
-	let mut query_params: Vec<(&str, Cow<str>)> = vec![
-		("access-token", Cow::Borrowed(api_key)),
-		("fields", Cow::Borrowed(&joined_fields))
-	];
+	let mut query_params: Vec<(&str, Cow<str>)> = vec![("fields", Cow::Borrowed(&joined_fields))];
 
 	if let Some(model_id) = maybe_model_id {
 		path_params.push(Cow::Owned(model_id.to_string()));
@@ -82,7 +78,11 @@ async fn do_spinitron_request<Model: SpinitronModelWithProps, WrappingTheModel: 
 	const BASE_URLS: [&str; 2] = ["https://api-1.wbor.org/api", "https://spinitron.com/api"];
 
 	// TODO: can I cache these constructed URLs later on, to avoid rebuilding them? Or, perhaps cache the underlying built request object...
-	let urls_to_attempt = BASE_URLS.iter().map(|base_url| {
+	let urls_to_attempt = BASE_URLS.iter().enumerate().map(|(i, base_url)| {
+		if i == 1 { // Adding the API key only for the fallback URL (don't want to expose it in the proxy URL)
+			query_params.push(("access-token", Cow::Owned(api_key.to_string())));
+		}
+
 		request::build_url(base_url, &path_params, &query_params)
 	});
 
