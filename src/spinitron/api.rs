@@ -72,7 +72,7 @@ async fn do_spinitron_request<Model: SpinitronModelWithProps, WrappingTheModel: 
 		query_params.push(("count", Cow::Owned(item_count.to_string())));
 	}
 
-	////////// Building a URL, submitting the request, and getting the response JSON
+	////////// Building a URL, submitting the request, and getting the response object
 
 	// Try the proxy URL first, and then try the standard Spinitron API URL
 	const BASE_URLS: [&str; 2] = ["https://api-1.wbor.org/api", "https://spinitron.com/api"];
