@@ -245,7 +245,13 @@ impl Window {
 	pub fn render(&mut self, rendering_params: &mut PerFrameConstantRenderingParams) {
 		match rendering_params.sdl_canvas.output_size() {
 			Ok(output_size) => {
-				let sdl_window_bounds = PreciseRect::new(0.0, 0.0, output_size.0 as f64, output_size.1 as f64);
+				let sdl_window_bounds = PreciseRect::new(
+					0.0,
+					0.0,
+					output_size.0 as f64 - 1.0,
+					output_size.1 as f64 - 1.0
+				);
+
 				self.inner_render(rendering_params, sdl_window_bounds);
 			}
 			Err(err) => {
