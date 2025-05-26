@@ -40,7 +40,7 @@ impl ContinuallyUpdatable for ServerStatusChecker {
 			match result {
 				Ok(_) => {
 					return Ok(());
-				},
+				}
 
 				Err(err) => {
 					if i == self.num_retries - 1 {
