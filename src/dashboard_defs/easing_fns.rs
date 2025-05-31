@@ -20,6 +20,27 @@ fn ease_out_bounce(mut x: f64) -> f64 {
 	}
 }
 
+fn snappy(x: f64) -> f64 {
+	if x < 0.3 {
+		let p = x / 0.3;
+		-0.15 * (1.0 - p) * (1.0 - p)  // ease back to −0.15
+	}
+	else {
+		let p = (x - 0.3) / 0.7;
+		// Overshoot curve based on an "outBack" easing with a juicy overshoot
+		let s = 2.5; // controls overshoot
+		(p - 1.0) * (p - 1.0) * ((s + 1.0) * (p - 1.0) + s) + 1.0
+	}
+}
+
+fn rubber_band(x: f64) -> f64 {
+	let freq = 4.0;
+	let decay = 5.0;
+	let oscillation = (x * std::f64::consts::PI * freq).sin();
+	let envelope = (-x * decay).exp();
+	1.0 - oscillation * envelope
+}
+
 //////////
 
 pub mod scroll {
@@ -59,10 +80,10 @@ pub mod scroll {
 
 pub mod transition {
 	pub mod opacity {
-		use crate::texture::pool::TextureTransitionOpacityEaser;
+		use crate::{dashboard_defs::easing_fns::rubber_band, texture::pool::TextureTransitionOpacityEaser};
 
 		use super::{
-			super::ease_out_bounce,
+			super::{ease_out_bounce, snappy},
 			aspect_ratio::{STRAIGHT_WAVY as AR_STRAIGHT_WAVY, JITTER_WAVY as AR_JITTER_WAVY}
 		};
 
@@ -73,6 +94,12 @@ pub mod transition {
 
 		pub const LINEAR_BLENDED_BOUNCE: TextureTransitionOpacityEaser = |percent_done| LINEAR_BLENDED_FADE(ease_out_bounce(percent_done));
 		pub const BURST_BLENDED_BOUNCE: TextureTransitionOpacityEaser = |percent_done| BURST_BLENDED_FADE(ease_out_bounce(percent_done));
+
+		pub const LINEAR_BLENDED_SNAPPY: TextureTransitionOpacityEaser = |percent_done| LINEAR_BLENDED_FADE(snappy(percent_done));
+		pub const BURST_BLENDED_SNAPPY: TextureTransitionOpacityEaser = |percent_done| BURST_BLENDED_FADE(snappy(percent_done));
+
+		pub const LINEAR_BLENDED_RUBBER_BAND: TextureTransitionOpacityEaser = |percent_done| LINEAR_BLENDED_FADE(rubber_band(percent_done));
+		pub const BURST_BLENDED_RUBBER_BAND: TextureTransitionOpacityEaser = |percent_done| BURST_BLENDED_FADE(rubber_band(percent_done));
 
 		pub const STRAIGHT_WAVY: TextureTransitionOpacityEaser = |percent_done| {
 			let y = AR_STRAIGHT_WAVY(percent_done);
@@ -92,11 +119,13 @@ pub mod transition {
 	}
 
 	pub mod aspect_ratio {
-		use super::super::ease_out_bounce;
-		use crate::texture::pool::TextureTransitionAspectRatioEaser;
+		use super::super::{ease_out_bounce, snappy};
+		use crate::{dashboard_defs::easing_fns::rubber_band, texture::pool::TextureTransitionAspectRatioEaser};
 
 		pub const LINEAR: TextureTransitionAspectRatioEaser = |percent_done| percent_done;
 		pub const BOUNCE: TextureTransitionAspectRatioEaser = ease_out_bounce;
+		pub const SNAPPY: TextureTransitionAspectRatioEaser = snappy;
+		pub const RUBBER_BAND: TextureTransitionAspectRatioEaser = rubber_band;
 
 		pub const STRAIGHT_WAVY: TextureTransitionAspectRatioEaser = |percent_done| {
 			const N: u32 = 3;
@@ -197,6 +226,7 @@ macro_rules! generate_proof_group {
 generate_proof_group!(
 	scroll,
 	crate::dashboard_defs::easing_fns::scroll,
+
 	[STAY_PUT, LEFT_LINEAR, OSCILLATE_NO_WRAP, PAUSE_THEN_SCROLL_LEFT]
 );
 
@@ -207,13 +237,16 @@ generate_proof_group!(
 	[
 		LINEAR_BLENDED_FADE, BURST_BLENDED_FADE,
 		LINEAR_BLENDED_BOUNCE, BURST_BLENDED_BOUNCE,
-		STRAIGHT_WAVY, JITTER_WAVY,
-		FADE_OUT_THEN_FADE_IN
+		LINEAR_BLENDED_SNAPPY, BURST_BLENDED_SNAPPY,
+		LINEAR_BLENDED_RUBBER_BAND, BURST_BLENDED_RUBBER_BAND,
+
+		STRAIGHT_WAVY, JITTER_WAVY, FADE_OUT_THEN_FADE_IN
 	]
 );
 
 generate_proof_group!(
 	aspect_ratio,
 	crate::dashboard_defs::easing_fns::transition::aspect_ratio,
-	[LINEAR, BOUNCE, STRAIGHT_WAVY, JITTER_WAVY]
+
+	[LINEAR, BOUNCE, SNAPPY, RUBBER_BAND, STRAIGHT_WAVY, JITTER_WAVY]
 );

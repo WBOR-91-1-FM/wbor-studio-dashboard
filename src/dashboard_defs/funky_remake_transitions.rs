@@ -48,6 +48,12 @@ fn pick_random_easing_pair(rand_generator: &mut rand::rngs::ThreadRng)
 		(opacity::LINEAR_BLENDED_BOUNCE, aspect_ratio::BOUNCE),
 		(opacity::BURST_BLENDED_BOUNCE, aspect_ratio::BOUNCE),
 
+		(opacity::LINEAR_BLENDED_SNAPPY, aspect_ratio::SNAPPY),
+		(opacity::BURST_BLENDED_SNAPPY, aspect_ratio::SNAPPY),
+
+		(opacity::LINEAR_BLENDED_RUBBER_BAND, aspect_ratio::RUBBER_BAND),
+		(opacity::BURST_BLENDED_RUBBER_BAND, aspect_ratio::RUBBER_BAND),
+
 		(opacity::STRAIGHT_WAVY, aspect_ratio::STRAIGHT_WAVY),
 		(opacity::JITTER_WAVY, aspect_ratio::JITTER_WAVY)
 	];
