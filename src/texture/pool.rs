@@ -187,9 +187,8 @@ type InnerTextureHandle = u16;
 type TextureCreator = render::TextureCreator<sdl2::video::WindowContext>;
 
 type FontPointSize = u16;
+type FontCacheKey = (FontPointSize, FontPointSize);
 
-// Font path for default, font path for fallback, point size for default, point size for fallback
-type FontCacheKey = (&'static str, &'static str, FontPointSize, FontPointSize);
 type FontPair<'a> = (ttf::Font<'a, 'a>, ttf::Font<'a, 'a>);
 
 #[derive(Hash, Eq, PartialEq, Clone)]
@@ -224,7 +223,7 @@ pub struct TexturePool<'a> {
 
 	textures: Vec<Texture<'a>>,
 
-	// This maps font paths and point sizes to fonts (TODO: should I limit the cache size?)
+	// This maps point sizes to fonts (TODO: should I limit the cache size?)
 	font_cache: HashMap<FontCacheKey, FontPair<'a>>,
 
 	// This maps texture handles of side-scrolling text textures to metadata about that scrolling text
@@ -670,17 +669,20 @@ impl<'a> TexturePool<'a> {
 
 	//////////
 
-	fn get_font_pair(&mut self, key: FontCacheKey, maybe_options: Option<&text::FontInfo>) -> &FontPair {
+	fn get_font_pair(&mut self, key: FontCacheKey, options: &text::FontInfo, set_style_and_hinting: bool) -> &FontPair<'a> {
 		let fonts = self.font_cache.entry(key).or_insert_with( // TODO: should I use `or_insert_with_key` instead?
 			|| {
 				// TODO: don't unwrap
-				let make_font = |path, point_size| self.ttf_context.load_font(path, point_size).unwrap();
-				let (default_path, fallback_path, default_point_size, fallback_point_size) = key;
-				(make_font(default_path, default_point_size), make_font(fallback_path, fallback_point_size))
+				let make_font = |bytes, point_size| {
+					let rwops = sdl2::rwops::RWops::from_bytes(bytes).unwrap();
+					self.ttf_context.load_font_from_rwops(rwops, point_size).unwrap()
+				};
+
+				(make_font(options.bytes, key.0), make_font(options.unusual_chars_fallback_bytes, key.1))
 			}
 		);
 
-		if let Some(options) = maybe_options {
+		if set_style_and_hinting {
 			let set_options = |font: &mut ttf::Font| {
 				font.set_style(options.style);
 				font.set_hinting((*options.hinting).clone());
@@ -891,7 +893,7 @@ impl<'a> TexturePool<'a> {
 		let max_texture_width = self.max_texture_size.0;
 
 		let (initial_default_font, initial_fallback_font) = self.get_font_pair(
-			(font_info.path, font_info.unusual_chars_fallback_path, Self::INITIAL_POINT_SIZE, Self::INITIAL_POINT_SIZE), None
+			(Self::INITIAL_POINT_SIZE, Self::INITIAL_POINT_SIZE), font_info, false
 		);
 
 		let ((default_point_size, initial_default_output_size),
@@ -904,7 +906,7 @@ impl<'a> TexturePool<'a> {
 		////////// Second, making a font pair
 
 		let font_pair = self.get_font_pair(
-			(font_info.path, font_info.unusual_chars_fallback_path, default_point_size, fallback_point_size), Some(font_info)
+			(default_point_size, fallback_point_size), font_info, true
 		);
 
 		////////// Early exit point: if the font turned out to have zero width, then make a blank text surface

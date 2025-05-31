@@ -49,13 +49,14 @@ define_hashable_wrapper!(HashableTextTextureScrollEaser, TextTextureScrollEaser,
 #[derive(Clone, Hash, Debug)]
 pub struct FontInfo {
 	/* TODO:
-	- Support non-static paths for these two
+	- Support non-static bytes for these two
 	- Allow for a variable number of fallback fonts too
 	- Only load fallbacks when necessary
 	- Check if the entire Unicode supplementary multilingual plane is supported
 	*/
-	pub(in crate::texture) path: &'static str,
-	pub(in crate::texture) unusual_chars_fallback_path: &'static str,
+
+	pub(in crate::texture) bytes: &'static [u8],
+	pub(in crate::texture) unusual_chars_fallback_bytes: &'static [u8],
 
 	pub(in crate::texture) font_has_char: fn(&ttf::Font, char) -> bool,
 
@@ -65,13 +66,14 @@ pub struct FontInfo {
 }
 
 impl FontInfo {
-	pub const fn new(path: &'static str, unusual_chars_fallback_path: &'static str,
+	pub const fn new(bytes: &'static [u8], unusual_chars_fallback_bytes: &'static [u8],
 		font_has_char: fn(&ttf::Font, char) -> bool, style: ttf::FontStyle,
 		hinting: ttf::Hinting, maybe_outline_width: Option<u16>) -> Self {
 
 		Self {
-			path,
-			unusual_chars_fallback_path,
+			bytes,
+			unusual_chars_fallback_bytes,
+
 			font_has_char,
 			style,
 			hinting: HashableHinting {field: hinting},

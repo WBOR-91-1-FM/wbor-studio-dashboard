@@ -54,8 +54,8 @@ pub async fn make_dashboard(
 	////////// Defining some shared global variables
 
 	const FONT_INFO: FontInfo = FontInfo::new(
-		"assets/unifont/unifont-15.1.05.otf",
-		"assets/unifont/unifont_upper-15.1.05.otf",
+		include_bytes!("../../../assets/unifont/unifont-15.1.05.otf"),
+		include_bytes!("../../../assets/unifont/unifont_upper-15.1.05.otf"),
 
 		/* Providing this function instead of the variant below since
 		`font.find_glyph` is buggy for the Rust sdl2::ttf bindings */
