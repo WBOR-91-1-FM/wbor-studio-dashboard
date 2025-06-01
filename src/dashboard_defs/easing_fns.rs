@@ -22,23 +22,22 @@ fn ease_out_bounce(mut x: f64) -> f64 {
 
 fn snappy(x: f64) -> f64 {
 	if x < 0.3 {
-		let p = x / 0.3;
-		-0.15 * (1.0 - p) * (1.0 - p)  // ease back to −0.15
+		0.0
 	}
 	else {
 		let p = (x - 0.3) / 0.7;
-		// Overshoot curve based on an "outBack" easing with a juicy overshoot
-		let s = 2.5; // controls overshoot
-		(p - 1.0) * (p - 1.0) * ((s + 1.0) * (p - 1.0) + s) + 1.0
+		let t = (1.0 - p).powi(8).min(1.0); // Doing the `min` to avoid overshoot
+		1.0 - t
 	}
 }
 
 fn rubber_band(x: f64) -> f64 {
 	let freq = 4.0;
 	let decay = 5.0;
+
 	let oscillation = (x * std::f64::consts::PI * freq).sin();
 	let envelope = (-x * decay).exp();
-	1.0 - oscillation * envelope
+	(1.0 - oscillation * envelope).clamp(0.0, 1.0) // Doing the `clamp` to avoid under/overshoot
 }
 
 //////////
