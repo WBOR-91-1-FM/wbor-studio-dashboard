@@ -378,9 +378,9 @@ impl Window {
 				WindowContents::Nothing => {},
 
 				WindowContents::Color(color) => possibly_draw_with_transparency(
-					*color, sdl_canvas, |canvas| {
+					*color, sdl_canvas, |canvas|
 						canvas.fill_frect::<FRect>(uncorrected_screen_dest.into()).to_generic_result()
-					})?,
+					)?,
 
 				WindowContents::Lines(line_series) => {
 					use sdl2::rect::FPoint as PointSDL;
