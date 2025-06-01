@@ -116,7 +116,7 @@ fn spinitron_model_window_updater_fn(params: WindowUpdaterParams) -> MaybeError 
 
 	let intermediate_info = funky_remake_transitions::IntermediateTextureTransitionInfo {
 		percent_chance_to_show_rand_intermediate_texture: 0.2,
-		rand_duration_range_for_intermediate: (0.6, 2.2),
+		rand_duration_range_for_intermediate: (0.9, 2.2),
 		max_random_transitions: 10
 	};
 
