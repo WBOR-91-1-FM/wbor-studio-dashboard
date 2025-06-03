@@ -112,7 +112,7 @@ fn spinitron_model_window_updater_fn(params: WindowUpdaterParams) -> MaybeError 
 
 	//////////
 
-	let default_duration = Duration::seconds(3);
+	let default_duration = Duration::seconds(2);
 
 	let intermediate_info = funky_remake_transitions::IntermediateTextureTransitionInfo {
 		percent_chance_to_show_rand_intermediate_texture: 0.2,
