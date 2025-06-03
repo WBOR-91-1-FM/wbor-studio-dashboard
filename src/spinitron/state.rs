@@ -395,20 +395,21 @@ impl SpinitronStateData {
 
 		let spin_future = async {
 			// Step 1: get the current spin, and the spin history.
-			let (maybe_new_spin, mut spin_history) = Spin::get_current_and_history(
+
+			let mut current_spin_and_history = Spin::get_current_and_history(
 				api_key, self.spin_history_list.get_max_items()
 			).await?;
 
 			// This will be true the first time (since the old id will be 0)
-			if maybe_new_spin.get_id() != self.spin.get_id() {
-				self.spin = maybe_new_spin;
+			if current_spin_and_history[0].get_id() != self.spin.get_id() {
+				self.spin = Arc::new(current_spin_and_history[0].clone());
 			}
 
 			// Sync the internal item texture size with the external one
 			self.spin_history_item_texture_size.update(spin_history_item_texture_size);
 
 			// Step 2: update the spin history list.
-			self.spin_history_list.update(&mut spin_history, &SpinHistoryListImplementerParam {
+			self.spin_history_list.update(&mut current_spin_and_history[1..], &SpinHistoryListImplementerParam {
 				get_fallback_texture_path: self.get_fallback_texture_path,
 				item_texture_size: self.spin_history_item_texture_size
 			}).await;

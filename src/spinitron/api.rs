@@ -1,4 +1,7 @@
-use std::borrow::Cow;
+use std::{
+	sync::Arc,
+	borrow::Cow
+};
 
 use serde::Deserialize;
 use futures::TryFutureExt;
@@ -23,7 +26,7 @@ use crate::{
 //////////
 
 fn get_api_endpoint_from_spinitron_model<Model: SpinitronModel>() -> String {
-	let full_typename: &str = std::any::type_name::<Model>();
+	let full_typename = std::any::type_name::<Model>();
 
 	let last_colon_ind = full_typename.rfind(':').expect("Expected a colon in the model typename");
 	let typename = &full_typename[last_colon_ind + 1..];
@@ -91,12 +94,12 @@ async fn do_spinitron_request<Model: SpinitronModelWithProps, WrappingTheModel: 
 
 //////////
 
-pub async fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: SpinitronModelId) -> GenericResult<T> {
+pub async fn get_model_from_id<T: SpinitronModelWithProps>(api_key: &str, id: SpinitronModelId) -> GenericResult<Arc<T>> {
 	// If requesting via a model id, just a raw item will be returned
-	do_spinitron_request::<T, T>(api_key, Some(id), Some(1)).await
+	Ok(Arc::new(do_spinitron_request::<T, T>(api_key, Some(id), Some(1)).await?))
 }
 
-pub async fn get_most_recent_model<T: SpinitronModelWithProps>(api_key: &str) -> GenericResult<T> {
+pub async fn get_most_recent_model<T: SpinitronModelWithProps>(api_key: &str) -> GenericResult<Arc<T>> {
 	#[derive(Deserialize)]
 	struct ModelItemWrapper<T> {items: [T; 1]}
 
@@ -105,7 +108,7 @@ pub async fn get_most_recent_model<T: SpinitronModelWithProps>(api_key: &str) ->
 		api_key, None, Some(1)
 	).await?;
 
-	Ok(response.items[0].clone())
+	Ok(Arc::new(response.items[0].clone()))
 }
 
 pub async fn get_models<T: SpinitronModelWithProps>(api_key: &str, maybe_item_count: Option<usize>) -> GenericResult<Vec<T>> {

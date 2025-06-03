@@ -160,11 +160,9 @@ derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, 
 //////////
 
 impl Spin {
-	pub async fn get_current_and_history(api_key: &str, history_amount: usize) -> GenericResult<(Arc<Self>, Vec<Self>)> {
+	pub async fn get_current_and_history(api_key: &str, history_amount: usize) -> GenericResult<Vec<Self>> {
 		// Getting 1 more than the history amount, since we need the current spin too
-		let mut models = get_models(api_key, Some(history_amount + 1)).await?;
-		let first = Arc::new(models.remove(0));
-		Ok((first, models))
+		get_models(api_key, Some(history_amount + 1)).await
 	}
 
 	pub fn get_start_time(&self) -> ReferenceTimestamp {
@@ -174,24 +172,24 @@ impl Spin {
 
 impl Playlist {
 	pub async fn get(api_key: &str) -> GenericResult<Arc<Self>> {
-		Ok(Arc::new(get_most_recent_model(api_key).await?))
+		get_most_recent_model(api_key).await
 	}
 }
 
 impl Persona {
 	pub async fn get(api_key: &str, playlist: &Playlist) -> GenericResult<Arc<Self>> {
-		let mut persona: Persona = get_model_from_id(api_key, playlist.persona_id).await?;
+		let mut persona: Arc<Persona> = get_model_from_id(api_key, playlist.persona_id).await?;
 
-		// Copy over the playlist start/end, since a persona should have one too (it doesn't have one given to it by Spinitron)
-		(persona.start_from_associated_playlist, persona.end_from_associated_playlist) = (playlist.start, playlist.end);
+		let inner = Arc::get_mut(&mut persona).unwrap();
+		(inner.start_from_associated_playlist, inner.end_from_associated_playlist) = (playlist.start, playlist.end);
 
-		Ok(Arc::new(persona))
+		Ok(persona)
 	}
 }
 
 impl Show {
 	pub async fn get(api_key: &str) -> GenericResult<Arc<Self>> {
-		Ok(Arc::new(get_most_recent_model(api_key).await?))
+		get_most_recent_model(api_key).await
 	}
 }
 
