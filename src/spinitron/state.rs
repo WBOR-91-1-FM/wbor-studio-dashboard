@@ -38,7 +38,7 @@ use crate::{
 
 ////////// Model age stuff:
 
-#[derive(Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum ModelAgeState {
 	BeforeIt, // TODO: can this state ever even happen? Test for this...
 	CurrentlyActive,
@@ -144,7 +144,9 @@ impl ApiHistoryListImplementer for SpinHistoryListImplementer {
 		Arc::new(bytes)
 	}
 
-	fn resolve_texture_creation_info<'a>(_: &(), _: &Self::Native, intermediate_texture_creation_info: &'a Self::IntermediateTextureCreationInfo) -> TextureCreationInfo<'a> {
+	fn resolve_texture_creation_info<'a>(_: &(), _: &Self::Native,
+		intermediate_texture_creation_info: &'a Self::IntermediateTextureCreationInfo) -> TextureCreationInfo<'a> {
+
 		TextureCreationInfo::RawBytes(Cow::Borrowed(intermediate_texture_creation_info))
 	}
 }
@@ -176,6 +178,8 @@ struct ModelDataCacheEntry {
 	texture_bytes: Arc<Vec<u8>>, // This is an `Arc` to avoid the cost of copying
 	texture_creation_info_hash: u64,
 	texture_creation_info_hash_changed: bool,
+
+	raw_texture_creation_info_hash: u64, // This is here for debugging purposes (TODO: remove later on)
 
 	string: Arc<Cow<'static, str>>,
 	string_changed: bool
@@ -247,7 +251,7 @@ async fn get_model_texture_bytes(
 		Err(err) => {
 			log::warn!("Reverting to fallback texture for Spinitron model. Error: '{err}'");
 			load_texture_creation_info_bytes(&get_fallback_texture_creation_info()).await.unwrap()
-		},
+		}
 	}
 }
 
@@ -293,15 +297,40 @@ impl SpinitronStateData {
 
 	async fn compute_cacheable_model_data(&self, model_name: SpinitronModelName, spin_texture_size: PixelAreaSDL) -> ModelDataCacheEntry {
 		let model = self.get_model_by_name(model_name);
-		let age_state = self.age_data[model_name as usize].curr_age_state.clone();
-
-		let texture_creation_info = model.get_texture_creation_info(age_state, spin_texture_size);
-		let texture_creation_info_hash = hash_obj(&texture_creation_info);
 
 		let prev_entry = &self.cached_model_data[model_name as usize];
-		let age_state = self.age_data[model_name as usize].curr_age_state.clone();
-
+		let age_state = self.age_data[model_name as usize].curr_age_state;
 		let maybe_new_model_string = model.to_string(age_state);
+
+		let texture_creation_info = model.get_texture_creation_info(age_state, spin_texture_size);
+
+		////////// Finding an appropriate hash for the texture creation info
+
+		let mut to_hash = Cow::Borrowed(&texture_creation_info);
+
+		/* Sometimes, image URLs will have the format of `https://is*-ssl.mzstatic.com/image/thumb/...`, where `*` is a number.
+		The issue is that the number may change, and the image will still be the same. The result of this situation is an image transitioning
+		to itself, which looks wrong on-screen. We want to avoid this situation, so we cut off everything before the ".com" part as a part of a
+		psuedo-URL to get a hash that doesn't indicate different images for a just slightly different URL. TODO: solve the first-on-screen case for this
+		bug too, which happens when the spin age state changes to `ModelAgeState::AfterIt`, and a proper texture size for the first spin has been found
+		(resulting in another false transition). */
+		if let Some(TextureCreationInfo::Url(url)) = &texture_creation_info {
+			const CUTOFF: &str = ".com";
+			let dot_com_point = url.find(CUTOFF);
+
+			if let Some(dcp) = dot_com_point {
+				let url_slice = &url[dcp + CUTOFF.len()..];
+				to_hash = Cow::Owned(Some(TextureCreationInfo::Url(Cow::Borrowed(url_slice))));
+			}
+			else {
+				if model_name == SpinitronModelName::Spin {
+					panic!("The Spinitron image spin URL structure fundamentally changed! The URL in question is: '{url:?}'");
+				}
+			}
+		}
+
+		let texture_creation_info_hash = hash_obj(&to_hash);
+		let raw_texture_creation_info_hash = hash_obj(&texture_creation_info);
 
 		////////// Doing this hashing stuff, because we don't want to invoke a transition when a model's ID changes, and either of its textures stays the same
 
@@ -311,7 +340,8 @@ impl SpinitronStateData {
 		let string_changed = maybe_new_model_string != *prev_entry.string;
 
 		let texture_bytes = if texture_creation_info_hash_changed {
-			Arc::new(get_model_texture_bytes(texture_creation_info, self.get_fallback_texture_creation_info).await)
+			let contents = get_model_texture_bytes(texture_creation_info, self.get_fallback_texture_creation_info).await;
+			Arc::new(contents)
 		}
 		else {
 			prev_entry.texture_bytes.clone()
@@ -324,12 +354,18 @@ impl SpinitronStateData {
 			prev_entry.string.clone()
 		};
 
+		if (raw_texture_creation_info_hash != prev_entry.raw_texture_creation_info_hash) && !texture_creation_info_hash_changed {
+			panic!("I have now confirmed that I've solved the false transition bug! This is a good thing; remove this panic ASAP.");
+		}
+
 		//////////
 
 		ModelDataCacheEntry {
 			texture_bytes,
 			texture_creation_info_hash,
 			texture_creation_info_hash_changed,
+
+			raw_texture_creation_info_hash,
 
 			string,
 			string_changed

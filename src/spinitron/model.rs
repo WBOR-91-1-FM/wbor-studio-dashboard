@@ -111,7 +111,6 @@ pub trait SpinitronModel {
 
 	fn evaluate_model_image_url_for_persona_or_show<'a>(
 		url: &'a Option<String>, image_for_no_persona_or_show: &'a str)
-
 		-> MaybeTextureCreationInfo<'a> where Self: Sized {
 
 		let make_fallback = || TextureCreationInfo::from_path(image_for_no_persona_or_show);

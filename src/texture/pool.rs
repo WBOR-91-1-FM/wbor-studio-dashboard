@@ -145,7 +145,7 @@ impl<'a> RemakeTransitions<'a> {
 //////////
 
 // TODO: use `Cow` around the whole struct instead, if possible
-#[derive(Hash, Debug)]
+#[derive(Hash, Debug, Clone)]
 pub enum TextureCreationInfo<'a> {
 	RawBytes(Cow<'a, [u8]>),
 	Path(Cow<'a, str>),
