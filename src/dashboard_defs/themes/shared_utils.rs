@@ -152,10 +152,14 @@ pub const ALL_SURPRISES: [SurpriseCreationInfo; 8] = [
 
 //////////
 
-pub fn get_fallback_texture_creation_info() -> TextureCreationInfo<'static> {
+pub fn get_fallback_texture_path() -> &'static str {
 	let mut rand_generator = rand::thread_rng(); // TODO: can I cache this per each thread that uses it?
 	let index = rand_generator.gen_range(0..FALLBACK_TEXTURE_PATHS.len());
-	TextureCreationInfo::from_path(&FALLBACK_TEXTURE_PATHS[index])
+	&FALLBACK_TEXTURE_PATHS[index]
+}
+
+pub fn get_fallback_texture_creation_info() -> TextureCreationInfo<'static> {
+	TextureCreationInfo::from_path(get_fallback_texture_path())
 }
 
 //////////

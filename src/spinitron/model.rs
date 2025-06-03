@@ -10,7 +10,6 @@ use serde::{Serialize, Deserialize};
 
 use crate::{
 	window_tree::PixelAreaSDL,
-	texture::pool::TextureCreationInfo,
 
 	utils::{
 		time::*,
@@ -60,21 +59,32 @@ lazy_static::lazy_static!(
 
 ////////// This is a set of model-related traits
 
-pub type MaybeTextureCreationInfo<'a> = Option<TextureCreationInfo<'a>>;
+#[derive(Clone, Hash)]
+pub enum ModelTextureCreationInfo<'a> {
+	Nothing,
+	Path(Cow<'a, str>),
+	Url(Cow<'a, str>)
+}
+
+impl<'a> ModelTextureCreationInfo<'a> {
+	fn from_path(path: &'a str) -> Self {
+		ModelTextureCreationInfo::Path(Cow::Borrowed(path))
+	}
+}
 
 pub trait SpinitronModel {
 	fn get_id(&self) -> SpinitronModelId;
 	fn get_time_range(&self) -> (ReferenceTimestamp, Option<ReferenceTimestamp>);
 
 	fn to_string(&self, age_state: ModelAgeState) -> Cow<'static, str>;
-	fn get_texture_creation_info(&self, age_state: ModelAgeState, spin_texture_window_size: PixelAreaSDL) -> MaybeTextureCreationInfo;
+	fn get_texture_creation_info(&self, age_state: ModelAgeState, spin_texture_window_size: PixelAreaSDL) -> ModelTextureCreationInfo;
 
 	fn evaluate_model_image_url<'a>(
 		maybe_url: &'a Option<String>,
-		inner_behavior: impl FnOnce(&'a str) -> MaybeTextureCreationInfo<'a>,
-		make_fallback_for_no_url: impl FnOnce() -> MaybeTextureCreationInfo<'a>)
+		inner_behavior: impl FnOnce(&'a str) -> ModelTextureCreationInfo<'a>,
+		make_fallback_for_no_url: impl FnOnce() -> ModelTextureCreationInfo<'a>)
 
-		-> MaybeTextureCreationInfo<'a> where Self: Sized {
+		-> ModelTextureCreationInfo<'a> where Self: Sized {
 
 		if let Some(url) = maybe_url {
 			if !url.is_empty() {
@@ -87,22 +97,20 @@ pub trait SpinitronModel {
 
 	fn evaluate_model_image_url_with_regexp<'a>(
 		maybe_url: &'a Option<String>,
-		make_fallback_for_no_url: impl FnOnce() -> MaybeTextureCreationInfo<'a>,
+		make_fallback_for_no_url: impl FnOnce() -> ModelTextureCreationInfo<'a>,
 
 		regexp: &Regex,
-		if_matches: impl FnOnce(&'a str) -> TextureCreationInfo<'a>,
-		if_not: impl FnOnce(&'a str) -> TextureCreationInfo<'a>)
+		if_matches: impl FnOnce(&'a str) -> ModelTextureCreationInfo<'a>,
+		if_not: impl FnOnce(&'a str) -> ModelTextureCreationInfo<'a>)
 
-		-> MaybeTextureCreationInfo<'a> where Self: Sized {
+		-> ModelTextureCreationInfo<'a> where Self: Sized {
 
 		Self::evaluate_model_image_url(
 			maybe_url,
 
 			|url| {
-				Some(
-					if regexp.is_match(url) {if_matches(url)}
-					else {if_not(url)}
-				)
+				if regexp.is_match(url) {if_matches(url)}
+				else {if_not(url)}
 			},
 
 			make_fallback_for_no_url
@@ -111,19 +119,19 @@ pub trait SpinitronModel {
 
 	fn evaluate_model_image_url_for_persona_or_show<'a>(
 		url: &'a Option<String>, image_for_no_persona_or_show: &'a str)
-		-> MaybeTextureCreationInfo<'a> where Self: Sized {
+		-> ModelTextureCreationInfo<'a> where Self: Sized {
 
-		let make_fallback = || TextureCreationInfo::from_path(image_for_no_persona_or_show);
+		let make_fallback = || ModelTextureCreationInfo::from_path(image_for_no_persona_or_show);
 
 		Self::evaluate_model_image_url_with_regexp(url,
-			|| Some(make_fallback()),
+			make_fallback,
 			&DEFAULT_PERSONA_AND_SHOW_IMAGE_REGEXP,
 
 			// If it matches the default pattern, use the no-persona or no-show image
 			|_| make_fallback(),
 
 			// If it doesn't match the default pattern, use the provided image
-			|url| TextureCreationInfo::Url(Cow::Borrowed(url))
+			|url| ModelTextureCreationInfo::Url(Cow::Borrowed(url))
 		)
 	}
 }
@@ -210,24 +218,24 @@ impl SpinitronModel for Spin {
 		}
 	}
 
-	fn get_texture_creation_info(&self, age_state: ModelAgeState, (texture_width, texture_height): PixelAreaSDL) -> MaybeTextureCreationInfo {
+	fn get_texture_creation_info(&self, age_state: ModelAgeState, (texture_width, texture_height): PixelAreaSDL) -> ModelTextureCreationInfo {
 		if age_state == ModelAgeState::AfterItFromCustomExpiryDuration {
-			Some(TextureCreationInfo::from_path("assets/polar_headphones_logo.png"))
+			ModelTextureCreationInfo::from_path("assets/polar_headphones_logo.png")
 		}
 		else {
 			Self::evaluate_model_image_url_with_regexp(&self.image,
-				|| None,
+				|| ModelTextureCreationInfo::Nothing,
 				&SPIN_IMAGE_REGEXP,
 
 				|url| {
 					// TODO: figure out if there's a good reason why this URL fails often
 					let with_size = SPIN_IMAGE_SIZE_REGEXP.replace(url, format!("{texture_width}x{texture_height}bb"));
-					TextureCreationInfo::Url(with_size)
+					ModelTextureCreationInfo::Url(with_size)
 				},
 
 				|url| {
 					log::error!("The core structure of the spin image URL has changed. Failing URL: '{url}'. Unclear how to modify spin image size now.");
-					TextureCreationInfo::Url(Cow::Borrowed(url))
+					ModelTextureCreationInfo::Url(Cow::Borrowed(url))
 				}
 			)
 		}
@@ -276,15 +284,15 @@ impl SpinitronModel for Playlist {
 		}
 	}
 
-	fn get_texture_creation_info(&self, age_state: ModelAgeState, _: PixelAreaSDL) -> MaybeTextureCreationInfo {
+	fn get_texture_creation_info(&self, age_state: ModelAgeState, _: PixelAreaSDL) -> ModelTextureCreationInfo {
 		match age_state {
 			ModelAgeState::BeforeIt =>
 				// TODO: is this even possible? If not, remove the associated image, perhaps...
-				Some(TextureCreationInfo::from_path("assets/before_show_image.jpg")),
+				ModelTextureCreationInfo::from_path("assets/before_show_image.jpg"),
 
 			ModelAgeState::CurrentlyActive | ModelAgeState::AfterItFromCustomExpiryDuration => {
 				if self.automation == Some(1) {
-					Some(TextureCreationInfo::from_path("assets/automation_playlist.png"))
+					ModelTextureCreationInfo::from_path("assets/automation_playlist.png")
 				}
 				else {
 					Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_show_image.png")
@@ -292,7 +300,7 @@ impl SpinitronModel for Playlist {
 			}
 
 			ModelAgeState::AfterIt =>
-				Some(TextureCreationInfo::from_path("assets/after_show_image.jpg"))
+				ModelTextureCreationInfo::from_path("assets/after_show_image.jpg")
 		}
 	}
 }
@@ -315,9 +323,9 @@ impl SpinitronModel for Persona {
 		}
 	}
 
-	fn get_texture_creation_info(&self, age_state: ModelAgeState, _: PixelAreaSDL) -> MaybeTextureCreationInfo {
+	fn get_texture_creation_info(&self, age_state: ModelAgeState, _: PixelAreaSDL) -> ModelTextureCreationInfo {
 		if age_state == ModelAgeState::AfterItFromCustomExpiryDuration {
-			Some(TextureCreationInfo::from_path("assets/no_person_in_studio.jpg"))
+			ModelTextureCreationInfo::from_path("assets/no_person_in_studio.jpg")
 		}
 		else {
 			Self::evaluate_model_image_url_for_persona_or_show(&self.image, "assets/no_persona_image.png")
@@ -335,7 +343,7 @@ impl SpinitronModel for Show {
 	fn to_string(&self, _: ModelAgeState) -> Cow<'static, str> {Cow::Borrowed("")}
 
 	// This function is not used at the moment
-	fn get_texture_creation_info(&self, _: ModelAgeState, _: PixelAreaSDL) -> MaybeTextureCreationInfo {None}
+	fn get_texture_creation_info(&self, _: ModelAgeState, _: PixelAreaSDL) -> ModelTextureCreationInfo {ModelTextureCreationInfo::Nothing}
 }
 
 ////////// These are the model definitions

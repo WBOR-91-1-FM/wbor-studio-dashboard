@@ -17,7 +17,6 @@ use crate::{
 
 	utils::{
 		time::*,
-		request,
 		file_utils,
 		generic_result::*,
 		vec2f::assert_in_unit_interval
@@ -145,11 +144,10 @@ impl<'a> RemakeTransitions<'a> {
 //////////
 
 // TODO: use `Cow` around the whole struct instead, if possible
-#[derive(Hash, Debug, Clone)]
+#[derive(Hash, Debug)]
 pub enum TextureCreationInfo<'a> {
 	RawBytes(Cow<'a, [u8]>),
 	Path(Cow<'a, str>),
-	Url(Cow<'a, str>),
 	Text((Cow<'a, text::FontInfo>, text::TextDisplayInfo<'a>))
 }
 
@@ -957,15 +955,6 @@ impl<'a> TexturePool<'a> {
 
 			TextureCreationInfo::Path(path) =>
 				self.texture_creator.load_texture(path as &str),
-
-			TextureCreationInfo::Url(url) => {
-				use futures::executor::block_on;
-
-				let response = block_on(request::get(url, None))?;
-				let bytes = block_on(response.bytes())?;
-
-				self.texture_creator.load_texture_bytes(&bytes)
-			}
 
 			TextureCreationInfo::Text((font_info, text_display_info)) => {
 				let surface = self.make_text_surface(font_info, text_display_info)?;

@@ -17,7 +17,7 @@ use crate::{
 		wrapper_types::SpinitronModelId,
 
 		model::{
-			MaybeTextureCreationInfo,
+			ModelTextureCreationInfo,
 			NUM_SPINITRON_MODEL_TYPES,
 			Spin, Playlist, Persona, Show,
 			SpinitronModel, SpinitronModelName
@@ -112,7 +112,7 @@ impl ModelAgeData {
 struct SpinHistoryListImplementer {}
 
 struct SpinHistoryListImplementerParam {
-	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>,
+	get_fallback_texture_path: fn() -> &'static str,
 	item_texture_size: SpinHistoryItemTextureSize
 }
 
@@ -123,7 +123,7 @@ impl ApiHistoryListImplementer for SpinHistoryListImplementer {
 
 	type Param = SpinHistoryListImplementerParam;
 	type ResolveTextureCreationInfoParam = ();
-	type IntermediateTextureCreationInfo = Arc<Vec<u8>>;
+	type IntermediateTextureCreationInfo = Arc<[u8]>;
 
 	fn may_need_to_sort_api_results() -> bool {false /* Spins come in order! */}
 	fn compare(a: &Self::NonNative, b: &Self::NonNative) -> std::cmp::Ordering {a.get_start_time().cmp(&b.get_start_time())}
@@ -140,8 +140,7 @@ impl ApiHistoryListImplementer for SpinHistoryListImplementer {
 
 	async fn get_intermediate_texture_creation_info(param: &Self::Param, local: &Self::Native) -> Self::IntermediateTextureCreationInfo {
 		let maybe_info = local.get_texture_creation_info(ModelAgeState::CurrentlyActive, param.item_texture_size.size);
-		let bytes = get_model_texture_bytes(maybe_info, param.get_fallback_texture_creation_info).await;
-		Arc::new(bytes)
+		get_model_texture_bytes(&maybe_info, param.get_fallback_texture_path).await
 	}
 
 	fn resolve_texture_creation_info<'a>(_: &(), _: &Self::Native,
@@ -175,7 +174,7 @@ impl SpinHistoryItemTextureSize {
 
 #[derive(Clone, Default)]
 struct ModelDataCacheEntry {
-	texture_bytes: Arc<Vec<u8>>, // This is an `Arc` to avoid the cost of copying
+	texture_bytes: Arc<[u8]>, // This is an `Arc` to avoid the cost of copying
 	texture_creation_info_hash: u64,
 	texture_creation_info_hash_changed: bool,
 
@@ -198,7 +197,7 @@ struct SpinitronStateData {
 	age_data: [ModelAgeData; NUM_SPINITRON_MODEL_TYPES],
 	cached_model_data: [ModelDataCacheEntry; NUM_SPINITRON_MODEL_TYPES],
 
-	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>,
+	get_fallback_texture_path: fn() -> &'static str,
 	spin_history_item_texture_size: SpinHistoryItemTextureSize,
 	spin_history_list: ApiHistoryList<SpinHistoryListImplementer>
 }
@@ -206,7 +205,7 @@ struct SpinitronStateData {
 // The third param is the fallback texture creation info, and the fourth one is the spin window size
 type SpinitronStateDataParams<'a> = (
 	&'a str, // API key
-	fn() -> TextureCreationInfo<'static>, // Fallback texture creation info getter
+	fn() -> &'static str, // Fallback texture path getter
 	Duration, // The API update rate
 	[Duration; NUM_SPINITRON_MODEL_TYPES], // Custom model expiry durations
 	PixelAreaSDL, // The spin texture size (for the primary spin)
@@ -218,39 +217,42 @@ type SpinitronStateDataParams<'a> = (
 
 // This is expected to never fail (the fallback must succeed)
 async fn get_model_texture_bytes(
-	texture_creation_info: MaybeTextureCreationInfo<'_>,
-	get_fallback_texture_creation_info: fn() -> TextureCreationInfo<'static>) -> Vec<u8> {
+	texture_creation_info: &ModelTextureCreationInfo<'_>,
+	get_fallback_texture_path: fn() -> &'static str) -> Arc<[u8]> {
 
-	async fn load_texture_creation_info_bytes(info: &TextureCreationInfo<'_>) -> GenericResult<Vec<u8>> {
-		/* I am doing this to speed up the loading of textures on the main
-		thread, by doing the image URL requesting on this task/thread instead,
-		and precaching anything from disk in byte form as well. */
-		match info {
-			TextureCreationInfo::Path(path) =>
-				file_utils::read_file_contents(path).await,
+	let get_fallback = |maybe_err| async {
+		if let Some(err) = maybe_err {
+			log::warn!("Reverting to fallback texture for Spinitron model. Error: '{err}'");
+		}
 
-			TextureCreationInfo::Url(url) => {
-				let response = request::get(url, None).await?;
-				let bytes = response.bytes().await?;
-				Ok(bytes.to_vec())
+		let fallback_path = get_fallback_texture_path();
+		let bytes = file_utils::read_file_contents(fallback_path).await.expect("Fallback texture path failed!");
+		Arc::from(bytes)
+	};
+
+	match texture_creation_info {
+		ModelTextureCreationInfo::Nothing => {
+			get_fallback(None).await
+		}
+
+		ModelTextureCreationInfo::Path(path) => {
+			match file_utils::read_file_contents(path).await {
+				Ok(bytes) => Arc::from(bytes),
+				Err(err) => get_fallback(Some(err)).await
+			}
+		}
+
+		ModelTextureCreationInfo::Url(url) => {
+			match request::get(url, None).await {
+				Ok(response) => {
+					match response.bytes().await {
+						Ok(bytes) => Arc::from(bytes.to_vec()),
+						Err(err) => get_fallback(Some(err.into())).await
+					}
+				}
+				Err(err) => get_fallback(Some(err)).await
 			}
 
-			TextureCreationInfo::RawBytes(_) =>
-				panic!("Spinitron model textures should not be returning raw bytes!"),
-
-			TextureCreationInfo::Text(_) =>
-				panic!("Precaching the text texture creation info is not supported for plain Spinitron model textures!")
-		}
-	}
-
-	let info = texture_creation_info.unwrap_or_else(get_fallback_texture_creation_info);
-
-	match load_texture_creation_info_bytes(&info).await {
-		Ok(info) => info,
-
-		Err(err) => {
-			log::warn!("Reverting to fallback texture for Spinitron model. Error: '{err}'");
-			load_texture_creation_info_bytes(&get_fallback_texture_creation_info()).await.unwrap()
 		}
 	}
 }
@@ -258,7 +260,7 @@ async fn get_model_texture_bytes(
 //////////
 
 impl SpinitronStateData {
-	fn new((api_key, get_fallback_texture_creation_info, _,
+	fn new((api_key, get_fallback_texture_path, _,
 		custom_model_expiry_durations, _, spin_history_item_texture_size,
 		num_spins_shown_in_history): SpinitronStateDataParams) -> Self {
 
@@ -289,7 +291,7 @@ impl SpinitronStateData {
 			age_data,
 			cached_model_data: std::array::from_fn(|_| ModelDataCacheEntry::default()),
 
-			get_fallback_texture_creation_info,
+			get_fallback_texture_path,
 			spin_history_item_texture_size: SpinHistoryItemTextureSize::new(spin_history_item_texture_size),
 			spin_history_list: ApiHistoryList::new(num_spins_shown_in_history)
 		}
@@ -314,18 +316,16 @@ impl SpinitronStateData {
 		psuedo-URL to get a hash that doesn't indicate different images for a just slightly different URL. TODO: solve the first-on-screen case for this
 		bug too, which happens when the spin age state changes to `ModelAgeState::AfterIt`, and a proper texture size for the first spin has been found
 		(resulting in another false transition). */
-		if let Some(TextureCreationInfo::Url(url)) = &texture_creation_info {
+		if let ModelTextureCreationInfo::Url(url) = &texture_creation_info {
 			const CUTOFF: &str = ".com";
 			let dot_com_point = url.find(CUTOFF);
 
 			if let Some(dcp) = dot_com_point {
 				let url_slice = &url[dcp + CUTOFF.len()..];
-				to_hash = Cow::Owned(Some(TextureCreationInfo::Url(Cow::Borrowed(url_slice))));
+				to_hash = Cow::Owned(ModelTextureCreationInfo::Url(Cow::Borrowed(url_slice)));
 			}
-			else {
-				if model_name == SpinitronModelName::Spin {
-					panic!("The Spinitron image spin URL structure fundamentally changed! The URL in question is: '{url:?}'");
-				}
+			else if model_name == SpinitronModelName::Spin {
+				panic!("The Spinitron image spin URL structure fundamentally changed! The URL in question is: '{url:?}'");
 			}
 		}
 
@@ -340,8 +340,7 @@ impl SpinitronStateData {
 		let string_changed = maybe_new_model_string != *prev_entry.string;
 
 		let texture_bytes = if texture_creation_info_hash_changed {
-			let contents = get_model_texture_bytes(texture_creation_info, self.get_fallback_texture_creation_info).await;
-			Arc::new(contents)
+			get_model_texture_bytes(&texture_creation_info, self.get_fallback_texture_path).await
 		}
 		else {
 			prev_entry.texture_bytes.clone()
@@ -410,7 +409,7 @@ impl SpinitronStateData {
 
 			// Step 2: update the spin history list.
 			self.spin_history_list.update(&mut spin_history, &SpinHistoryListImplementerParam {
-				get_fallback_texture_creation_info: self.get_fallback_texture_creation_info,
+				get_fallback_texture_path: self.get_fallback_texture_path,
 				item_texture_size: self.spin_history_item_texture_size
 			}).await;
 
