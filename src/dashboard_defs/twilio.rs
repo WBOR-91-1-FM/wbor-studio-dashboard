@@ -398,7 +398,7 @@ impl ContinuallyUpdatable for TwilioStateData {
 impl TwilioState {
 	pub async fn new(
 		api_update_rate: Duration,
-		account_sid: &str, auth_token: &str,
+		account_sid_and_auth_token: (&str, &str),
 		max_num_messages_in_history: usize,
 		message_history_duration: Duration,
 		reveal_texter_identities: bool,
@@ -407,8 +407,8 @@ impl TwilioState {
 		maybe_remake_transition_info: Option<RemakeTransitionInfo>) -> GenericResult<Self> {
 
 		let data = TwilioStateData::new(
-			account_sid, auth_token, max_num_messages_in_history,
-			message_history_duration, reveal_texter_identities, text_color
+			account_sid_and_auth_token.0, account_sid_and_auth_token.1,
+			max_num_messages_in_history, message_history_duration, reveal_texter_identities, text_color
 		);
 
 		Ok(Self {

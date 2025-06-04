@@ -127,10 +127,10 @@ pub mod transition {
 		pub const RUBBER_BAND: TextureTransitionAspectRatioEaser = rubber_band;
 
 		pub const STRAIGHT_WAVY: TextureTransitionAspectRatioEaser = |percent_done| {
-			const N: u32 = 3;
+			const N: u32 = 3; // This controls the frequency (must be odd)
 			const PI_N: f64 = std::f64::consts::PI * N as f64;
 
-			assert!(N % 2 != 0); // This controls the frequency (must be odd)
+			// assert!(N % 2 != 0);
 
 			let s = (PI_N * percent_done * 0.5).sin();
 			s * s

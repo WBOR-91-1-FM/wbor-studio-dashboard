@@ -284,8 +284,8 @@ pub async fn make_dashboard(
 
 		TwilioState::new(
 			shared_api_update_rate,
-			&api_keys.twilio_account_sid,
-			&api_keys.twilio_auth_token,
+			(&api_keys.twilio_account_sid, &api_keys.twilio_auth_token),
+
 			6,
 			Duration::days(5),
 			false,
