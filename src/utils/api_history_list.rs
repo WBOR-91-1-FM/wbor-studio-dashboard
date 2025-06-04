@@ -351,11 +351,13 @@ pub struct ApiHistoryListSubWindowInfo {
 	pub skip_aspect_ratio_correction_for_background_contents: bool
 }
 
+type ItemUpdaterFn = fn(WindowUpdaterParams) -> MaybeError;
+
 pub fn make_api_history_list_window(
 	contained_area: (Vec2f, Vec2f),
 	contained_area_border_info: WindowBorderInfo,
 	subwindow_size: Vec2f,
-	item_updater_fns: &[(fn(WindowUpdaterParams) -> MaybeError, UpdateRate)],
+	item_updater_fns: &[(ItemUpdaterFn, UpdateRate)],
 	subwindow_info: impl Iterator<Item = ApiHistoryListSubWindowInfo>
 ) -> Window {
 
