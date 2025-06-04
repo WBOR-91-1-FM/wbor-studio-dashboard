@@ -27,6 +27,13 @@ pub type ColorSDL = sdl2::pixels::Color;
 pub type CanvasSDL = sdl2::render::Canvas<sdl2::video::Window>;
 pub type PixelAreaSDL = (u32, u32);
 
+pub struct TypicalWindowParams {
+	pub view_refresh_update_rate: UpdateRate,
+	pub border_info: WindowBorderInfo,
+	pub top_left: Vec2f,
+	pub size: Vec2f
+}
+
 // This should be used instead of `FRect` whenever possible
 #[derive(Copy, Clone)]
 pub struct PreciseRect {

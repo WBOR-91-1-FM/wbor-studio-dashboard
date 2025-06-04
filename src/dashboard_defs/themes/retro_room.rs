@@ -21,7 +21,8 @@ use crate::{
 	window_tree::{
 		Window,
 		ColorSDL,
-		WindowContents
+		WindowContents,
+		TypicalWindowParams
 	},
 
 	dashboard_defs::{
@@ -174,12 +175,14 @@ pub async fn make_dashboard(
 
 	// The Spinitron windows update at the same rate as the shared update rate
 	let spinitron_windows = make_spinitron_windows(
-		&all_model_windows_info, shared_view_refresh_update_rate,
+		TypicalWindowParams {
+			view_refresh_update_rate: shared_view_refresh_update_rate,
+			border_info: None,
+			top_left: Vec2f::new(0.43, 0.82),
+			size: Vec2f::new(0.45, 0.15)
+		},
 
-		Vec2f::new(0.43, 0.82),
-		Vec2f::new(0.45, 0.15),
-		None,
-
+		&all_model_windows_info,
 		num_spins_shown_in_history,
 		&mut rand_generator
 	);
@@ -187,9 +190,13 @@ pub async fn make_dashboard(
 	////////// Making an error window
 
 	let error_window = make_error_window(
-		Vec2f::new(0.0, 0.95),
-		Vec2f::new(0.15, 0.05),
-		shared_view_refresh_update_rate,
+		TypicalWindowParams {
+			view_refresh_update_rate: shared_view_refresh_update_rate,
+			border_info: None,
+			top_left: Vec2f::new(0.0, 0.95),
+			size: Vec2f::new(0.15, 0.05)
+		},
+
 		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 150)),
 		ColorSDL::YELLOW
 	);
@@ -227,14 +234,16 @@ pub async fn make_dashboard(
 	let weather_and_credit_window_size = Vec2f::new(0.15, 0.03);
 
 	let weather_window = make_weather_window(
+		TypicalWindowParams {
+			view_refresh_update_rate: weather_view_refresh_update_rate,
+			border_info: Some((theme_color_1, 0)),
+			top_left: Vec2f::new(0.008, 0.01),
+			size: weather_and_credit_window_size
+		},
+
 		&api_keys.tomorrow_io,
 		weather_api_update_rate,
-		weather_view_refresh_update_rate,
-
-		Vec2f::new(0.008, 0.01),
-		weather_and_credit_window_size,
-
-		theme_color_1, Some((theme_color_1, 0)),
+		theme_color_1,
 		WindowContents::Nothing,
 
 		Some(RemakeTransitionInfo::new(
@@ -294,18 +303,18 @@ pub async fn make_dashboard(
 	////////// Making a Twilio window
 
 	let twilio_windows = make_twilio_windows(
-		&twilio_state,
-		shared_view_refresh_update_rate,
+		TypicalWindowParams {
+			view_refresh_update_rate: shared_view_refresh_update_rate,
+			border_info: None,
+			top_left: Vec2f::new(0.69, 0.52),
+			size: Vec2f::new(0.3, 0.06)
+		},
 
-		Vec2f::new(0.69, 0.52),
-		Vec2f::new(0.3, 0.06),
+		&twilio_state,
 
 		0.015,
 		WindowContents::Color(ColorSDL::RGBA(0, 240, 0, 80)),
-
 		Vec2f::new(0.075, 0.45),
-		None,
-
 		WindowContents::make_texture_contents(&twilio_message_background_contents_creation_info, texture_pool)?
 	);
 

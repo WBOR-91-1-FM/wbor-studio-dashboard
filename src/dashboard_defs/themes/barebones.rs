@@ -21,7 +21,8 @@ use crate::{
 	window_tree::{
 		Window,
 		ColorSDL,
-		WindowContents
+		WindowContents,
+		TypicalWindowParams
 	},
 
 	dashboard_defs::{
@@ -183,12 +184,14 @@ pub async fn make_dashboard(
 
 	// The Spinitron windows update at the same rate as the shared update rate
 	let spinitron_windows = make_spinitron_windows(
-		&all_model_windows_info, shared_view_refresh_update_rate,
+		TypicalWindowParams {
+			view_refresh_update_rate: shared_view_refresh_update_rate,
+			border_info: theme_border_info_1,
+			top_left: spin_history_tl,
+			size: Vec2f::new(spin_text_size.x(), 0.1)
+		},
 
-		spin_history_tl,
-		Vec2f::new(spin_text_size.x(), 0.1),
-		theme_border_info_1,
-
+		&all_model_windows_info,
 		num_spins_shown_in_history,
 		&mut rand_generator
 	);
@@ -196,9 +199,13 @@ pub async fn make_dashboard(
 	////////// Making an error window
 
 	let error_window = make_error_window(
-		Vec2f::new(0.3, 0.97),
-		Vec2f::new(0.4, 0.03),
-		shared_view_refresh_update_rate,
+		TypicalWindowParams {
+			view_refresh_update_rate: shared_view_refresh_update_rate,
+			border_info: None,
+			top_left: Vec2f::new(0.3, 0.97),
+			size: Vec2f::new(0.4, 0.03)
+		},
+
 		WindowContents::Color(ColorSDL::RGBA(255, 0, 0, 120)),
 		ColorSDL::YELLOW
 	);
@@ -233,14 +240,16 @@ pub async fn make_dashboard(
 	let weather_and_credit_window_size = Vec2f::new(0.15, 0.03);
 
 	let weather_window = make_weather_window(
+		TypicalWindowParams {
+			view_refresh_update_rate: weather_view_refresh_update_rate,
+			border_info: theme_border_info_1,
+			top_left: Vec2f::new(0.0, 1.0 - weather_and_credit_window_size.y()),
+			size: weather_and_credit_window_size
+		},
+
 		&api_keys.tomorrow_io,
 		weather_api_update_rate,
-		weather_view_refresh_update_rate,
-
-		Vec2f::new(0.0, 1.0 - weather_and_credit_window_size.y()),
-		weather_and_credit_window_size,
-
-		theme_color_1, theme_border_info_1,
+		theme_color_1,
 		WindowContents::Nothing,
 
 		Some(RemakeTransitionInfo::new(
@@ -299,18 +308,18 @@ pub async fn make_dashboard(
 	////////// Making a Twilio window
 
 	let twilio_windows = make_twilio_windows(
-		&twilio_state,
-		shared_view_refresh_update_rate,
+		TypicalWindowParams {
+			view_refresh_update_rate: shared_view_refresh_update_rate,
+			border_info: theme_border_info_1,
+			top_left: Vec2f::new(0.58, 0.40),
+			size: Vec2f::new(0.4, 0.55)
+		},
 
-		Vec2f::new(0.58, 0.40),
-		Vec2f::new(0.4, 0.55),
+		&twilio_state,
 
 		0.025,
 		WindowContents::Color(ColorSDL::RGB(23, 23, 23)),
-
 		Vec2f::new(0.0, 0.45),
-		theme_border_info_1,
-
 		WindowContents::Nothing
 	);
 

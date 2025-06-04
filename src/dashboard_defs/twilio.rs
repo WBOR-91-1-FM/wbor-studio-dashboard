@@ -23,7 +23,6 @@ use crate::{
 		request,
 		vec2f::Vec2f,
 		generic_result::*,
-		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
 		continually_updated::{ContinuallyUpdatable, ContinuallyUpdated, ContinuallyUpdatedState},
 
@@ -38,8 +37,8 @@ use crate::{
 		ColorSDL,
 		PixelAreaSDL,
 		WindowContents,
-		WindowBorderInfo,
-		WindowUpdaterParams
+		WindowUpdaterParams,
+		TypicalWindowParams
 	}
 };
 
@@ -525,14 +524,12 @@ fn top_box_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 //////////
 
 pub fn make_twilio_windows(
-	twilio_state: &TwilioState,
-	view_refresh_update_rate: UpdateRate,
+	typical_params: TypicalWindowParams,
 
-	top_left: Vec2f, size: Vec2f,
+	twilio_state: &TwilioState,
 	top_box_height: f64,
 	top_box_contents: WindowContents,
 	message_text_zoom_factor: Vec2f,
-	overall_border_info: WindowBorderInfo,
 	message_background_contents: WindowContents) -> Vec<Window> {
 
 	let max_num_messages_in_history = twilio_state.continually_updated.get_curr_data().immutable.max_num_messages_in_history;
@@ -547,20 +544,20 @@ pub fn make_twilio_windows(
 	});
 
 	let message_history_window = make_api_history_list_window(
-		(top_left, size),
-		overall_border_info,
+		(typical_params.top_left, typical_params.size),
+		typical_params.border_info,
 		subwindow_size,
-		&[(history_updater_fn, view_refresh_update_rate)],
+		&[(history_updater_fn, typical_params.view_refresh_update_rate)],
 		subwindow_info
 	);
 
 	let top_box_window = Window::new(
-		vec![(top_box_updater_fn, view_refresh_update_rate)],
+		vec![(top_box_updater_fn, typical_params.view_refresh_update_rate)],
 		DynamicOptional::NONE,
 		WindowContents::Many(vec![top_box_contents, WindowContents::Nothing]),
 		None,
-		Vec2f::new(top_left.x(), top_left.y() - top_box_height),
-		Vec2f::new(size.x(), top_box_height),
+		Vec2f::new(typical_params.top_left.x(), typical_params.top_left.y() - top_box_height),
+		Vec2f::new(typical_params.size.x(), top_box_height),
 		vec![]
 	);
 

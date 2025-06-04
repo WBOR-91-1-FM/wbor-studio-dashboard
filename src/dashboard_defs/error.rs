@@ -4,17 +4,14 @@ use std::{
 };
 
 use crate::{
-	utils::{
-		vec2f::Vec2f,
-		hash::hash_obj,
-		update_rate::UpdateRate
-	},
+	utils::hash::hash_obj,
 
 	window_tree::{
 		Window,
 		ColorSDL,
 		WindowContents,
-		WindowUpdaterParams
+		WindowUpdaterParams,
+		TypicalWindowParams
 	},
 
 	dashboard_defs::{
@@ -76,7 +73,7 @@ impl ErrorState {
 
 //////////
 
-pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
+pub fn make_error_window(typical_params: TypicalWindowParams,
 	background_contents: WindowContents, text_color: ColorSDL) -> Window {
 
 	type ErrorWindowState = Option<u64>; // This is the current hash of the error state (if `None`, not initialized yet)
@@ -137,13 +134,13 @@ pub fn make_error_window(top_left: Vec2f, size: Vec2f, update_rate: UpdateRate,
 		inner: None,
 		text_color,
 		scroll_easer: easing_fns::scroll::LEFT_LINEAR,
-		update_rate,
-		border_info: None,
+		update_rate: typical_params.view_refresh_update_rate,
+		border_info: typical_params.border_info,
 		scroll_speed_multiplier: 0.3
 	};
 
 	let mut window = updatable_text_pattern::make_window(
-		fields, top_left, size,
+		fields, typical_params.top_left, typical_params.size,
 		WindowContents::Many(vec![background_contents, WindowContents::Nothing])
 	);
 

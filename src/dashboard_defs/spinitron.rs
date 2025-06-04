@@ -18,7 +18,6 @@ use crate::{
 		time::*,
 		vec2f::Vec2f,
 		generic_result::*,
-		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
 		api_history_list::{make_api_history_list_window, ApiHistoryListSubWindowInfo}
 	},
@@ -29,7 +28,8 @@ use crate::{
 		WindowContents,
 		WindowUpdaters,
 		WindowBorderInfo,
-		WindowUpdaterParams
+		WindowUpdaterParams,
+		TypicalWindowParams
 	},
 
 	spinitron::model::{SpinitronModelName, NUM_SPINITRON_MODEL_TYPES}
@@ -152,17 +152,14 @@ fn spin_history_item_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 }
 
 pub fn make_spinitron_windows(
+	typical_params: TypicalWindowParams,
 	all_model_windows_info: &[SpinitronModelWindowsInfo; NUM_SPINITRON_MODEL_TYPES],
-	view_refresh_update_rate: UpdateRate,
-
-	history_tl: Vec2f, history_size: Vec2f,
-	history_border_info: WindowBorderInfo,
 	num_spins_shown_in_history: usize,
 	rand_generator: &mut rand::rngs::ThreadRng) -> Vec<Window> {
 
 	////////// Making the model windows
 
-	let spinitron_model_window_updaters: WindowUpdaters = vec![(spinitron_model_window_updater_fn, view_refresh_update_rate)];
+	let spinitron_model_window_updaters: WindowUpdaters = vec![(spinitron_model_window_updater_fn, typical_params.view_refresh_update_rate)];
 
 	// TODO: perhaps for making multiple model windows, allow for an option to have sub-model-windows
 	let mut spinitron_windows: Vec<Window> = all_model_windows_info.iter().flat_map(|general_info| {
@@ -216,11 +213,11 @@ pub fn make_spinitron_windows(
 	});
 
 	spinitron_windows.push(make_api_history_list_window(
-		(history_tl, history_size),
-		history_border_info,
+		(typical_params.top_left, typical_params.size),
+		typical_params.border_info,
 
 		subwindow_size,
-		&[(spin_history_item_updater_fn, view_refresh_update_rate)],
+		&[(spin_history_item_updater_fn, typical_params.view_refresh_update_rate)],
 		subwindow_info
 	));
 

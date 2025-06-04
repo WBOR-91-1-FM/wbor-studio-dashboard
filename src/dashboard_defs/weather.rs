@@ -12,9 +12,7 @@ use crate::{
 	utils::{
 		time::*,
 		request,
-		vec2f::Vec2f,
 		generic_result::*,
-		update_rate::UpdateRate,
 		dynamic_optional::DynamicOptional,
 		continually_updated::{ContinuallyUpdated, ContinuallyUpdatable}
 	},
@@ -23,7 +21,7 @@ use crate::{
 		Window,
 		ColorSDL,
 		WindowContents,
-		WindowBorderInfo,
+		TypicalWindowParams,
 		WindowUpdaterParams
 	},
 
@@ -256,12 +254,10 @@ fn weather_string_updater_fn(params: WindowUpdaterParams) -> MaybeError {
 }
 
 pub fn make_weather_window(
-	api_key: &str,
-	api_update_rate: Duration,
-	view_refresh_update_rate: UpdateRate,
+	typical_params: TypicalWindowParams,
+	api_key: &str, api_update_rate: Duration,
 
-	top_left: Vec2f, size: Vec2f,
-	text_color: ColorSDL, border_info: WindowBorderInfo,
+	text_color: ColorSDL,
 	background_contents: WindowContents,
 	maybe_remake_transition_info: Option<RemakeTransitionInfo>) -> Window {
 
@@ -288,12 +284,12 @@ pub fn make_weather_window(
 	//////////
 
 	Window::new(
-		vec![(weather_string_updater_fn, view_refresh_update_rate)],
+		vec![(weather_string_updater_fn, typical_params.view_refresh_update_rate)],
 		DynamicOptional::new(weather_state),
 		background_contents,
-		border_info,
-		top_left,
-		size,
+		typical_params.border_info,
+		typical_params.top_left,
+		typical_params.size,
 		vec![]
 	)
 }

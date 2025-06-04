@@ -49,7 +49,7 @@ pub struct UpdatableTextWindowFields<IndividualState> {
 //////////
 
 // TODO: use this in more places
-pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static>(
+pub fn make_window<IndividualState: UpdatableTextWindowMethods + 'static>(
 	fields: UpdatableTextWindowFields<IndividualState>, top_left: Vec2f, size: Vec2f,
 	initial_contents: WindowContents) -> Window {
 
@@ -91,11 +91,13 @@ pub fn make_window<IndividualState: UpdatableTextWindowMethods + Clone + 'static
 
 	//////////
 
+	let border_info = fields.border_info;
+
 	Window::new(
 		vec![(updater_fn::<IndividualState>, fields.update_rate)],
-		DynamicOptional::new(fields.clone()),
+		DynamicOptional::new(fields),
 		initial_contents,
-		fields.border_info,
+		border_info,
 		top_left,
 		size,
 		vec![]
