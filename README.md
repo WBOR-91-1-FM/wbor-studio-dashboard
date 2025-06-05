@@ -54,6 +54,8 @@ Or, with logging enabled:
 RUST_LOG=wbor_studio_dashboard cargo run --release
 ```
 
+You'll also want to create a file in `assets/` named `api_keys.json`. If you don't have an API key yet for any API, you can just put in a dummy value, and the dashboard will launch just fine. Most APIs already use custom proxies that don't require keys anyways, so the keys are there just for when the proxies fail.
+
 ---
 
 ## Themes
