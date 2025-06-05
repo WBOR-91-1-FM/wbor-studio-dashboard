@@ -45,7 +45,7 @@ fn rubber_band(x: f64) -> f64 {
 pub mod scroll {
 	use crate::texture::text::TextTextureScrollEaser;
 
-	pub const STAY_PUT: TextTextureScrollEaser = (|_, _, _| (0.0, true), 1.0);
+	pub const STAY_PUT: TextTextureScrollEaser = (|_, _, _| (-0.1, true), 1.0);
 
 	pub const LEFT_LINEAR: TextTextureScrollEaser = (|seed, _, _| {(seed, true)}, 1.0);
 
@@ -229,6 +229,14 @@ generate_proof_group!(
 	[STAY_PUT, LEFT_LINEAR, OSCILLATE_NO_WRAP, PAUSE_THEN_SCROLL_LEFT]
 );
 
+/*
+generate_proof_group!(
+	scroll,
+	crate::dashboard_defs::easing_fns::scroll,
+
+	[STAY_PUT, LEFT_LINEAR, OSCILLATE_NO_WRAP, PAUSE_THEN_SCROLL_LEFT]
+);
+
 generate_proof_group!(
 	opacity,
 	crate::dashboard_defs::easing_fns::transition::opacity,
@@ -249,3 +257,4 @@ generate_proof_group!(
 
 	[LINEAR, BOUNCE, SNAPPY, RUBBER_BAND, STRAIGHT_WAVY, JITTER_WAVY]
 );
+*/
