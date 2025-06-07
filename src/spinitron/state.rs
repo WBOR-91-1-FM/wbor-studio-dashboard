@@ -3,11 +3,6 @@ use std::{
 	borrow::Cow
 };
 
-use futures::{
-	StreamExt,
-	stream::FuturesUnordered
-};
-
 use crate::{
 	window_tree::PixelAreaSDL,
 	dashboard_defs::error::ErrorState,
@@ -17,10 +12,12 @@ use crate::{
 		wrapper_types::SpinitronModelId,
 
 		model::{
+			SpinitronModel,
+			SpinitronModelName,
+			SpinitronModelWithProps,
 			ModelTextureCreationInfo,
 			NUM_SPINITRON_MODEL_TYPES,
-			Spin, Playlist, Persona, Show,
-			SpinitronModel, SpinitronModelName
+			Spin, Playlist, Persona, Show
 		}
 	},
 
@@ -54,18 +51,15 @@ struct ModelAgeData {
 }
 
 impl ModelAgeData {
-	fn new<Model: SpinitronModel>(custom_expiry_duration: Duration, model: &Model) -> Self {
-		let data = Self {
+	fn new(custom_expiry_duration: Duration) -> Self {
+		Self {
 			custom_expiry_duration,
 			curr_age_state: ModelAgeState::CurrentlyActive,
 			just_updated_state: false
-		};
-
-		data.update(model)
+		}
 	}
 
-	// This returns the new model age data
-	fn update<Model: SpinitronModel + ?Sized>(mut self, model: &Model) -> ModelAgeData {
+	fn update<Model: SpinitronModel + ?Sized>(&mut self, model: &Model) {
 		if let (start_time, Some(end_time)) = model.get_time_range() {
 			let curr_time = get_reference_time();
 
@@ -101,8 +95,6 @@ impl ModelAgeData {
 		else {
 			self.just_updated_state = false; // TODO: handle this more properly later on!
 		}
-
-		self
 	}
 }
 
@@ -150,6 +142,8 @@ impl ApiHistoryListImplementer for SpinHistoryListImplementer {
 	}
 }
 
+//////////
+
 #[derive(Copy, Clone)]
 struct SpinHistoryItemTextureSize {
 	size: PixelAreaSDL,
@@ -178,24 +172,105 @@ struct ModelDataCacheEntry {
 	texture_creation_info_hash: u64,
 	texture_creation_info_hash_changed: bool,
 
-	raw_texture_creation_info_hash: u64, // This is here for debugging purposes (TODO: remove later on)
-
 	string: Arc<Cow<'static, str>>,
 	string_changed: bool
 }
+
+impl ModelDataCacheEntry {
+	fn invalidate(&mut self) {
+		self.texture_creation_info_hash_changed = false;
+		self.string_changed = false;
+	}
+
+	async fn update<Model: SpinitronModelWithProps>(
+		&mut self, age_state: ModelAgeState,
+		model: &Model, spin_texture_size: PixelAreaSDL,
+		get_fallback_texture_path: fn() -> &'static str) {
+
+		let maybe_new_model_string = model.to_string(age_state);
+		let texture_creation_info = model.get_texture_creation_info(age_state, spin_texture_size);
+
+		////////// Finding an appropriate hash for the texture creation info
+
+		let mut to_hash = Cow::Borrowed(&texture_creation_info);
+
+		/* Sometimes, image URLs will have the format of `https://is*-ssl.mzstatic.com/image/thumb/...`, where `*` is a number.
+		The issue is that the number may change, and the image will still be the same. The result of this situation is an image transitioning
+		to itself, which looks wrong on-screen. We want to avoid this situation, so we cut off everything before the ".com" part as a part of a
+		psuedo-URL to get a hash that doesn't indicate different images for a just slightly different URL. TODO: solve the first-on-screen case for this
+		bug too, which happens when the spin age state changes to `ModelAgeState::AfterIt`, and a proper texture size for the first spin has been found
+		(resulting in another false transition). */
+		if let ModelTextureCreationInfo::Url(url) = &texture_creation_info {
+			const CUTOFF: &str = ".com";
+			let dot_com_point = url.find(CUTOFF);
+
+			if let Some(dcp) = dot_com_point {
+				let url_slice = &url[dcp + CUTOFF.len()..];
+				to_hash = Cow::Owned(ModelTextureCreationInfo::Url(Cow::Borrowed(url_slice)));
+			}
+			else if Model::NAME == SpinitronModelName::Spin {
+				panic!("The Spinitron image spin URL structure fundamentally changed! The URL in question is: '{url:?}'");
+			}
+		}
+
+		let texture_creation_info_hash = hash_obj(&to_hash);
+
+		////////// Updating the cache entry
+
+		/* Comparing hashes means that we don't need to store the old `TextureCreationInfo`; but it does mean that we have to
+		iterate over the new `TextureCreationInfo` with no early returns (which would've been possible if doing direct comparisons). */
+		self.texture_creation_info_hash_changed = texture_creation_info_hash != self.texture_creation_info_hash;
+
+		if self.texture_creation_info_hash_changed {
+			self.texture_bytes = get_model_texture_bytes(&texture_creation_info, get_fallback_texture_path).await;
+		}
+
+		self.string_changed = maybe_new_model_string != *self.string;
+
+		if self.string_changed {
+			self.string = Arc::new(maybe_new_model_string);
+		}
+	}
+}
+
+//////////
+
+#[derive(Clone)]
+struct SpinitronModelEntry<Model: SpinitronModel> {
+	model: Arc<Model>,
+	age_data: ModelAgeData,
+	cached_data: ModelDataCacheEntry
+}
+
+impl<Model: SpinitronModelWithProps> SpinitronModelEntry<Model> {
+	async fn update_age_state_and_cache(&mut self, id_changed: bool,
+		spin_texture_size: PixelAreaSDL, get_fallback_texture_path: &fn() -> &'static str) {
+
+		let model = self.model.as_ref();
+
+		self.age_data.update(model);
+
+		if id_changed || self.age_data.just_updated_state {
+			self.cached_data.update(
+				self.age_data.curr_age_state,
+				model,
+				spin_texture_size,
+				*get_fallback_texture_path
+			).await;
+		}
+	}
+}
+
+//////////
 
 #[derive(Clone)]
 struct SpinitronStateData {
 	api_key: Arc<String>,
 
-	spin: Arc<Spin>,
-	playlist: Arc<Playlist>,
-	persona: Arc<Persona>,
-	show: Arc<Show>,
-
-	// TODO: perhaps merge these two
-	age_data: [ModelAgeData; NUM_SPINITRON_MODEL_TYPES],
-	cached_model_data: [ModelDataCacheEntry; NUM_SPINITRON_MODEL_TYPES],
+	spin_entry: SpinitronModelEntry<Spin>,
+	playlist_entry: SpinitronModelEntry<Playlist>,
+	persona_entry: SpinitronModelEntry<Persona>,
+	show_entry: SpinitronModelEntry<Show>,
 
 	get_fallback_texture_path: fn() -> &'static str,
 	spin_history_item_texture_size: SpinHistoryItemTextureSize,
@@ -266,202 +341,31 @@ impl SpinitronStateData {
 
 		//////////
 
-		fn arc_default<T: Default>() -> Arc<T> {
-			Arc::new(T::default())
+		fn entry<Model: SpinitronModelWithProps>(
+			custom_model_expiry_durations: &[Duration; NUM_SPINITRON_MODEL_TYPES]
+		) -> SpinitronModelEntry<Model> {
+
+			SpinitronModelEntry {
+				model: Arc::new(Model::default()),
+				age_data: ModelAgeData::new(custom_model_expiry_durations[Model::NAME as usize]),
+				cached_data: ModelDataCacheEntry::default()
+			}
 		}
-
-		let (spin, playlist, persona, show) = (
-			arc_default::<Spin>(), arc_default::<Playlist>(), arc_default::<Persona>(), arc_default::<Show>()
-		);
-
-		let age_data = [
-			ModelAgeData::new(custom_model_expiry_durations[0], spin.as_ref()),
-			ModelAgeData::new(custom_model_expiry_durations[1], playlist.as_ref()),
-			ModelAgeData::new(custom_model_expiry_durations[2], persona.as_ref()),
-			ModelAgeData::new(custom_model_expiry_durations[3], show.as_ref())
-		];
 
 		//////////
 
 		Self {
 			api_key: Arc::new(api_key.to_owned()),
 
-			spin, playlist, persona, show,
-
-			age_data,
-			cached_model_data: std::array::from_fn(|_| ModelDataCacheEntry::default()),
+			spin_entry: entry::<Spin>(&custom_model_expiry_durations),
+			playlist_entry: entry::<Playlist>(&custom_model_expiry_durations),
+			persona_entry: entry::<Persona>(&custom_model_expiry_durations),
+			show_entry: entry::<Show>(&custom_model_expiry_durations),
 
 			get_fallback_texture_path,
 			spin_history_item_texture_size: SpinHistoryItemTextureSize::new(spin_history_item_texture_size),
 			spin_history_list: ApiHistoryList::new(num_spins_shown_in_history)
 		}
-	}
-
-	async fn compute_cacheable_model_data(&self, model_name: SpinitronModelName, spin_texture_size: PixelAreaSDL) -> ModelDataCacheEntry {
-		let model = self.get_model_by_name(model_name);
-
-		let prev_entry = &self.cached_model_data[model_name as usize];
-		let age_state = self.age_data[model_name as usize].curr_age_state;
-		let maybe_new_model_string = model.to_string(age_state);
-
-		let texture_creation_info = model.get_texture_creation_info(age_state, spin_texture_size);
-
-		////////// Finding an appropriate hash for the texture creation info
-
-		let mut to_hash = Cow::Borrowed(&texture_creation_info);
-
-		/* Sometimes, image URLs will have the format of `https://is*-ssl.mzstatic.com/image/thumb/...`, where `*` is a number.
-		The issue is that the number may change, and the image will still be the same. The result of this situation is an image transitioning
-		to itself, which looks wrong on-screen. We want to avoid this situation, so we cut off everything before the ".com" part as a part of a
-		psuedo-URL to get a hash that doesn't indicate different images for a just slightly different URL. TODO: solve the first-on-screen case for this
-		bug too, which happens when the spin age state changes to `ModelAgeState::AfterIt`, and a proper texture size for the first spin has been found
-		(resulting in another false transition). */
-		if let ModelTextureCreationInfo::Url(url) = &texture_creation_info {
-			const CUTOFF: &str = ".com";
-			let dot_com_point = url.find(CUTOFF);
-
-			if let Some(dcp) = dot_com_point {
-				let url_slice = &url[dcp + CUTOFF.len()..];
-				to_hash = Cow::Owned(ModelTextureCreationInfo::Url(Cow::Borrowed(url_slice)));
-			}
-			else if model_name == SpinitronModelName::Spin {
-				panic!("The Spinitron image spin URL structure fundamentally changed! The URL in question is: '{url:?}'");
-			}
-		}
-
-		let texture_creation_info_hash = hash_obj(&to_hash);
-		let raw_texture_creation_info_hash = hash_obj(&texture_creation_info);
-
-		////////// Doing this hashing stuff, because we don't want to invoke a transition when a model's ID changes, and either of its textures stays the same
-
-		/* Comparing hashes means that we don't need to store the old `TextureCreationInfo`; but it does mean that we have to
-		iterate over the new `TextureCreationInfo` with no early returns (which would've been possible if doing direct comparisons). */
-		let texture_creation_info_hash_changed = texture_creation_info_hash != prev_entry.texture_creation_info_hash;
-		let string_changed = maybe_new_model_string != *prev_entry.string;
-
-		let texture_bytes = if texture_creation_info_hash_changed {
-			get_model_texture_bytes(&texture_creation_info, self.get_fallback_texture_path).await
-		}
-		else {
-			prev_entry.texture_bytes.clone()
-		};
-
-		let string = if string_changed {
-			Arc::new(maybe_new_model_string)
-		}
-		else {
-			prev_entry.string.clone()
-		};
-
-		if (raw_texture_creation_info_hash != prev_entry.raw_texture_creation_info_hash) && !texture_creation_info_hash_changed {
-			panic!("I have now confirmed that I've solved the false transition bug! This is a good thing; remove this panic ASAP.");
-		}
-
-		//////////
-
-		ModelDataCacheEntry {
-			texture_bytes,
-			texture_creation_info_hash,
-			texture_creation_info_hash_changed,
-
-			raw_texture_creation_info_hash,
-
-			string,
-			string_changed
-		}
-	}
-
-	const fn get_model_names() -> &'static [SpinitronModelName; NUM_SPINITRON_MODEL_TYPES] {
-		const MODEL_NAMES: [SpinitronModelName; NUM_SPINITRON_MODEL_TYPES] = [
-			SpinitronModelName::Spin, SpinitronModelName::Playlist, SpinitronModelName::Persona, SpinitronModelName::Show
-		];
-
-		&MODEL_NAMES
-	}
-
-	pub fn get_model_by_name(&self, model_name: SpinitronModelName) -> &dyn SpinitronModel {
-		match model_name {
-			SpinitronModelName::Spin => self.spin.as_ref(),
-			SpinitronModelName::Playlist => self.playlist.as_ref(),
-			SpinitronModelName::Persona => self.persona.as_ref(),
-			SpinitronModelName::Show => self.show.as_ref()
-		}
-	}
-
-	async fn sync_models(&mut self, spin_history_item_texture_size: PixelAreaSDL) -> MaybeError {
-		let api_key = self.api_key.as_str();
-
-		////////// Defining the spin and playlist/persona futures
-
-		let spin_future = async {
-			// Step 1: get the current spin, and the spin history.
-
-			let mut current_spin_and_history = Spin::get_current_and_history(
-				api_key, self.spin_history_list.get_max_items()
-			).await?;
-
-			// This will be true the first time (since the old id will be 0)
-			if current_spin_and_history[0].get_id() != self.spin.get_id() {
-				self.spin = Arc::new(current_spin_and_history[0].clone());
-			}
-
-			// Sync the internal item texture size with the external one
-			self.spin_history_item_texture_size.update(spin_history_item_texture_size);
-
-			// Step 2: update the spin history list.
-			self.spin_history_list.update(&mut current_spin_and_history[1..], &SpinHistoryListImplementerParam {
-				get_fallback_texture_path: self.get_fallback_texture_path,
-				item_texture_size: self.spin_history_item_texture_size
-			}).await;
-
-			// Explicitly defining the result here is needed for type inference of `Ok(())` in other places
-			let result: MaybeError = Ok(());
-			result
-		};
-
-		let playlist_and_persona_future = async {
-			/* Step 3: get a maybe new playlist (don't base it on a spin ID,
-			since the spin may not belong to a playlist under automation). */
-			let maybe_new_playlist = Playlist::get(api_key).await?;
-
-			// This will be true the first time (since the old id will be 0)
-			if maybe_new_playlist.get_id() != self.playlist.get_id() {
-				/* Step 4: get the persona id based on the playlist id (since otherwise, you'll
-				just get some persona that's first in Spinitron's internal list of personas. */
-				self.persona = Persona::get(api_key, &maybe_new_playlist).await?;
-				self.playlist = maybe_new_playlist;
-			}
-
-			Ok(())
-		};
-
-		////////// Possibly making a show future, and conditionally joining on all of them
-
-		let curr_minutes = get_local_time().minute();
-		let show_not_initialized_yet = self.show.get_id() == 0;
-
-		// Shows can only be scheduled under 30-minute intervals (will not switch immediately if added sporadically)
-		if curr_minutes == 0 || curr_minutes == 30 || show_not_initialized_yet {
-
-			// In this case, join on 1 more future
-			let show_future = async {
-				/* Step 5: get the current show id (based on what's on the
-				schedule, irrespective of what show was last on).
-				This is not in the branch above, since the show should
-				change directly on schedule, not when a new playlist is made. */
-				self.show = Show::get(api_key).await?;
-				Ok(())
-			};
-
-			tokio::try_join!(spin_future, playlist_and_persona_future, show_future)?;
-		}
-		else {
-			tokio::try_join!(spin_future, playlist_and_persona_future)?;
-		}
-
-		//////////
-
-		Ok(())
 	}
 }
 
@@ -469,55 +373,113 @@ impl ContinuallyUpdatable for SpinitronStateData {
 	type Param = (PixelAreaSDL, PixelAreaSDL);
 
 	async fn update(&mut self, (spin_texture_size, spin_history_item_texture_size): &Self::Param) -> MaybeError {
-		////////// Update the models
+		let Self {
+			api_key,
 
-		let get_model_ids = |data: &Self|
-			Self::get_model_names().map(|name| data.get_model_by_name(name).get_id());
+			spin_entry, playlist_entry,
+			persona_entry, show_entry,
 
-		let original_ids = get_model_ids(self);
-		self.sync_models(*spin_history_item_texture_size).await?;
-		let new_ids = get_model_ids(self);
+			get_fallback_texture_path,
+			spin_history_list,
+			..
+		} = self;
 
-		////////// Collect futures for new models to cache
+		// Syncing the internal item texture size with the external one
+		self.spin_history_item_texture_size.update(*spin_history_item_texture_size);
 
-		// Updating the age data, and invalidating the cache
-		for model_name in Self::get_model_names() {
-			let i = *model_name as usize;
+		spin_entry.cached_data.invalidate(); playlist_entry.cached_data.invalidate();
+		persona_entry.cached_data.invalidate(); show_entry.cached_data.invalidate();
 
-			self.age_data[i] = self.age_data[i].clone().update(self.get_model_by_name(*model_name));
+		////////// Defining the spin future
 
-			let cache_entry = &mut self.cached_model_data[i];
-			cache_entry.texture_creation_info_hash_changed = false; // Marking the texture as not updated
-			cache_entry.string_changed = false; // Marking the text as not updated
-		}
+		let spin_future = async {
+			let mut current_spin_and_history = Spin::get_current_and_history(
+				api_key, spin_history_list.get_max_items()
+			).await?;
 
-		////////// Next, updating stuff asynchronously (TODO: for more concurrency, can I merge this loop with the one in `sync_models` above?)
+			let maybe_new_spin = &current_spin_and_history[0];
+			let spin_id_changed = maybe_new_spin.get_id() != spin_entry.model.get_id();
 
-		let new_to_cache_futures = FuturesUnordered::new();
-
-		for model_name in Self::get_model_names() {
-			let i = *model_name as usize;
-
-			/* Under these conditions, the texture may have updated (sometimes, models will have the same texture across different IDs though).
-			TODO: perhaps also check based on a texture or text updating? The id may not be definitive... (e.g. changing the album cover after submitting a spin).
-			Maybe abandon the ID check, and just check based on a TCI hash check? */
-			let maybe_updated = original_ids[i] != new_ids[i] || self.age_data[i].just_updated_state;
-
-			if maybe_updated {
-				new_to_cache_futures.push(async {
-					let deref_model_name = *model_name;
-					(deref_model_name as usize, self.compute_cacheable_model_data(deref_model_name, *spin_texture_size).await)
-				});
+			if spin_id_changed {
+				spin_entry.model = Arc::new(maybe_new_spin.clone());
 			}
-		}
 
-		// TODO: how to avoid this allocation?
-		for (index, entry) in new_to_cache_futures.collect::<Vec<_>>().await {
-			self.cached_model_data[index] = entry;
-		}
+			tokio::join!(
+				spin_entry.update_age_state_and_cache(spin_id_changed, *spin_texture_size, get_fallback_texture_path),
 
-		//////////
+				spin_history_list.update(&mut current_spin_and_history[1..], SpinHistoryListImplementerParam {
+					get_fallback_texture_path: *get_fallback_texture_path,
+					item_texture_size: self.spin_history_item_texture_size
+				})
+			);
 
+			let result: MaybeError = Ok(());
+			result
+		};
+
+		////////// Defining the playlist/persona future
+
+		let playlist_and_persona_future = async {
+			let old_playlist_id = playlist_entry.model.get_id();
+			let maybe_new_playlist = Playlist::get(api_key).await?;
+
+			let playlist_id_changed = maybe_new_playlist.get_id() != old_playlist_id;
+
+			if playlist_id_changed {
+				playlist_entry.model = maybe_new_playlist.clone();
+			}
+
+			let playlist = playlist_entry.model.clone();
+
+			tokio::try_join!(
+				async {
+					playlist_entry.update_age_state_and_cache(
+						playlist_id_changed, *spin_texture_size, get_fallback_texture_path
+					).await;
+
+					Ok(())
+				},
+
+				async {
+					let old_persona_id = persona_entry.model.get_id();
+
+					if playlist_id_changed {
+						persona_entry.model = Persona::get(api_key, &playlist).await?;
+					}
+
+					persona_entry.update_age_state_and_cache(
+						old_persona_id != persona_entry.model.get_id(),
+						*spin_texture_size, get_fallback_texture_path
+					).await;
+
+					Ok(())
+				}
+			)
+		};
+
+		////////// Making a show future
+
+		let show_future = async {
+			let old_show_id = show_entry.model.get_id();
+			let curr_minutes = get_local_time().minute();
+			let show_not_initialized_yet = old_show_id == 0;
+
+			// Shows can only be scheduled under 30-minute intervals (will not switch immediately if added sporadically)
+			if curr_minutes == 0 || curr_minutes == 30 || show_not_initialized_yet {
+				show_entry.model = Show::get(api_key).await?;
+			}
+
+			show_entry.update_age_state_and_cache(
+				old_show_id != show_entry.model.get_id(),
+				*spin_texture_size, get_fallback_texture_path
+			).await;
+
+			Ok(())
+		};
+
+		////////// Joining on all of them
+
+		tokio::try_join!(spin_future, playlist_and_persona_future, show_future)?;
 		Ok(())
 	}
 }
@@ -561,35 +523,42 @@ impl SpinitronState {
 		(axis_size, axis_size)
 	}
 
-	const fn get(&self) -> &SpinitronStateData {
-		self.continually_updated.get_curr_data()
+	const fn get(&self, model_name: SpinitronModelName) -> &ModelDataCacheEntry {
+		let data = self.continually_updated.get_curr_data();
+
+		match model_name {
+			SpinitronModelName::Spin => &data.spin_entry.cached_data,
+			SpinitronModelName::Playlist => &data.playlist_entry.cached_data,
+			SpinitronModelName::Persona => &data.persona_entry.cached_data,
+			SpinitronModelName::Show => &data.show_entry.cached_data
+		}
 	}
 
 	//////////
 
 	pub const fn model_texture_was_updated(&self, model_name: SpinitronModelName) -> bool {
-		self.just_got_new_continual_data && self.get().cached_model_data[model_name as usize].texture_creation_info_hash_changed
+		self.just_got_new_continual_data && self.get(model_name).texture_creation_info_hash_changed
 	}
 
 	pub const fn model_text_was_updated(&self, model_name: SpinitronModelName) -> bool {
-		self.just_got_new_continual_data && self.get().cached_model_data[model_name as usize].string_changed
+		self.just_got_new_continual_data && self.get(model_name).string_changed
 	}
 
 	pub fn get_cached_texture_creation_info(&self, model_name: SpinitronModelName) -> TextureCreationInfo {
-		let bytes = &self.get().cached_model_data[model_name as usize].texture_bytes;
+		let bytes = &self.get(model_name).texture_bytes;
 		TextureCreationInfo::RawBytes(Cow::Borrowed(bytes))
 	}
 
 	// Not returning a cached `TextureCreationInfo` for text, since that's created on-the-fly by the client of `SpinitronState`
 	pub fn get_cached_model_text(&self, model_name: SpinitronModelName) -> &str {
-		&self.get().cached_model_data[model_name as usize].string
+		&self.get(model_name).string
 	}
 
 	//////////
 
 	pub fn get_historic_spin_at_index(&mut self, spin_index: usize, spin_history_window_size: PixelAreaSDL) -> Option<TextureHandle> {
 		self.spin_history_item_texture_size = Self::make_correct_texture_size_from_window_size(spin_history_window_size);
-		self.history_list_texture_manager.get_texture_at_index(spin_index, &self.get().spin_history_list)
+		self.history_list_texture_manager.get_texture_at_index(spin_index, &self.continually_updated.get_curr_data().spin_history_list)
 	}
 
 	pub fn update(&mut self, spin_window_size: PixelAreaSDL, texture_pool: &mut TexturePool, error_state: &mut ErrorState) {
@@ -617,7 +586,6 @@ impl SpinitronState {
 		} = self;
 
 		history_list_texture_manager.update_from_history_list(
-			// I can't use the `get` function here, and it's unclear why...
 			&self.continually_updated.get_curr_data().spin_history_list,
 			texture_pool,
 			&()

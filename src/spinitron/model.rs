@@ -138,7 +138,7 @@ pub trait SpinitronModel {
 
 //////////
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum SpinitronModelName {
 	Spin, Playlist, Persona, Show
 }
@@ -147,13 +147,16 @@ pub enum SpinitronModelName {
 They are not included by default because they do not allow the model to be object-safe. */
 pub trait SpinitronModelWithProps:
 	SpinitronModel + Clone + Default
-	+ Serialize + for<'de> Deserialize<'de> {}
+	+ Serialize + for<'de> Deserialize<'de> {
+
+	const NAME: SpinitronModelName;
+}
 
 // TODO: reduce the repetition here
-impl SpinitronModelWithProps for Spin {}
-impl SpinitronModelWithProps for Playlist {}
-impl SpinitronModelWithProps for Persona {}
-impl SpinitronModelWithProps for Show {}
+impl SpinitronModelWithProps for Spin {const NAME: SpinitronModelName = SpinitronModelName::Spin;}
+impl SpinitronModelWithProps for Playlist {const NAME: SpinitronModelName = SpinitronModelName::Playlist;}
+impl SpinitronModelWithProps for Persona {const NAME: SpinitronModelName = SpinitronModelName::Persona;}
+impl SpinitronModelWithProps for Show {const NAME: SpinitronModelName = SpinitronModelName::Show;}
 
 derive_alias! {derive_spinitron_model_props => #[derive(Serialize, Deserialize, Clone, Default)]}
 

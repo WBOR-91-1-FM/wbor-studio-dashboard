@@ -171,7 +171,7 @@ impl<Implementer: ApiHistoryListImplementer> ApiHistoryList<Implementer> {
 	}
 
 	// TODO: perhaps enforce the max items with the API results here?
-	pub async fn update(&mut self, api_results: &mut [Implementer::NonNative], param: &Implementer::Param) {
+	pub async fn update(&mut self, api_results: &mut [Implementer::NonNative], param: Implementer::Param) {
 		// TODO: maybe let the caller handle the sorting?
 		if Implementer::may_need_to_sort_api_results() {
 			/* 1. Sort the API results (TODO: use insertion sort instead, since the data will likely be mostly sorted.
@@ -189,10 +189,10 @@ impl<Implementer: ApiHistoryListImplementer> ApiHistoryList<Implementer> {
 			local_entry.just_updated = false;
 
 			// Checking if the local exists in the offshore
-			for (api_result_index, api_result) in Self::iter_api_results(param, api_results) {
+			for (api_result_index, api_result) in Self::iter_api_results(&param, api_results) {
 				if &Implementer::get_key(api_result) == local_key {
 					local_entry.index = api_result_index; // Update the index, in case things shifted (TODO: can I use a shifting index as a sign to do a remake transition somehow, maybe?)
-					local_entry.just_updated = Implementer::update_local(param, &mut local_entry.item);
+					local_entry.just_updated = Implementer::update_local(&param, &mut local_entry.item);
 
 					if local_entry.just_updated {
 						any_updated = true;
@@ -213,7 +213,7 @@ impl<Implementer: ApiHistoryListImplementer> ApiHistoryList<Implementer> {
 			for local_entry in self.keys_to_entries.values_mut() {
 				if local_entry.just_updated {
 					texture_update_set.push(async {
-						local_entry.intermediate_texture_creation_info = Implementer::get_intermediate_texture_creation_info(param, &local_entry.item).await;
+						local_entry.intermediate_texture_creation_info = Implementer::get_intermediate_texture_creation_info(&param, &local_entry.item).await;
 					});
 				}
 			}
@@ -226,15 +226,15 @@ impl<Implementer: ApiHistoryListImplementer> ApiHistoryList<Implementer> {
 
 		let mut new_entry_set = FuturesUnordered::new();
 
-		for (api_history_index, api_result) in Self::iter_api_results(param, api_results) {
+		for (api_history_index, api_result) in Self::iter_api_results(&param, api_results) {
 			let key = Implementer::get_key(api_result);
 
 			if !self.keys_to_entries.contains_key(&key) {
 				let index = async move {api_history_index}; // TODO: how to avoid this stupid index-move situation? I can't access it from the closure otherwise?
-				let local = Implementer::create_new_local(param, api_result);
+				let local = Implementer::create_new_local(&param, api_result);
 
 				new_entry_set.push(async {
-					let intermediate = Implementer::get_intermediate_texture_creation_info(param, &local).await;
+					let intermediate = Implementer::get_intermediate_texture_creation_info(&param, &local).await;
 					(key, index.await, local, intermediate)
 				});
 			}

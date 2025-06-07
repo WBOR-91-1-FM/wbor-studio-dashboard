@@ -389,7 +389,7 @@ impl ContinuallyUpdatable for TwilioStateData {
 			curr_time, curr_history_cutoff_time, reveal_texter_identities: self.immutable.reveal_texter_identities
 		};
 
-		self.message_history_list.update(&mut message_response.messages, &implementer_param).await;
+		self.message_history_list.update(&mut message_response.messages, implementer_param).await;
 
 		Ok(())
 	}
