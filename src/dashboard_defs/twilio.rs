@@ -343,17 +343,27 @@ impl ContinuallyUpdatable for TwilioStateData {
 		////////// Initializing the phone number if needed
 
 		if self.unformatted_and_formatted_phone_number.is_none() {
+			//////////
 
-			let response: serde_json::Value = self.do_twilio_request("IncomingPhoneNumbers", &[], &[]).await?;
+			#[derive(serde::Deserialize)]
+			struct IncomingPhoneNumberInfo {
+				phone_number: String
+			}
 
-			let numbers_json = response["incoming_phone_numbers"].as_array().unwrap();
-			assert!(numbers_json.len() == 1);
+			#[derive(serde::Deserialize)]
+			struct IncomingPhoneNumbersResponse {
+				// Only expecting 1 phone number
+				incoming_phone_numbers: [IncomingPhoneNumberInfo; 1]
+			}
 
-			let number = &numbers_json[0]["phone_number"].as_str().unwrap();
+			//////////
+
+			let response: IncomingPhoneNumbersResponse = self.do_twilio_request("IncomingPhoneNumbers", &[], &[]).await?;
+			let number = &response.incoming_phone_numbers[0].phone_number;
 
 			self.unformatted_and_formatted_phone_number = Some((
-				number.to_string(),
-				MessageHistoryListImplementer::format_phone_number(number, "Messages to ", ":", "")
+				number.clone(),
+				MessageHistoryListImplementer::format_phone_number(&number, "Messages to ", ":", "")
 			));
 		}
 
