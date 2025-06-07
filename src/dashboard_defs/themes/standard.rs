@@ -10,6 +10,7 @@ use crate::{
 	},
 
 	utils::{
+		request,
 		file_utils,
 		vec2f::Vec2f,
 		time::Duration,
@@ -53,6 +54,8 @@ pub async fn make_dashboard(
 	-> GenericResult<(Window, DynamicOptional)> {
 
 	////////// Defining some shared global variables
+
+	request::init_client(); // Initializing the shared client
 
 	const FONT_INFO: FontInfo = FontInfo::new(
 		include_bytes!("../../../assets/unifont/unifont-15.1.05.otf"),
