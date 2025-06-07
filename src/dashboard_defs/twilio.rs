@@ -362,7 +362,7 @@ impl ContinuallyUpdatable for TwilioStateData {
 
 			self.unformatted_and_formatted_phone_number = Some((
 				number.clone(),
-				MessageHistoryListImplementer::format_phone_number(&number, "Messages to ", ":", "")
+				MessageHistoryListImplementer::format_phone_number(number, "Messages to ", ":", "")
 			));
 		}
 
