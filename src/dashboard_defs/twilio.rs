@@ -351,8 +351,7 @@ impl ContinuallyUpdatable for TwilioStateData {
 			}
 
 			#[derive(serde::Deserialize)]
-			struct IncomingPhoneNumbersResponse {
-				// Only expecting 1 phone number
+			struct IncomingPhoneNumbersResponse { // Only expecting 1 phone number
 				incoming_phone_numbers: [IncomingPhoneNumberInfo; 1]
 			}
 
