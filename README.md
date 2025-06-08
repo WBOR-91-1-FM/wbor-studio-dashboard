@@ -1,4 +1,4 @@
-# WBOR's On-Air-Studio Dashboard
+# WBOR's On-Air-Studio Dashboard (aka `bord`)
 
 - An in-studio dashboard for [WBOR 91.1 FM](https://wbor.org/), Bowdoin College's student-run radio station.
 
