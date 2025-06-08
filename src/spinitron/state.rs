@@ -222,6 +222,7 @@ impl ModelDataCacheEntry {
 		self.texture_creation_info_hash_changed = texture_creation_info_hash != self.texture_creation_info_hash;
 
 		if self.texture_creation_info_hash_changed {
+			self.texture_creation_info_hash = texture_creation_info_hash;
 			self.texture_bytes = get_model_texture_bytes(&texture_creation_info, get_fallback_texture_path).await;
 		}
 
