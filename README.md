@@ -1,11 +1,11 @@
-# WBOR's On-Air-Studio Dashboard
+# WBOR's On-Air-Studio Dashboard (aka `bord`)
 
 - An in-studio dashboard for [WBOR 91.1 FM](https://wbor.org/), Bowdoin College's student-run radio station.
 
 - Aggregates API data from:
-  - [Spinitron](https://spinitron.com/) for now-playing show and song information.
+  - [Spinitron](https://spinitron.com/) for now-playing show and song information (optionally using a [proxy](https://github.com/WBOR-91-1-FM/spinitron-proxy/))
   - [Twilio](https://www.twilio.com/) for "text-the-DJ" messages.
-  - [Tomorrow.io](https://www.tomorrow.io/) for realtime weather updates.
+  - [Tomorrow.io](https://www.tomorrow.io/) for realtime weather updates (optional [proxy](https://github.com/WBOR-91-1-FM/wbor-weather-proxy)).
   - [AzuraCast](https://github.com/AzuraCast/AzuraCast/) for streaming server status updates.
 
 - Runs on a monitor in the on-air studio.

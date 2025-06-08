@@ -182,10 +182,9 @@ impl ModelDataCacheEntry {
 		self.string_changed = false;
 	}
 
-	async fn update<Model: SpinitronModelWithProps>(
-		&mut self, age_state: ModelAgeState,
-		model: &Model, spin_texture_size: PixelAreaSDL,
-		get_fallback_texture_path: fn() -> &'static str) {
+	fn get_relevant_cacheable_info<Model: SpinitronModelWithProps>
+		(model: &Model, age_state: ModelAgeState, spin_texture_size: PixelAreaSDL) ->
+		(Cow<'static, str>, ModelTextureCreationInfo, u64) {
 
 		let maybe_new_model_string = model.to_string(age_state);
 		let texture_creation_info = model.get_texture_creation_info(age_state, spin_texture_size);
@@ -213,9 +212,24 @@ impl ModelDataCacheEntry {
 			}
 		}
 
-		let texture_creation_info_hash = hash_obj(&to_hash);
+		let hash = hash_obj(&to_hash);
+		(maybe_new_model_string, texture_creation_info, hash)
+
+	}
+
+	async fn update<Model: SpinitronModelWithProps>(
+		&mut self, age_state: ModelAgeState,
+		model: &Model, spin_texture_size: PixelAreaSDL,
+		get_fallback_texture_path: fn() -> &'static str) {
 
 		////////// Updating the cache entry
+
+		let (
+			maybe_new_model_string,
+			texture_creation_info,
+			texture_creation_info_hash
+		) =
+			Self::get_relevant_cacheable_info(model, age_state, spin_texture_size);
 
 		/* Comparing hashes means that we don't need to store the old `TextureCreationInfo`; but it does mean that we have to
 		iterate over the new `TextureCreationInfo` with no early returns (which would've been possible if doing direct comparisons). */

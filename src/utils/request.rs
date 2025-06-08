@@ -17,6 +17,10 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10); // TODO: put this in 
 
 type Response = GenericResult<reqwest::Response>;
 
+pub fn init_client() {
+	CLIENT.set(Client::builder().timeout(DEFAULT_TIMEOUT).build().unwrap()).unwrap();
+}
+
 pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 	query_params: &[(&str, Cow<str>)]) -> String {
 
@@ -38,13 +42,7 @@ pub fn build_url(base_url: &str, path_params: &[Cow<str>],
 //////////
 
 pub async fn get(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
-	let client = CLIENT.get_or_init(|| async {
-		let build_client_sync = || reqwest::ClientBuilder::new().timeout(DEFAULT_TIMEOUT).build().unwrap();
-		tokio::task::spawn_blocking(build_client_sync).await.unwrap()
-	}).await;
-
-	//////////
-
+	let client = CLIENT.get().unwrap();
 	let mut request_builder = client.get(url);
 
 	if let Some(header) = maybe_header {
@@ -56,16 +54,12 @@ pub async fn get(url: &str, maybe_header: Option<(&str, &str)>) -> Response {
 	//////////
 
 	let status = response.status();
-	let status_code = status.as_u16();
 
-	if status_code == 200 {
+	if status == reqwest::StatusCode::OK {
 		Ok(response)
 	}
 	else {
-		error_msg!(
-			"response status code for URL '{url}' was '{status_code}', with this reason: '{}'",
-			status.canonical_reason().unwrap_or("unknown")
-		)
+		error_msg!("response status code for URL '{url}' was '{status}'")
 	}
 }
 

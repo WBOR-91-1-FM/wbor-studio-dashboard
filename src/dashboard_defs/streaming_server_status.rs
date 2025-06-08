@@ -35,7 +35,11 @@ impl ContinuallyUpdatable for ServerStatusChecker {
 
 	async fn update(&mut self, _: &Self::Param) -> MaybeError {
 		for i in 0..self.num_retries {
-			let result: GenericResult<serde_json::Value> = request::get_as!(&self.url);
+
+			#[derive(serde::Deserialize)]
+			struct StreamingServerStatusResponse {} // We don't need any fields here
+
+			let result: GenericResult<StreamingServerStatusResponse> = request::get_as!(&self.url);
 
 			match result {
 				Ok(_) => {
