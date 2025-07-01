@@ -4,6 +4,5 @@
 Cargo.lock
 scrap_code.txt
 project.log
-assets/app_config.json
 assets/api_keys.json
 assets/ignored/*
