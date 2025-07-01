@@ -5,3 +5,4 @@ scrap_code.txt
 assets/api_keys.json
 assets/ignored/*
 .DS_Store
+project.log
