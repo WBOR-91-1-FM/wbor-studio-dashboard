@@ -1,5 +1,5 @@
 {
-	"title": "radiobord",
+	"title": "WBOR Studio Dashboard",
 	"theme_name": "barebones",
 	"icon_path": "assets/plane.bmp",
 
@@ -13,7 +13,7 @@
 
 	"maybe_pause_subduration_ms_when_window_unfocused": null,
 
-	"screen_option": {"Windowed": [[1024, 768], false, null]},
+	"o1": {"Windowed": [[1024, 768], false, null]},
 	"o2": "FullscreenDesktop",
-	"o3": "Fullscreen"
+	"screen_option": "Fullscreen"
 }
