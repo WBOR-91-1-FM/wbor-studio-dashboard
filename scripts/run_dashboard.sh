@@ -20,7 +20,7 @@ PROJECT_DIR="/Users/wborguest/wbor-studio-dashboard" # Full path to project dir
 cd "$PROJECT_DIR" || exit # Navigate to the project dir
 
 # Setting this after navigating to the project dir, since we need to be in the right directory for it to work
-CRASH_DISCORD_WEBHOOK=`jq -r '.dashboard_crash_discord_webhook_url' assets/api_keys.json`
+CRASH_DISCORD_WEBHOOK=`jq -r '.api_keys.dashboard_crash_discord_webhook_url' assets/env.json`
 
 ########## Second, seeing that the project builds
 
