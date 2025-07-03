@@ -46,7 +46,7 @@ enum ScreenOption {
 }
 
 #[derive(serde::Deserialize)]
-struct AppConfig {
+struct WindowConfig {
 	title: String,
 	theme_name: String,
 	icon_path: String,
@@ -62,6 +62,18 @@ struct AppConfig {
 	maybe_pause_subduration_ms_when_window_unfocused: Option<u32>,
 
 	screen_option: ScreenOption
+}
+
+impl WindowConfig{
+	pub async fn new() -> GenericResult<Self> {
+		#[derive(serde::Deserialize)]
+		struct WindowConfigWrapper {
+			window_config: WindowConfig
+		}
+
+		let wrapper: WindowConfigWrapper = file_utils::load_json_from_file("assets/env.json").await?;
+		Ok(wrapper.window_config)
+	}
 }
 
 //////////
@@ -103,7 +115,7 @@ async fn main() {
 	env_logger::init();
 	log::info!("App launched!");
 
-	let app_config: AppConfig = file_utils::load_json_from_file("assets/app_config.json").await.unwrap();
+	let window_config = WindowConfig::new().await.unwrap();
 
 	////////// Setting up SDL and the initial window
 
@@ -112,9 +124,9 @@ async fn main() {
 	let mut sdl_event_pump = sdl_context.event_pump().unwrap();
 
 	let build_window = |size: PixelAreaSDL, applier: fn(&mut WindowBuilder) -> &mut WindowBuilder|
-		applier(&mut sdl_video_subsystem.window(&app_config.title, size.0, size.1)).allow_highdpi().build();
+		applier(&mut sdl_video_subsystem.window(&window_config.title, size.0, size.1)).allow_highdpi().build();
 
-	let mut sdl_window = match app_config.screen_option {
+	let mut sdl_window = match window_config.screen_option {
 		ScreenOption::Windowed(size, borderless, _) => build_window(
 			size,
 			if borderless {|wb| wb.position_centered().borderless()}
@@ -139,16 +151,16 @@ async fn main() {
 
 	////////// Setting the window always-on-top state, opacity, and icon
 
-	sdl_window.set_always_on_top(app_config.window_always_on_top);
+	sdl_window.set_always_on_top(window_config.window_always_on_top);
 
 	// TODO: why does not setting the opacity result in broken fullscreen screen clearing?
-	if let ScreenOption::Windowed(.., Some(opacity)) = app_config.screen_option {
+	if let ScreenOption::Windowed(.., Some(opacity)) = window_config.screen_option {
 		if let Err(err) = sdl_window.set_opacity(opacity as f32) {
 			log::warn!("Window translucency not supported by your current platform! Official error: '{err}'.");
 		}
 	}
 
-	sdl_window.set_icon(Surface::from_file(app_config.icon_path).unwrap());
+	sdl_window.set_icon(Surface::from_file(window_config.icon_path).unwrap());
 
 	////////// Making a SDL canvas
 
@@ -164,13 +176,13 @@ async fn main() {
 	let using_texture_filtering_option =
 		sdl2::hint::set_with_priority(
 			"SDL_RENDER_SCALE_QUALITY",
-			if app_config.use_linear_filtering {"1"} else {"0"},
+			if window_config.use_linear_filtering {"1"} else {"0"},
 			&sdl2::hint::Hint::Override
 		);
 
 	assert!(using_texture_filtering_option);
 
-	if app_config.hide_cursor {
+	if window_config.hide_cursor {
 		sdl_context.mouse().show_cursor(false);
 	}
 
@@ -187,19 +199,19 @@ async fn main() {
 	let sdl_performance_frequency = sdl_timer.performance_frequency();
 
 	let texture_pool = texture::pool::TexturePool::new(
-		&texture_creator, &sdl_ttf_context, max_texture_size, app_config.max_remake_transition_queue_size
+		&texture_creator, &sdl_ttf_context, max_texture_size, window_config.max_remake_transition_queue_size
 	);
 
 	let mut rendering_params =
 		window_tree::PerFrameConstantRenderingParams {
-			draw_borders: app_config.draw_borders,
+			draw_borders: window_config.draw_borders,
 			sdl_canvas,
 			texture_pool,
 			frame_counter: FrameCounter::new(),
 			shared_window_state: DynamicOptional::NONE
 		};
 
-	let bg = app_config.background_color;
+	let bg = window_config.background_color;
 	let standard_background_color = ColorSDL::RGB(bg.0, bg.1, bg.2);
 
 	log::info!("Canvas size: {:?}. Renderer info: {sdl_renderer_info:?}.", rendering_params.sdl_canvas.output_size().unwrap());
@@ -236,7 +248,7 @@ async fn main() {
 		}
 
 		if pausing_window {
-			if let Some(pause_subduration_ms) = app_config.maybe_pause_subduration_ms_when_window_unfocused {
+			if let Some(pause_subduration_ms) = window_config.maybe_pause_subduration_ms_when_window_unfocused {
 				sdl_timer.delay(pause_subduration_ms);
 				continue;
 			}
@@ -248,7 +260,7 @@ async fn main() {
 			let time_before_making_core_init_info = get_timestamp();
 
 			let core_init_info = build_dashboard_theme!(
-				app_config.theme_name.as_str(), &mut rendering_params.texture_pool,
+				window_config.theme_name.as_str(), &mut rendering_params.texture_pool,
 				UpdateRateCreator::new(fps), [standard, barebones, retro_room]
 			);
 

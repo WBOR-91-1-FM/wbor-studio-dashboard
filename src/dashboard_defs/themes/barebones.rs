@@ -11,7 +11,6 @@ use crate::{
 
 	utils::{
 		request,
-		file_utils,
 		vec2f::Vec2f,
 		time::Duration,
 		generic_result::*,
@@ -74,7 +73,7 @@ pub async fn make_dashboard(
 	let main_windows_gap_size = 0.01;
 
 	let mut rand_generator = rand::thread_rng();
-	let api_keys: ApiKeys = file_utils::load_json_from_file("assets/api_keys.json").await?;
+	let api_keys = ApiKeys::new().await?;
 
 	let (theme_color_1, theme_border_radius_1) = (ColorSDL::RGB(255, 133, 133), 8);
 	let theme_border_info_1 = Some((theme_color_1, theme_border_radius_1));

@@ -28,6 +28,18 @@ pub struct ApiKeys {
 	pub streaming_server_now_playing_url: String // Not really an API key, but this is the best place to put it anyways
 }
 
+impl ApiKeys {
+	pub async fn new() -> GenericResult<Self> {
+		#[derive(serde::Deserialize)]
+		struct ApiKeysWrapper {
+			api_keys: ApiKeys
+		}
+
+		let wrapper: ApiKeysWrapper = file_utils::load_json_from_file("assets/env.json").await?;
+		Ok(wrapper.api_keys)
+	}
+}
+
 //////////
 
 lazy_static::lazy_static!(

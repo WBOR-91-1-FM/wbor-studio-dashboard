@@ -1,0 +1,31 @@
+{
+	"window_config": {
+		"title": "WBOR Studio Dashboard",
+		"theme_name": "barebones",
+		"icon_path": "assets/plane.bmp",
+
+		"background_color": [0, 0, 0],
+		"max_remake_transition_queue_size": 10,
+
+		"hide_cursor": true,
+		"draw_borders": true,
+		"use_linear_filtering": true,
+		"window_always_on_top": false,
+
+		"maybe_pause_subduration_ms_when_window_unfocused": null,
+
+		"o1": {"Windowed": [[1024, 768], false, null]},
+		"o2": "FullscreenDesktop",
+		"screen_option": "Fullscreen"
+	},
+
+	"api_keys": {
+		"spinitron": "SPINITRON API KEY HERE",
+		"twilio_account_sid": "TWILIO ACCOUNT SID HERE",
+		"twilio_auth_token": "TWILIO AUTH TOKEN HERE",
+		"tomorrow_io": "TOMORROW.IO API KEY HERE",
+
+		"streaming_server_now_playing_url": "STREAMING SERVER URL HERE (PROBABLY 'https://azura.wbor.org/api/nowplaying/2' FOR THE NEAR FUTURE)",
+		"dashboard_crash_discord_webhook_url": "OPTIONAL WEBHOOK URL HERE THAT IS CALLED WHEN THE DASHBOARD CRASHES"
+	}
+}

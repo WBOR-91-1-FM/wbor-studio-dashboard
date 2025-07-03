@@ -54,7 +54,8 @@ Or, with logging enabled:
 RUST_LOG=wbor_studio_dashboard cargo run --release
 ```
 
-You'll also want to create a file in `assets/` named `api_keys.json`. If you don't have an API key yet for any API, you can just put in a dummy value, and the dashboard will launch just fine. Most APIs already use custom proxies that don't require keys anyways, so the keys are there just for when the proxies fail.
+You'll also want to create a file in `assets/` named `env.json` (base it on `env_template.json`).
+If you don't have an API key yet for any API, you can just put in a dummy value, and the dashboard will launch just fine. Most APIs already use custom proxies that don't require keys anyways, so the keys are there just for when the proxies fail.
 
 ---
 
@@ -66,7 +67,7 @@ The current themes are:
 - `barebones`
 - `retro_room`
 
-You can change the theme in `app_config.json`.
+You can change the theme in `env.json`.
 If you want to make a new theme, start off by copying `standard.rs`, and make your changes from there. Make sure that it doesn't differ too much by running `diff standard.rs <YOUR_NEW_THEME.rs> --color=auto`.
 
 ---
@@ -75,7 +76,7 @@ If you want to make a new theme, start off by copying `standard.rs`, and make yo
 
 - To delete recent Twilio messages, use `delete_twilio_msgs.sh`. Change the number of messages to delete in the script, and it'll delete that number of messages one-by-one.
 
-- To run the dashboard on its computer, use `run_dashboard.sh`. Note that this is only made to work in the WBOR studio. If the dashboard ever panics, the script will sleep for a bit, and then try launching it again (while writing all output to a log file `project.log`). Also, if a Discord channel webhook is set up in `api_keys.json`, any crashes will automatically send a message to the channel associated with that webhook.
+- To run the dashboard on its computer, use `run_dashboard.sh`. Note that this is only made to work in the WBOR studio. If the dashboard ever panics, the script will sleep for a bit, and then try launching it again (while writing all output to a log file `project.log`). Also, if a Discord channel webhook is set up in `env.json`, any crashes will automatically send a message to the channel associated with that webhook.
 
 - To communicate with the dashboard, use `communicate_with_dashboard.sh`:
   - To send a surprise (an image that appears for some amount of time, with a certain random chance of appearing during some time of the day), pass these arguments: `surprise assets/<surprise_with_given_path>`. The surprise path must be one previously defined in `src/dashboard_defs/themes/shared_utils.rs`.
